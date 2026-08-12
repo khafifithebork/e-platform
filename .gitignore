@@ -1,8 +1,18 @@
 # Planning and design documents — kept local, not tracked.
+#
 # CLAUDE.md stays at the repository root: it is loaded automatically by the
 # agent tooling from that path and is the one document that must travel with
 # the repo.
-docs/
+#
+# Note the pattern below is `docs/*` and not `docs/`. Git does not descend
+# into an ignored directory, so `docs/` followed by a negation would silently
+# match nothing. Ignoring the contents instead leaves the directory itself
+# visible, which is what lets `!docs/adr/` work.
+docs/*
+
+# Architecture Decision Records ARE tracked. They are the durable record of
+# why things are the way they are, and they have to survive a clone.
+!docs/adr/
 
 # Secrets. .env.example documents names only and IS tracked.
 .env
