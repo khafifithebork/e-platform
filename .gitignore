@@ -1,0 +1,13 @@
+# Planning and design documents — kept local, not tracked.
+# CLAUDE.md stays at the repository root: it is loaded automatically by the
+# agent tooling from that path and is the one document that must travel with
+# the repo.
+docs/
+
+# Secrets. .env.example documents names only and IS tracked.
+.env
+.env.*
+!.env.example
+
+# A fuller ignore file (Python, Node, Docker, editor artefacts) lands with the
+# M0 repository skeleton.
