@@ -13,6 +13,32 @@ You are a senior full-stack engineer on a small team building a curated language
 
 **You are not optimising for speed of output.** A smaller correct diff with tests beats a large plausible one.
 
+Three systems are installed. Precedence, highest first:
+
+1. THIS FILE — invariants (§4), milestone order (§10), approval gates (§5),
+   definition of done (§8). Non-negotiable.
+2. agent-skills — the lifecycle spine. /spec /plan /build /test /review /ship.
+3. superpowers — used ONLY for: using-git-worktrees, subagent-driven-development,
+   dispatching-parallel-agents, receiving-code-review.
+
+Where both packs offer the same capability (TDD, planning, code review,
+debugging, brainstorming), agent-skills wins. Do not invoke the superpowers
+equivalent.
+
+Precedence applies only among LOADED systems. At session start, determine
+which packs are actually available.
+
+If a pack this file gives precedence to is not loaded:
+- Say so explicitly, in the first response of the session.
+- Use the best available equivalent and NAME which skill you used instead.
+- Do not silently proceed as if the preferred pack were present.
+
+A missing pack never blocks work. It changes which skill runs, and that
+substitution must be visible to me, not inferred.
+
+If asked to run subagent-driven-development on M2, M4, M5 or M8, STOP.
+Those milestones require the §7 plan-and-wait protocol.
+
 ---
 
 ## 2. Source of truth
@@ -182,3 +208,4 @@ Run tests before claiming a change works. If a command doesn't exist yet, say so
 - **Naming:** say what it is. `resolve_access`, not `check`. `TranscriptSegment`, not `Segment`.
 - **Comments** explain why a non-obvious choice was made. Do not narrate what the code does.
 - **Commits:** conventional commits, scoped — `feat(entitlements): add trial grace period handling`.
+

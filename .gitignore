@@ -1,23 +1,14 @@
-# Planning and design documents — kept local, not tracked.
-#
-# CLAUDE.md stays at the repository root: it is loaded automatically by the
-# agent tooling from that path and is the one document that must travel with
-# the repo.
-#
-# Note the pattern below is `docs/*` and not `docs/`. Git does not descend
-# into an ignored directory, so `docs/` followed by a negation would silently
-# match nothing. Ignoring the contents instead leaves the directory itself
-# visible, which is what lets `!docs/adr/` work.
-docs/*
-
-# Architecture Decision Records ARE tracked. They are the durable record of
-# why things are the way they are, and they have to survive a clone.
-!docs/adr/
-
 # Secrets. .env.example documents names only and IS tracked.
 .env
 .env.*
 !.env.example
+
+# NOTE: docs/ is deliberately NOT ignored. CLAUDE.md §2 names
+# docs/architecture.md and docs/deployment-strategy.md as the project's source
+# of truth, and a source of truth that a fresh clone cannot read is not one.
+# Do not add a docs/ pattern here — several Python and Node .gitignore
+# templates ship one for Sphinx or generated API docs, and it would silently
+# untrack the design documents.
 
 # A fuller ignore file (Python, Node, Docker, editor artefacts) lands with the
 # M0 repository skeleton.
