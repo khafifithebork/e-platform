@@ -1,13 +1,45 @@
 # STATUS
 
-**Last updated:** 2026-08-12
-**Updated by:** agent session (docs reorganisation, ADR-001, M0 plan — no code written)
+**Last updated:** 2026-08-13
+**Updated by:** agent session (M0 T1 and T2 implemented)
 
 ---
 
 ## Current milestone
 
-**M0 — Planning & Foundations.** Plan produced, awaiting approval. No implementation started.
+**M0 — Planning & Foundations.** In progress — 2 of 11 tasks complete.
+
+| Task | State |
+|---|---|
+| T1 repository skeleton | **done** — `1ebf740`, plus `.gitattributes` in `9d1cf0d` |
+| T2 backend settings split | **done** — `c322d8d` |
+| T3 ASGI runtime | pending |
+| T4 Celery application | pending |
+| T5 backend Dockerfile | **blocked** — Docker daemon not running |
+| T6 frontend scaffold | pending |
+| T7 frontend Dockerfile | **blocked** — Docker daemon not running |
+| T8 docker-compose | **blocked** — Docker daemon not running |
+| T9 `.env.example` | pending |
+| T10 CI workflow | pending |
+| T11 Makefile | pending |
+
+### Verified at T2
+
+- 8 tests pass (`pytest`)
+- `ruff check` and `ruff format --check` clean
+- `manage.py check` clean
+- `manage.py check --deploy` — **no issues, 0 silenced**, against production settings
+
+### Version matrix (locked to what is installed, not proposed)
+
+Python 3.12.6 · Node 22.20.0 · Docker 29.1.3 / Compose v2.40.3 · PostgreSQL 16 (target)
+
+Django 5.2.17 · django-environ 0.14.0 · psycopg 3.3.4 · gunicorn 26.0.0 ·
+uvicorn 0.52.3 · uvicorn-worker 0.4.0 · celery 5.6.3 · redis 8.1.0 ·
+ruff 0.16.3 · pytest 9.1.1 · pytest-django 4.14.0 · pytest-cov 7.1.0
+
+Deliberately absent from M0: DRF, drf-spectacular, django-celery-beat,
+django-axes, argon2-cffi, Vitest.
 
 ---
 
