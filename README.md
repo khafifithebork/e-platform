@@ -4,73 +4,118 @@ A curated, admin-approved language-course subscription platform. Video and audio
 lessons with reviewed transcripts, progress tracking, and a single subscription
 tier gated by a central entitlement resolver.
 
-> **Status: M0 — Planning & Foundations, in progress.**
-> There is no application code yet: no models, no migrations, no endpoints.
-> The commands below are marked with what actually works today.
+> **Status:** M0 (Foundations) complete. **M1 (Backend Foundation) in progress**
+> — see `docs/STATUS.md` for the current task and blockers.
+>
+> There are no product endpoints yet, no models and no migrations. That last one
+> is deliberate: see `docs/adr/003-m1-ships-no-models.md`.
 
-## Stack
+## Quick start
 
-| Layer | Choice |
+Requires Docker, and Python 3.12 / Node 22 if you want to run tests outside the
+containers.
+
+```bash
+make dev
+```
+
+That generates a local `.env` with fresh secrets (idempotent — it never
+overwrites an existing key) and starts six services:
+
+| Service | URL | Notes |
+|---|---|---|
+| web | http://localhost:3000 | Next.js. `/api/*` is proxied to Django |
+| api | http://localhost:8000 | Django under Uvicorn |
+| mailpit | http://localhost:8025 | Catches all outbound mail |
+| postgres | localhost:5432 | |
+| redis | localhost:6379 | Broker on db 0, cache on db 1 |
+| worker | — | Celery, no tasks yet |
+
+Host ports are overridable when something else already holds one:
+
+```bash
+WEB_PORT=3001 make dev
+```
+
+To run the backend tests directly, create a virtualenv and install from
+`backend/pyproject.toml`:
+
+```bash
+python -m venv backend/.venv && backend/.venv/bin/pip install -e "backend[dev]"
+```
+
+## Commands
+
+| Command | Status |
 |---|---|
-| Backend | Django + DRF, ASGI (Gunicorn + Uvicorn workers) |
-| Frontend | Next.js App Router, TypeScript, Tailwind |
-| Database | PostgreSQL |
-| Jobs | Celery + Redis |
+| `make bootstrap` | Generate the local `.env`. Idempotent |
+| `make dev` | Start the stack. Runs `bootstrap` first |
+| `make test` | Backend suite, plus frontend type-check and lint |
+| `make test-fast` | Backend tests only |
+| `make lint` | ruff + tsc + eslint |
+| `make check-deploy` | `manage.py check --deploy` |
+| `make migrate` | **Refuses by design** until M2 defines the custom `User` |
+| `make types` | **Not available** until M1 T8 — there is no schema yet |
 
-Python 3.12 · Node 22 · PostgreSQL 16.
+On Windows `make` is not on PATH; MSYS2 provides `mingw32-make`. CI runs on
+Linux and is the authoritative runner.
 
-Managed providers are selected but not yet integrated: Neon (Postgres),
-Cloudflare R2 (storage), Mux (video), Deepgram (transcription), Resend (email),
-Cloudflare (DNS/WAF/edge), Sentry. **The payment provider is an open decision —
-see `docs/adr/001-architecture.md` §2.5. Do not model billing.**
+## Gotchas
 
-## Repository layout
+**Adding a Python dependency needs an image rebuild.** Source is bind-mounted so
+code changes appear live, but the virtualenv lives inside the image at
+`/opt/venv`. Symptom is a container that will not start with
+`ModuleNotFoundError`.
+
+```bash
+docker compose up -d --build
+```
+
+**A green local test run proves less than it looks.** Two failures reached CI
+this way. Verify dependency changes by installing into a *fresh* virtualenv from
+`pyproject.toml` alone, and verify service-dependency changes by stopping the
+relevant compose service and re-running.
+
+**Settings fail fast.** A missing environment variable stops the process at
+import rather than defaulting. That is intended — see
+`backend/config/settings/base.py`.
+
+## Layout
 
 ```
-backend/          Django project — apps/, config/, tests/
-frontend/         Next.js application            (created in M0 task T6)
-infra/            Deployment configuration       (platform manifests: M13)
+backend/          Django — apps/, config/, tests/
+frontend/         Next.js App Router
+infra/            Deployment config (platform manifests land at M13)
 scripts/          Operational scripts
 docs/             Architecture, deployment strategy, ADRs, STATUS
-.github/          CI workflows                   (created in M0 task T10)
 ```
-
-The application directories under `backend/apps/` exist as structure only. They
-contain no Python modules yet and are not installed apps.
 
 ## Documentation
 
-Read these before changing anything. `CLAUDE.md` is the operating brief and
-takes precedence over the design documents.
+`CLAUDE.md` is the operating brief and takes precedence over the design
+documents. Later ADRs beat earlier documents.
 
 | Document | Covers |
 |---|---|
 | `CLAUDE.md` | Invariants, approval gates, milestone order, definition of done |
+| `docs/STATUS.md` | Current milestone, blockers, next action — **read first** |
+| `docs/SESSION-RECAP.md` | What changed recently and why |
 | `docs/architecture.md` | Domain model, API design, security plan, testing strategy |
-| `docs/deployment-strategy.md` | Infrastructure providers, cost modelling, video analysis |
-| `docs/adr/` | Architecture decision records — later ADRs beat earlier ones |
-| `docs/STATUS.md` | Current milestone, blockers, next action |
+| `docs/deployment-strategy.md` | Providers, cost modelling, video analysis |
+| `docs/adr/` | Decision records |
 
 `docs/adr/002-cost-reliability-streaming.md` supersedes all cost figures
 elsewhere.
 
-## Commands
+## Architecture in one paragraph
 
-Defined in `CLAUDE.md` §12 and implemented by the `Makefile` in M0 task T11.
-None of them work yet.
-
-```
-make dev            docker compose up: postgres, redis, mailpit, api, web, worker
-make test           full suite
-make test-fast      backend unit tests only
-make lint           ruff + tsc + eslint
-make migrate        apply migrations
-make types          regenerate OpenAPI schema -> frontend TypeScript types
-make check-deploy   manage.py check --deploy
-```
-
-`make migrate` and `make types` will remain non-functional through M0 by design:
-M0 creates no models and no API schema.
+Django owns all data and serves JSON; Next.js renders and proxies `/api/*` to
+it, so the browser sees one origin and session cookies stay simple. Media never
+passes through Django — uploads go browser-to-R2 presigned, playback goes
+browser-to-CDN signed. Access is decided by a single entitlement resolver that
+returns a reason rather than a boolean, built and tested against a fake billing
+provider in M4 *before* a real payment provider is integrated in M8. The
+architectural invariants are non-negotiable and listed in `CLAUDE.md` §4.
 
 ## Licence
 
