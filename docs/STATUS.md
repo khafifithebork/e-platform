@@ -7,8 +7,8 @@
 
 ## Current milestone
 
-**M0 — Planning & Foundations.** All 11 tasks implemented. **10 fully verified;
-T8 is not.**
+**M0 — Planning & Foundations. Complete and verified.** All 11 tasks
+implemented, all 11 verified by running them.
 
 | Task | State |
 |---|---|
@@ -19,30 +19,33 @@ T8 is not.**
 | T5 backend Dockerfile | **done** — `b55505b` |
 | T6 frontend scaffold | **done** — `66c314b` |
 | T7 frontend Dockerfile | **done** — `ff13b77` |
-| T8 docker-compose | **written, NOT verified** — `38ca0ae`, see below |
+| T8 docker-compose | **done** — `38ca0ae`, corrected in `883c225` |
 | T9 `.env.example` | **done** — `fdcb9c3` |
 | T10 CI workflow | **done** — `4982b92`, fixed in `36be0e9` |
 | T11 Makefile | **done** — `e9cc85e` |
 
-### T8 is not verified — do not treat M0 as closed
+### The stack, verified
 
-The stack has never been started. `docker compose up` fails pulling
-`redis:7-alpine` with `net/http: TLS handshake timeout` against
-`registry-1.docker.io`. Attempted twice; stopped there per `CLAUDE.md` §9.
-This is network trouble reaching Docker Hub, not a defect in the compose file.
+All six services start. `postgres`, `redis`, `api` and `mailpit` report
+healthy; the worker connects to Redis and reports ready; the web root returns
+200; and a request to `/api/` on the **web** origin is answered by Django with
+`Server: uvicorn` — ADR-001 §2.1 same-origin routing proven rather than
+assumed.
 
-Unverified specifically:
+Two bugs surfaced only here, neither visible in isolation:
 
-- that the six services start and reach a healthy state
-- that `redis:7-alpine` and `axllent/mailpit:v1.27` pull at all
-- **the mailpit tag itself.** `docker manifest inspect` reported it `EXISTS`,
-  but the same command reported `postgres:16-alpine` `MISSING` while that image
-  was present locally and building successfully. Its output is not trustworthy
-  under these network conditions. Treat the pin as unconfirmed.
+- **`local.py` hardcoded `ALLOWED_HOSTS`**, silently overriding the environment
+  read in `base.py`. Next forwards the rewrite destination as the Host header,
+  so Django saw `api:8000` and rejected every proxied request while
+  `DJANGO_ALLOWED_HOSTS` in compose did nothing. Fixed in `883c225` with a
+  regression test.
+- **The mailpit pin was wrong** (`v1.27`), taken from `docker manifest inspect`
+  output that had already proved unreliable. The real version is **v1.30.7**,
+  confirmed by running the image and pulling that exact tag.
 
-**First action when the network recovers:** `make dev`, then confirm all six
-services are healthy and that `http://localhost:3000/api/` reaches Django
-through the Next rewrite. If the mailpit tag fails, correct the pin.
+Host ports are overridable (`WEB_PORT`, `API_PORT`, `POSTGRES_PORT`,
+`REDIS_PORT`, `MAILPIT_UI_PORT`, `MAILPIT_SMTP_PORT`); container ports are
+fixed. Port 3000 on this machine is held by an unrelated project.
 
 ### Verified
 
@@ -143,13 +146,14 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ## Next action
 
-1. **Resolve Docker Hub connectivity**, then run `make dev` and confirm the six
-   services reach a healthy state. This is the one thing standing between M0
-   and done.
-2. Confirm CI passes on GitHub for `feat/m0-foundations` (the type-check fix in
-   `36be0e9` has not yet been observed passing).
-3. Only then start M1 — and answer the custom-User ordering question below
-   before writing the `core` app.
+1. Confirm CI passes on GitHub for `feat/m0-foundations`. The type-check fix in
+   `36be0e9` has not yet been *observed* passing — it is the last unverified
+   thing in M0, and only GitHub can show it.
+2. Start **M1 — Backend foundation**: core app, DRF, `drf-spectacular`,
+   `/healthz`, Problem Details error shape, structured logging with
+   `request_id`.
+3. **Answer the custom-User ordering question before writing the `core` app.**
+   It is the first decision M1 needs and the most expensive one to get wrong.
 
 ### Carried into M1, recorded so it is not rediscovered
 
