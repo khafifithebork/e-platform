@@ -7,7 +7,8 @@
 
 ## Current milestone
 
-**M0 — Planning & Foundations.** In progress — 8 of 11 tasks complete.
+**M0 — Planning & Foundations.** All 11 tasks implemented. **10 fully verified;
+T8 is not.**
 
 | Task | State |
 |---|---|
@@ -15,13 +16,33 @@
 | T2 backend settings split | **done** — `c322d8d` |
 | T3 ASGI runtime | **done** — `196668c` |
 | T4 Celery application | **done** — `48bf163` |
-| T5 backend Dockerfile | **blocked** — Docker daemon not running |
+| T5 backend Dockerfile | **done** — `b55505b` |
 | T6 frontend scaffold | **done** — `66c314b` |
-| T7 frontend Dockerfile | **blocked** — Docker daemon not running |
-| T8 docker-compose | **blocked** — Docker daemon not running |
+| T7 frontend Dockerfile | **done** — `ff13b77` |
+| T8 docker-compose | **written, NOT verified** — `38ca0ae`, see below |
 | T9 `.env.example` | **done** — `fdcb9c3` |
-| T10 CI workflow | **done** — `4982b92` |
+| T10 CI workflow | **done** — `4982b92`, fixed in `36be0e9` |
 | T11 Makefile | **done** — `e9cc85e` |
+
+### T8 is not verified — do not treat M0 as closed
+
+The stack has never been started. `docker compose up` fails pulling
+`redis:7-alpine` with `net/http: TLS handshake timeout` against
+`registry-1.docker.io`. Attempted twice; stopped there per `CLAUDE.md` §9.
+This is network trouble reaching Docker Hub, not a defect in the compose file.
+
+Unverified specifically:
+
+- that the six services start and reach a healthy state
+- that `redis:7-alpine` and `axllent/mailpit:v1.27` pull at all
+- **the mailpit tag itself.** `docker manifest inspect` reported it `EXISTS`,
+  but the same command reported `postgres:16-alpine` `MISSING` while that image
+  was present locally and building successfully. Its output is not trustworthy
+  under these network conditions. Treat the pin as unconfirmed.
+
+**First action when the network recovers:** `make dev`, then confirm all six
+services are healthy and that `http://localhost:3000/api/` reaches Django
+through the Next rewrite. If the mailpit tag fails, correct the pin.
 
 ### Verified
 
@@ -122,11 +143,13 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ## Next action
 
-1. **Start Docker Desktop.** T5, T7 and T8 are the only remaining M0 tasks and
-   all three need the daemon to be verifiable.
-2. Then T5 (backend Dockerfile), T7 (frontend Dockerfile), T8 (compose), in
-   that order — T8 depends on both images.
-3. Confirm CI passes on GitHub once the branch is pushed.
+1. **Resolve Docker Hub connectivity**, then run `make dev` and confirm the six
+   services reach a healthy state. This is the one thing standing between M0
+   and done.
+2. Confirm CI passes on GitHub for `feat/m0-foundations` (the type-check fix in
+   `36be0e9` has not yet been observed passing).
+3. Only then start M1 — and answer the custom-User ordering question below
+   before writing the `core` app.
 
 ### Carried into M1, recorded so it is not rediscovered
 
