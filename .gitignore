@@ -1,0 +1,75 @@
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------------------
+# Documentation
+#
+# docs/ is deliberately NOT ignored. CLAUDE.md section 2 names
+# docs/architecture.md and docs/deployment-strategy.md as the project's source
+# of truth, and a source of truth a fresh clone cannot read is not one.
+# Do not add a docs/ pattern here — several Python and Node .gitignore
+# templates ship one for Sphinx or generated API docs, and it would silently
+# untrack the design documents.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+sdist/
+wheels/
+*.egg-info/
+*.egg
+.eggs/
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ---------------------------------------------------------------------------
+# Django
+#
+# Migrations are NOT ignored — CLAUDE.md invariant 14 requires them in the repo.
+# ---------------------------------------------------------------------------
+*.log
+staticfiles/
+mediafiles/
+celerybeat-schedule
+celerybeat.pid
+
+# ---------------------------------------------------------------------------
+# Node / Next.js
+# ---------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+next-env.d.ts
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+.vscode/*
+!.vscode/extensions.json

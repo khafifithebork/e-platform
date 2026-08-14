@@ -1,0 +1,24 @@
+# Normalise line endings.
+#
+# This repository is developed on Windows (core.autocrlf=true) and runs in
+# Linux containers. Without this file, git checks out CRLF line endings, and a
+# shell script or entrypoint with CRLF fails inside a container with an opaque
+# error — typically "no such file or directory" naming a file that plainly
+# exists. Force LF in the working tree for everything textual.
+* text=auto eol=lf
+
+# Windows-native scripts are the exception and must keep CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binaries must never be touched.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.pdf   binary
