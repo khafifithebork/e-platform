@@ -1,0 +1,146 @@
+# Local development stack.
+#
+# Requires a .env at the repository root providing DJANGO_SECRET_KEY and
+# POSTGRES_PASSWORD. `make bootstrap` generates it; `make dev` runs bootstrap
+# first, so a fresh clone needs no manual step.
+#
+# No credential is written here. CLAUDE.md section 6 forbids committing
+# environment variable values, and "it is only local" is how that habit starts.
+# The `:?` substitutions fail with an actionable message rather than silently
+# defaulting to something guessable.
+#
+# Host ports are overridable. Container ports are fixed; only the host side
+# moves. A developer machine running more than one project will collide on 3000
+# or 5432 eventually, and the fix should be a variable rather than an edit to a
+# tracked file. Defaults are the conventional ports, so nothing changes unless
+# you set one:
+#
+#   WEB_PORT=3001 make dev
+
+name: eplatform
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      # Names, not credentials.
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run "make bootstrap" to generate a local .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      # Dependents wait on this rather than racing a database that has accepted
+      # a TCP connection but is not yet ready to answer.
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Redis is disposable by design (architecture.md 3.4): it holds the queue
+    # and cache and never the only copy of anything, so there is no volume.
+
+  mailpit:
+    # Pinned to a version confirmed by running the image and reading back
+    # `mailpit version`, then pulling this exact tag.
+    image: axllent/mailpit:v1.30.7
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025" # SMTP
+      - "${MAILPIT_UI_PORT:-8025}:8025" # web UI
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+
+  api:
+    build:
+      context: ./backend
+      target: dev
+    environment: &django-env
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?run "make bootstrap" to generate a local .env}
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:?run "make bootstrap"}@postgres:5432/app
+      REDIS_URL: redis://redis:6379/0
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: "1025"
+    volumes:
+      # Source is mounted so --reload works. /opt/venv lives outside /app, so
+      # the mount cannot shadow the installed dependencies.
+      - ./backend:/app
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # A TCP probe, not an HTTP one. There is no /healthz until M1, and the
+      # image deliberately ships no curl.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket,sys; s=socket.create_connection(('127.0.0.1',8000),2); s.close()",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  worker:
+    build:
+      context: ./backend
+      target: dev
+    # No --beat. ADR-001 section 2.2: Beat runs in the worker at a single
+    # replica, but arrives with the first periodic task and django-celery-beat,
+    # because Celery's default scheduler writes its schedule to local disk and
+    # invariant 5 forbids that.
+    #
+    # WHEN --beat IS ADDED, THIS SERVICE MUST NEVER SCALE PAST ONE REPLICA.
+    # Two beats means every scheduled job runs twice: double emails, double
+    # charges, double expiry sweeps.
+    command: celery -A config worker --loglevel=info
+    environment: *django-env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      # Server-side only. The browser talks to localhost:3000 and Next proxies
+      # /api/* onward, which is what keeps everything same-origin (ADR-001 2.1).
+      API_ORIGIN: http://api:8000
+    volumes:
+      - ./frontend:/app
+      # Anonymous volume: without it the bind mount above would shadow the
+      # container's node_modules with the host's, which are built for a
+      # different platform.
+      - /app/node_modules
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

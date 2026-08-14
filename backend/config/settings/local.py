@@ -24,9 +24,14 @@ from .base import *  # noqa: E402
 
 DEBUG = env.bool("DJANGO_DEBUG", default=True)
 
-# Binding to all interfaces is required for the container to be reachable from
-# the host. Local settings are never loaded in production.
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]  # noqa: S104
+# ALLOWED_HOSTS is deliberately NOT set here. base reads it from
+# DJANGO_ALLOWED_HOSTS, and a hardcoded list in this module silently overrode
+# that: the compose stack reaches Django as `api`, because Next.js forwards the
+# rewrite destination as the Host header, and every proxied request failed with
+# DisallowedHost while the variable in docker-compose.yml did nothing.
+#
+# With DEBUG on and no value set, Django already permits localhost, 127.0.0.1
+# and [::1], so running the backend directly needs no configuration either.
 
 # Mailpit in the compose stack. Nothing leaves the machine.
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

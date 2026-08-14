@@ -115,6 +115,25 @@ class TestProductionSettingsHardening:
         assert result.stdout.strip() == "django.contrib.sessions.backends.db"
 
 
+class TestLocalSettings:
+    def test_allowed_hosts_are_read_from_the_environment(self) -> None:
+        """Regression: local settings used to hardcode ALLOWED_HOSTS.
+
+        The compose stack reaches Django as `api`, because Next.js forwards the
+        rewrite destination as the Host header. A hardcoded list in local
+        settings silently overrode DJANGO_ALLOWED_HOSTS, so the variable set in
+        docker-compose.yml had no effect and every proxied request failed with
+        DisallowedHost. Nothing short of running the whole stack caught it.
+        """
+        environment = _valid_environment()
+        environment["DJANGO_ALLOWED_HOSTS"] = "api,example.test"
+
+        result = _read_setting("config.settings.local", "ALLOWED_HOSTS", environment)
+
+        assert result.returncode == 0, result.stderr
+        assert "api" in result.stdout
+
+
 class TestAsgiOnly:
     def test_no_wsgi_module_exists(self) -> None:
         """Invariant 12. architecture.md section 9 lists a wsgi.py; ADR-001

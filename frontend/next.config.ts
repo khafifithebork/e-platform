@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   /**
+   * Emit a self-contained server bundle at `.next/standalone`.
+   *
+   * The container runtime stage copies that instead of the full
+   * `node_modules`, which is the difference between shipping the dependency
+   * tree and shipping only what the server actually imports. Harmless when
+   * building outside a container — it is extra output nothing has to use.
+   */
+  output: "standalone",
+
+  /**
    * Pin the Turbopack root to this directory.
    *
    * Turbopack infers the root by walking up looking for a lockfile. In this

@@ -1,0 +1,28 @@
+# A Windows-built virtualenv copied into a Linux image is both enormous and
+# broken — wrong interpreter path, wrong binaries. Dependencies are installed
+# inside the image instead.
+.venv/
+venv/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Never let a real environment file reach an image layer. Configuration comes
+# from the platform at runtime.
+.env
+.env.*
+!.env.example
+
+# tests/ is deliberately NOT excluded. It is four small files, and keeping it
+# means the dev stage can run pytest inside the container — worth far more than
+# the bytes saved.
+
+staticfiles/
+mediafiles/

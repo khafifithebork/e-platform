@@ -7,7 +7,8 @@
 
 ## Current milestone
 
-**M0 — Planning & Foundations.** In progress — 8 of 11 tasks complete.
+**M0 — Planning & Foundations. Complete and verified.** All 11 tasks
+implemented, all 11 verified by running them.
 
 | Task | State |
 |---|---|
@@ -15,13 +16,36 @@
 | T2 backend settings split | **done** — `c322d8d` |
 | T3 ASGI runtime | **done** — `196668c` |
 | T4 Celery application | **done** — `48bf163` |
-| T5 backend Dockerfile | **blocked** — Docker daemon not running |
+| T5 backend Dockerfile | **done** — `b55505b` |
 | T6 frontend scaffold | **done** — `66c314b` |
-| T7 frontend Dockerfile | **blocked** — Docker daemon not running |
-| T8 docker-compose | **blocked** — Docker daemon not running |
+| T7 frontend Dockerfile | **done** — `ff13b77` |
+| T8 docker-compose | **done** — `38ca0ae`, corrected in `883c225` |
 | T9 `.env.example` | **done** — `fdcb9c3` |
-| T10 CI workflow | **done** — `4982b92` |
+| T10 CI workflow | **done** — `4982b92`, fixed in `36be0e9` |
 | T11 Makefile | **done** — `e9cc85e` |
+
+### The stack, verified
+
+All six services start. `postgres`, `redis`, `api` and `mailpit` report
+healthy; the worker connects to Redis and reports ready; the web root returns
+200; and a request to `/api/` on the **web** origin is answered by Django with
+`Server: uvicorn` — ADR-001 §2.1 same-origin routing proven rather than
+assumed.
+
+Two bugs surfaced only here, neither visible in isolation:
+
+- **`local.py` hardcoded `ALLOWED_HOSTS`**, silently overriding the environment
+  read in `base.py`. Next forwards the rewrite destination as the Host header,
+  so Django saw `api:8000` and rejected every proxied request while
+  `DJANGO_ALLOWED_HOSTS` in compose did nothing. Fixed in `883c225` with a
+  regression test.
+- **The mailpit pin was wrong** (`v1.27`), taken from `docker manifest inspect`
+  output that had already proved unreliable. The real version is **v1.30.7**,
+  confirmed by running the image and pulling that exact tag.
+
+Host ports are overridable (`WEB_PORT`, `API_PORT`, `POSTGRES_PORT`,
+`REDIS_PORT`, `MAILPIT_UI_PORT`, `MAILPIT_SMTP_PORT`); container ports are
+fixed. Port 3000 on this machine is held by an unrelated project.
 
 ### Verified
 
@@ -122,11 +146,14 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ## Next action
 
-1. **Start Docker Desktop.** T5, T7 and T8 are the only remaining M0 tasks and
-   all three need the daemon to be verifiable.
-2. Then T5 (backend Dockerfile), T7 (frontend Dockerfile), T8 (compose), in
-   that order — T8 depends on both images.
-3. Confirm CI passes on GitHub once the branch is pushed.
+1. Confirm CI passes on GitHub for `feat/m0-foundations`. The type-check fix in
+   `36be0e9` has not yet been *observed* passing — it is the last unverified
+   thing in M0, and only GitHub can show it.
+2. Start **M1 — Backend foundation**: core app, DRF, `drf-spectacular`,
+   `/healthz`, Problem Details error shape, structured logging with
+   `request_id`.
+3. **Answer the custom-User ordering question before writing the `core` app.**
+   It is the first decision M1 needs and the most expensive one to get wrong.
 
 ### Carried into M1, recorded so it is not rediscovered
 

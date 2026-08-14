@@ -14,9 +14,10 @@ NPM     ?= npm
 COMPOSE ?= docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help dev test test-fast lint migrate types check-deploy
+.PHONY: help bootstrap dev test test-fast lint migrate types check-deploy
 
 help:
+	@echo "bootstrap     generate the local .env compose needs (idempotent)"
 	@echo "dev           start the local stack: postgres, redis, mailpit, api, web, worker"
 	@echo "test          full suite"
 	@echo "test-fast     backend tests only"
@@ -25,7 +26,15 @@ help:
 	@echo "types         regenerate the OpenAPI schema and frontend types"
 	@echo "check-deploy  manage.py check --deploy"
 
-dev:
+# Generates the root .env with fresh secrets. Idempotent — an existing key is
+# never overwritten, so it cannot rotate the database password out from under
+# a running volume.
+bootstrap:
+	$(PYTHON) scripts/bootstrap_env.py
+
+# Depends on bootstrap so a fresh clone needs no manual step before the stack
+# will start.
+dev: bootstrap
 	$(COMPOSE) up
 
 # Frontend has no test runner yet: Vitest arrives with the first component in
