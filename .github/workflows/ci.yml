@@ -1,0 +1,94 @@
+name: CI
+
+# Every push and every pull request. CLAUDE.md section 8 requires these checks
+# to gate merges — a check that does not block is a check nobody fixes.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A superseded run tells you nothing. Cancel it and save the minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[dev]"
+
+      # scripts/ is linted with the same configuration: it is Python that runs
+      # in the migrate path, so it holds the same bar as application code.
+      - name: Lint
+        run: ruff check . ../scripts
+
+      - name: Format
+        run: ruff format --check . ../scripts
+
+      - name: Tests
+        run: pytest
+
+      - name: Deployment check
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          # Not credentials. check --deploy is a static inspection of settings
+          # and opens no connection; these exist only so the fail-fast reads in
+          # base.py are satisfied. Nothing here grants access to anything.
+          DJANGO_ALLOWED_HOSTS: example.test
+          DATABASE_URL: postgres://localhost:5432/app
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          # Generated per run rather than stored. A repository secret would
+          # imply this value matters; it does not, and storing it would only
+          # teach the habit of putting keys in the repo settings.
+          export DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(50))')"
+          python manage.py check --deploy
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      # There is no test runner yet — Vitest arrives with the first component
+      # in M2. Until then the build is the behavioural check: it executes
+      # next.config.ts and would fail on an invalid rewrite.
+      - name: Build
+        run: npm run build
