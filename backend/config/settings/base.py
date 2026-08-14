@@ -140,6 +140,8 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    # RFC 9457 Problem Details, one shape everywhere (architecture.md 6.1).
+    "EXCEPTION_HANDLER": "apps.core.exceptions.problem_details_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
