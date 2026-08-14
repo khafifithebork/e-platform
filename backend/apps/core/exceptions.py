@@ -16,6 +16,8 @@ from __future__ import annotations
 from http import HTTPStatus
 from typing import Any
 
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from rest_framework import exceptions
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
 
@@ -26,6 +28,44 @@ PROBLEM_CONTENT_TYPE = "application/problem+json"
 # RFC 9457 section 4.2.1: with no more specific problem type, `about:blank`
 # means the title is simply the status phrase.
 DEFAULT_PROBLEM_TYPE = "about:blank"
+
+# ADR-004. Clients branch on the type, not the status code.
+#
+# Kept deliberately small: a type earns its place only where the status is
+# genuinely ambiguous. DRF downgrades NotAuthenticated to 403 whenever no
+# authenticator offers a WWW-Authenticate header, and SessionAuthentication
+# offers none — so "log in" and "you may not do that" are the same status and
+# need telling apart. A 404 or a 429 needs nothing; the status says everything.
+#
+# These URIs are part of the API contract. Renaming one breaks any client
+# branching on it, so they live here and nowhere else. Relative references are
+# permitted by RFC 9457 and avoid baking a hostname into the contract.
+PROBLEM_TYPES: dict[type[Exception], tuple[str, str]] = {
+    exceptions.NotAuthenticated: ("/problems/not-authenticated", "Authentication required"),
+    exceptions.AuthenticationFailed: ("/problems/authentication-failed", "Authentication failed"),
+    exceptions.PermissionDenied: ("/problems/permission-denied", "Permission denied"),
+    # Raised by Django's own decorators; must not look different to a client.
+    DjangoPermissionDenied: ("/problems/permission-denied", "Permission denied"),
+}
+
+
+def _classify(exc: Exception, status_code: int) -> tuple[str, str]:
+    """Return the ``(type, title)`` pair for an exception.
+
+    An explicit ``problem_type`` on the exception wins, which is the extension
+    point M4 uses: ``EntitlementDenied`` declares its own type and adds
+    ``reason`` and ``cta`` without this function changing.
+    """
+    declared = getattr(exc, "problem_type", None)
+    if declared:
+        return declared, getattr(exc, "problem_title", None) or HTTPStatus(status_code).phrase
+
+    for exc_class, classification in PROBLEM_TYPES.items():
+        if isinstance(exc, exc_class):
+            return classification
+
+    return DEFAULT_PROBLEM_TYPE, HTTPStatus(status_code).phrase
+
 
 # DRF's payload for a ValidationError raised without a field name.
 NON_FIELD_ERRORS_KEY = "non_field_errors"
@@ -82,14 +122,15 @@ def problem_details_exception_handler(exc: Exception, context: dict) -> Response
 
     status_code = response.status_code
     detail, errors = _split(response.data)
+    problem_type, title = _classify(exc, status_code)
 
     if detail is None:
         # Field errors carry the specifics; this is the summary above them.
         detail = getattr(exc, "default_detail", None) or HTTPStatus(status_code).phrase
 
     response.data = {
-        "type": DEFAULT_PROBLEM_TYPE,
-        "title": HTTPStatus(status_code).phrase,
+        "type": problem_type,
+        "title": title,
         "status": status_code,
         "detail": str(detail),
         "errors": errors,

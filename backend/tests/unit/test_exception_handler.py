@@ -44,10 +44,12 @@ class TestDocumentShape:
 
         assert response.data["type"] == "about:blank"
 
-    def test_title_is_the_status_phrase(self) -> None:
-        assert _handle(exceptions.NotAuthenticated()).data["title"] == "Unauthorized"
-        assert _handle(exceptions.PermissionDenied()).data["title"] == "Forbidden"
+    def test_title_is_the_status_phrase_when_the_type_is_about_blank(self) -> None:
+        """RFC 9457 4.2.1: `about:blank` means the title is the status phrase.
+        Typed problems title the *type* instead — see TestProblemTypes."""
         assert _handle(exceptions.NotFound()).data["title"] == "Not Found"
+        assert _handle(exceptions.MethodNotAllowed("POST")).data["title"] == "Method Not Allowed"
+        assert _handle(exceptions.Throttled(wait=1)).data["title"] == "Too Many Requests"
 
     def test_content_type_is_problem_json(self) -> None:
         """Lets a client distinguish an error document from a payload without
@@ -153,6 +155,65 @@ class TestThrottling:
         response = _handle(exceptions.Throttled(wait=30))
 
         assert response["Retry-After"] == "30"
+
+
+class TestProblemTypes:
+    """ADR-004. The client branches on `type`, not on the status code.
+
+    The set is deliberately small. A type earns its place only where the status
+    code is genuinely ambiguous; adding one everywhere would turn every status
+    into two things a client must know about, for no gain.
+    """
+
+    def test_unauthenticated_and_forbidden_are_distinguishable(self) -> None:
+        """The reason this decision exists.
+
+        DRF downgrades NotAuthenticated to 403 when no authenticator offers a
+        WWW-Authenticate header, and SessionAuthentication offers none. Without
+        a type, "log in" and "you may not do that" reach the client
+        identically.
+        """
+        unauthenticated = _handle(exceptions.NotAuthenticated())
+        forbidden = _handle(exceptions.PermissionDenied())
+
+        assert unauthenticated.data["type"] == "/problems/not-authenticated"
+        assert forbidden.data["type"] == "/problems/permission-denied"
+        assert unauthenticated.data["type"] != forbidden.data["type"]
+
+    def test_a_typed_problem_titles_the_type_not_the_status(self) -> None:
+        """RFC 9457 3.1.1: title summarises the problem *type*."""
+        assert _handle(exceptions.NotAuthenticated()).data["title"] == "Authentication required"
+        assert _handle(exceptions.PermissionDenied()).data["title"] == "Permission denied"
+
+    def test_django_permission_denied_maps_to_the_same_type(self) -> None:
+        """Raised by Django's own decorators, and must not look different."""
+        from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+
+        response = _handle(DjangoPermissionDenied())
+
+        assert response.data["type"] == "/problems/permission-denied"
+
+    def test_ordinary_failures_stay_about_blank(self) -> None:
+        """A 404 or a 429 needs no type: the status says everything."""
+        assert _handle(exceptions.NotFound()).data["type"] == "about:blank"
+        assert _handle(exceptions.Throttled(wait=1)).data["type"] == "about:blank"
+        assert _handle(exceptions.ValidationError(["bad"])).data["type"] == "about:blank"
+
+    def test_an_exception_may_declare_its_own_type(self) -> None:
+        """The extension point M4 needs.
+
+        `EntitlementDenied` will set these attributes and add `reason` and
+        `cta`, without the handler changing.
+        """
+
+        class SubscriptionRequired(exceptions.PermissionDenied):
+            problem_type = "/problems/subscription-required"
+            problem_title = "Subscription required"
+
+        response = _handle(SubscriptionRequired())
+
+        assert response.data["type"] == "/problems/subscription-required"
+        assert response.data["title"] == "Subscription required"
 
 
 class TestDefensiveFallback:
