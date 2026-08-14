@@ -14,6 +14,8 @@ requires-python = ">=3.12"
 # section 5 gates dependencies on the milestone that needs them.
 dependencies = [
     "django==5.2.17",
+    "djangorestframework==3.18.0",
+    "drf-spectacular==0.30.0",
     "django-environ==0.14.0",
     "psycopg[binary]==3.3.4",
     "gunicorn==26.0.0",
