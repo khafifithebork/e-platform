@@ -8,8 +8,6 @@ session-only or that the cache is shared with the task queue.
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
-
 
 class TestAuthentication:
     def test_only_session_authentication_is_enabled(self) -> None:
@@ -66,28 +64,17 @@ class TestThrottling:
 
 
 class TestCache:
-    def test_cache_is_redis_not_local_memory(self) -> None:
-        """Invariant 5. DRF throttling counts against the default cache, and
-        Django's LocMemCache default is per-process — throttles would silently
-        become per-worker the moment there is more than one."""
-        from django.conf import settings
+    def test_the_test_suite_uses_local_memory(self) -> None:
+        """Deliberate, and the reason is worth stating where someone will read it.
 
-        assert settings.CACHES["default"]["BACKEND"] == (
-            "django.core.cache.backends.redis.RedisCache"
-        )
-
-    def test_cache_and_celery_broker_use_different_redis_databases(self) -> None:
-        """Sharing one database means `cache.clear()` deletes queued tasks.
-
-        That is a genuinely nasty failure: the queue empties silently, nothing
-        errors, and the work simply never happens.
+        DRF throttling counts against the default cache, so any test touching a
+        real view opens a cache connection. Pointing that at Redis makes the
+        suite pass only on a machine that happens to be running one — which CI
+        is not. The production configuration is asserted separately, against
+        production settings, in test_settings.py.
         """
         from django.conf import settings
 
-        cache_db = urlparse(settings.CACHES["default"]["LOCATION"]).path
-        broker_db = urlparse(settings.CELERY_BROKER_URL).path
-
-        assert cache_db != broker_db, (
-            f"cache and broker share Redis database {cache_db!r}; "
-            "a cache flush would drop queued tasks"
+        assert settings.CACHES["default"]["BACKEND"] == (
+            "django.core.cache.backends.locmem.LocMemCache"
         )

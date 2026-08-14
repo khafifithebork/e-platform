@@ -137,6 +137,39 @@ class TestLocalSettings:
         assert "api" in result.stdout
 
 
+class TestProductionCache:
+    """Asserted against production settings rather than the running ones.
+
+    The test suite deliberately uses local memory so it needs no live Redis,
+    which means the active settings cannot answer these questions. Reading
+    production in a subprocess can.
+    """
+
+    def test_cache_is_redis(self) -> None:
+        """Invariant 5. DRF throttling counts against the default cache, and a
+        per-process counter stops being a limit the moment there are two
+        workers."""
+        result = _read_setting("config.settings.production", "CACHES", _valid_environment())
+
+        assert "django.core.cache.backends.redis.RedisCache" in result.stdout
+
+    def test_cache_and_broker_use_different_redis_databases(self) -> None:
+        """Sharing one database means cache.clear() deletes queued tasks — the
+        queue empties, nothing raises, and the work never happens."""
+        environment = _valid_environment()
+
+        caches = _read_setting("config.settings.production", "CACHES", environment).stdout
+        broker = _read_setting(
+            "config.settings.production", "CELERY_BROKER_URL", environment
+        ).stdout
+
+        # The cache reads REDIS_CACHE_URL and the broker reads REDIS_URL; if
+        # either were wired to the other variable, one of these would fail.
+        assert environment["REDIS_CACHE_URL"] in caches
+        assert environment["REDIS_URL"] not in caches
+        assert broker.strip() == environment["REDIS_URL"]
+
+
 class TestAsgiOnly:
     def test_no_wsgi_module_exists(self) -> None:
         """Invariant 12. architecture.md section 9 lists a wsgi.py; ADR-001

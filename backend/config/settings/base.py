@@ -142,6 +142,11 @@ REST_FRAMEWORK = {
     ],
     # RFC 9457 Problem Details, one shape everywhere (architecture.md 6.1).
     "EXCEPTION_HANDLER": "apps.core.exceptions.problem_details_exception_handler",
+    # Cursor by default; page-number is opt-in per view for small admin lists.
+    # A list endpoint that forgets to paginate should still not return
+    # everything.
+    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.CursorPagination",
+    "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",

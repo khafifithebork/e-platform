@@ -21,3 +21,18 @@ os.environ.setdefault("REDIS_CACHE_URL", "redis://localhost:6379/1")
 from .base import *
 
 DEBUG = False
+
+# Local memory, not Redis. DRF throttling counts against the default cache, so
+# any test that exercises a real view opens a cache connection — and a suite
+# that needs a running Redis is a suite that only passes on a machine which
+# happens to have one. CI does not.
+#
+# The invariant-5 reason base uses Redis is about production, where per-process
+# counters would stop being limits. It does not apply to a single-process test
+# run. test_settings.py asserts production still uses Redis, so relaxing it here
+# cannot hide a regression there.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
