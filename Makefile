@@ -31,16 +31,16 @@ dev:
 # Frontend has no test runner yet: Vitest arrives with the first component in
 # M2. Until then the frontend contributes its type check and lint to the suite.
 test: test-fast
-	cd frontend && npx tsc --noEmit
+	cd frontend && $(NPM) run typecheck
 	cd frontend && $(NPM) run lint
 
 test-fast:
 	cd backend && $(PYTHON) -m pytest
 
 lint:
-	cd backend && $(PYTHON) -m ruff check .
-	cd backend && $(PYTHON) -m ruff format --check .
-	cd frontend && npx tsc --noEmit
+	cd backend && $(PYTHON) -m ruff check . ../scripts
+	cd backend && $(PYTHON) -m ruff format --check . ../scripts
+	cd frontend && $(NPM) run typecheck
 	cd frontend && $(NPM) run lint
 
 # The guard refuses to proceed while AUTH_USER_MODEL is still Django's default.
