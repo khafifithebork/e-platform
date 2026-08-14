@@ -56,6 +56,9 @@ jobs:
           DJANGO_ALLOWED_HOSTS: example.test
           DATABASE_URL: postgres://localhost:5432/app
           REDIS_URL: redis://localhost:6379/0
+          # A different database from the broker, matching production. Nothing
+          # connects here; check --deploy only inspects settings.
+          REDIS_CACHE_URL: redis://localhost:6379/1
         run: |
           # Generated per run rather than stored. A repository secret would
           # imply this value matters; it does not, and storing it would only
