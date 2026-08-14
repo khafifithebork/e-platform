@@ -7,28 +7,44 @@
 
 ## Current milestone
 
-**M0 — Planning & Foundations.** In progress — 2 of 11 tasks complete.
+**M0 — Planning & Foundations.** In progress — 8 of 11 tasks complete.
 
 | Task | State |
 |---|---|
 | T1 repository skeleton | **done** — `1ebf740`, plus `.gitattributes` in `9d1cf0d` |
 | T2 backend settings split | **done** — `c322d8d` |
-| T3 ASGI runtime | pending |
-| T4 Celery application | pending |
+| T3 ASGI runtime | **done** — `196668c` |
+| T4 Celery application | **done** — `48bf163` |
 | T5 backend Dockerfile | **blocked** — Docker daemon not running |
-| T6 frontend scaffold | pending |
+| T6 frontend scaffold | **done** — `66c314b` |
 | T7 frontend Dockerfile | **blocked** — Docker daemon not running |
 | T8 docker-compose | **blocked** — Docker daemon not running |
-| T9 `.env.example` | pending |
-| T10 CI workflow | pending |
-| T11 Makefile | pending |
+| T9 `.env.example` | **done** — `fdcb9c3` |
+| T10 CI workflow | **done** — `4982b92` |
+| T11 Makefile | **done** — `e9cc85e` |
 
-### Verified at T2
+### Verified
 
-- 8 tests pass (`pytest`)
-- `ruff check` and `ruff format --check` clean
-- `manage.py check` clean
-- `manage.py check --deploy` — **no issues, 0 silenced**, against production settings
+Backend — 27 tests pass; `ruff check` and `ruff format --check` clean across
+`backend/` and `scripts/`; `manage.py check` clean; `manage.py check --deploy`
+reports **no issues, 0 silenced** against production settings.
+
+Frontend — `tsc --noEmit` clean, `eslint` clean, production build succeeds with
+no warnings.
+
+CI — workflow YAML parses into the two intended jobs. **Not** verified that the
+run passes on GitHub; only a push can show that.
+
+### Invariants now enforced by tests, not convention
+
+| Invariant | Guard |
+|---|---|
+| 5, 9 — sessions in Postgres | asserts `SESSION_ENGINE` is the DB backend |
+| 12 — ASGI only | asserts `config/wsgi.py` does not exist |
+| 5 — no local disk writes | asserts Gunicorn logs to stdout/stderr |
+| ADR-001 §2.2 — Beat deferred | asserts no beat schedule and `django_celery_beat` uninstalled |
+| §6 — no values in `.env.example` | parses every env read and asserts documented, name-only |
+| M2 custom User ordering | `make migrate` refuses while `AUTH_USER_MODEL` is the default |
 
 ### Version matrix (locked to what is installed, not proposed)
 
@@ -106,8 +122,26 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ## Next action
 
-1. Approve, amend or reject the M0 plan.
-2. Confirm the version matrix and the M0 dependency list (M0 plan §8).
-3. Then begin M0 task **T1 — repository skeleton**, following `CLAUDE.md` §7.
+1. **Start Docker Desktop.** T5, T7 and T8 are the only remaining M0 tasks and
+   all three need the daemon to be verifiable.
+2. Then T5 (backend Dockerfile), T7 (frontend Dockerfile), T8 (compose), in
+   that order — T8 depends on both images.
+3. Confirm CI passes on GitHub once the branch is pushed.
 
-Optional, and worth deciding now: whether to commit the staged doc removals, and whether `docs/adr/` should be tracked after all — ADR-001 is the durable record of decisions and is currently ignored.
+### Carried into M1, recorded so it is not rediscovered
+
+- **Custom User ordering.** M1 builds a `core` app with an audit model; M2
+  builds the custom User. As written, M1's first migration lands before the
+  custom model exists. Either `AUTH_USER_MODEL` and a minimal `User` move into
+  M1 ahead of `core`, or M1 ships only abstract base models. Decide at M1
+  kickoff. `make migrate` currently refuses, which buys the time to decide.
+- **`citext` for email** (architecture.md §5.2) does not exist in Django 5.2 —
+  `CITextField` was removed in the 5.x line. Use `UniqueConstraint(Lower(...))`
+  or a non-deterministic collation at M2.
+- **UUIDv7** (architecture.md §5.2) needs PostgreSQL 18; the target is 16. Use
+  UUIDv4 unless the Postgres version changes.
+- **BFF vs path routing** stays genuinely open. The `afterFiles` rewrite
+  ordering in `next.config.ts` keeps both possible — a Route Handler under
+  `src/app/api/` wins, anything else falls through to Django.
+- **Gunicorn `timeout` vs Server-Sent Events** (ADR-002 §7.4) are in direct
+  tension. Revisit when the first SSE endpoint exists.
