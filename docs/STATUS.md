@@ -7,8 +7,34 @@
 
 ## Current milestone
 
-**M0 — Planning & Foundations. Complete and verified.** All 11 tasks
-implemented, all 11 verified by running them.
+**M1 — Backend Foundation.** In progress — 2 of 8 tasks complete.
+
+| Task | State |
+|---|---|
+| T1 core app + abstract base models | **done** — `fae22ac` |
+| T2 DRF + drf-spectacular configuration | **done** — `616eede`, pins fixed in `9f630ec` |
+| T3 Problem Details exception handler | next |
+| T4 pagination classes | pending |
+| T5 `/healthz` | pending |
+| T6 `request_id` middleware + JSON logging | pending |
+| T7 `/api/v1/schema/` + CI drift gate | pending |
+| T8 frontend type generation (`make types`) | pending |
+
+**ADR-003** settles that M1 creates no concrete models and no migrations; the
+audit log moves to M2, after the custom `User`. A test drives the migration
+autodetector directly and fails the build if anything under `apps/` grows a
+model.
+
+43 tests pass, ruff clean, `check --deploy` clean. A fresh virtualenv
+installing only from `pyproject.toml` runs the suite — the standard for
+dependency changes from now on, after DRF was briefly installed locally
+without being pinned.
+
+---
+
+## M0 — Planning & Foundations. Complete and verified.
+
+All 11 tasks implemented, all 11 verified by running them.
 
 | Task | State |
 |---|---|
