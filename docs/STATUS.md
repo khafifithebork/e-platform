@@ -7,14 +7,15 @@
 
 ## Current milestone
 
-**M1 — Backend Foundation.** In progress — 2 of 8 tasks complete.
+**M1 — Backend Foundation.** In progress — 4 of 8 tasks complete.
+Branch: `feat/m1-backend-foundation`.
 
 | Task | State |
 |---|---|
 | T1 core app + abstract base models | **done** — `fae22ac` |
 | T2 DRF + drf-spectacular configuration | **done** — `616eede`, pins fixed in `9f630ec` |
-| T3 Problem Details exception handler | next |
-| T4 pagination classes | pending |
+| T3 Problem Details exception handler | **done** — `0b565bb`, problem types in `ca56c72` |
+| T4 pagination classes | **done** — `0616c15` |
 | T5 `/healthz` | pending |
 | T6 `request_id` middleware + JSON logging | pending |
 | T7 `/api/v1/schema/` + CI drift gate | pending |
@@ -25,10 +26,30 @@ audit log moves to M2, after the custom `User`. A test drives the migration
 autodetector directly and fails the build if anything under `apps/` grows a
 model.
 
-43 tests pass, ruff clean, `check --deploy` clean. A fresh virtualenv
-installing only from `pyproject.toml` runs the suite — the standard for
-dependency changes from now on, after DRF was briefly installed locally
-without being pinned.
+**ADR-004** settles that clients branch on the RFC 9457 `type` member rather
+than the status code, because DRF downgrades `NotAuthenticated` to 403 when no
+authenticator offers a `WWW-Authenticate` header — so "log in" and "not
+allowed" share a status. The same mechanism carries M4's entitlement reasons:
+`EntitlementDenied` will declare a `problem_type` and add `reason`/`cta`
+without the handler changing.
+
+88 tests pass, ruff clean, `check --deploy` clean, 100% branch coverage on the
+exception handler.
+
+### Two CI failures, both the same root cause
+
+Both were environment drift — the local machine had state CI did not, and both
+are now guarded:
+
+- **DRF installed but not pinned** in `pyproject.toml`. Fixed in `9f630ec`.
+  Standard now: verify dependency changes by installing into a *fresh*
+  virtualenv from `pyproject.toml` alone, not with `--dry-run`.
+- **The suite required a live Redis**, because T2 pointed `CACHES` at Redis and
+  DRF throttling counts against the default cache. It passed locally only
+  because the compose stack was running. Fixed in `6a6e600`: test settings use
+  `LocMemCache`, and the production assertions moved to a subprocess check
+  against production settings. Reproduce this class of failure by stopping the
+  relevant compose service before trusting a green local run.
 
 ---
 
