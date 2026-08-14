@@ -16,6 +16,7 @@ os.environ.setdefault("DJANGO_SECRET_KEY", secrets.token_urlsafe(50))
 os.environ.setdefault("DJANGO_ALLOWED_HOSTS", "testserver")
 os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("REDIS_CACHE_URL", "redis://localhost:6379/1")
 
 from .base import *
 

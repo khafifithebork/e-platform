@@ -38,6 +38,9 @@ def _valid_environment() -> dict[str, str]:
         "DJANGO_ALLOWED_HOSTS": "example.test",
         "DATABASE_URL": "postgres://localhost:5432/app",
         "REDIS_URL": "redis://localhost:6379/0",
+        # Database 1: the cache must not share a Redis database with the
+        # Celery broker, or a cache flush drops queued tasks.
+        "REDIS_CACHE_URL": "redis://localhost:6379/1",
     }
 
 
