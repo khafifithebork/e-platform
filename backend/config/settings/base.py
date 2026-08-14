@@ -27,12 +27,12 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 # ---------------------------------------------------------------------------
 # Applications
 #
-# No local apps yet. M0 creates no models and runs no migrations: the custom
-# User model must exist before the first migration is applied (architecture.md
-# section 10, M2), so the directories under apps/ are structure only and are
-# deliberately not installed.
+# apps.core contains abstract base models only. ADR-003: M1 creates no concrete
+# models and no migrations, because the custom User model must exist before the
+# first migration is ever applied and it does not arrive until M2. A test
+# asserts nothing under apps/ has pending migrations.
 # ---------------------------------------------------------------------------
-INSTALLED_APPS = [
+DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -40,6 +40,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
+
+LOCAL_APPS = [
+    "apps.core",
+]
+
+INSTALLED_APPS = [*DJANGO_APPS, *LOCAL_APPS]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
