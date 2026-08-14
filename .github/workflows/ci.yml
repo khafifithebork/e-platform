@@ -81,8 +81,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Runs `next typegen` first. Next generates route and layout types into
+      # .next/types, which is a build artifact and not in version control, so a
+      # bare `tsc --noEmit` fails on a clean checkout with an unresolved
+      # LayoutProps. This is exactly the difference between a developer machine
+      # that has built once and CI, which never has.
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Lint
         run: npm run lint
