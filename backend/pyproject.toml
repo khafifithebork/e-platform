@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "language-platform-backend"
+version = "0.0.0"
+description = "Curated language-learning subscription platform — Django backend"
+requires-python = ">=3.12"
+
+# Exact pins. Every version here is what pip actually resolved, not a guess.
+# M0 deliberately does NOT include DRF, drf-spectacular, django-celery-beat,
+# django-axes or argon2-cffi: no M0 deliverable requires them, and CLAUDE.md
+# section 5 gates dependencies on the milestone that needs them.
+dependencies = [
+    "django==5.2.17",
+    "django-environ==0.14.0",
+    "psycopg[binary]==3.3.4",
+    "gunicorn==26.0.0",
+    "uvicorn==0.52.3",
+    # The Gunicorn worker class moved out of uvicorn core into its own
+    # distribution; `uvicorn.workers.UvicornWorker` is deprecated.
+    "uvicorn-worker==0.4.0",
+    "celery==5.6.3",
+    "redis==8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.16.3",
+    "pytest==9.1.1",
+    "pytest-django==4.14.0",
+    "pytest-cov==7.1.0",
+]
+
+# This is an application, not a library. Nothing is importable from site-
+# packages; `pip install .` exists only to install the dependency set into the
+# container image.
+[tool.setuptools]
+packages = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "migrations"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # comprehensions
+    "DJ",   # flake8-django
+    "S",    # bandit
+    "SIM",  # simplify
+    "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Assertions are the point of a test file.
+"tests/**" = ["S101"]
+# Settings modules legitimately re-export with star imports.
+"config/settings/*" = ["F403", "F405"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers --strict-config"
