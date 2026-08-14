@@ -27,12 +27,12 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 # ---------------------------------------------------------------------------
 # Applications
 #
-# No local apps yet. M0 creates no models and runs no migrations: the custom
-# User model must exist before the first migration is applied (architecture.md
-# section 10, M2), so the directories under apps/ are structure only and are
-# deliberately not installed.
+# apps.core contains abstract base models only. ADR-003: M1 creates no concrete
+# models and no migrations, because the custom User model must exist before the
+# first migration is ever applied and it does not arrive until M2. A test
+# asserts nothing under apps/ has pending migrations.
 # ---------------------------------------------------------------------------
-INSTALLED_APPS = [
+DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -40,6 +40,17 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
+
+THIRD_PARTY_APPS = [
+    "rest_framework",
+    "drf_spectacular",
+]
+
+LOCAL_APPS = [
+    "apps.core",
+]
+
+INSTALLED_APPS = [*DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -90,6 +101,71 @@ SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+
+# ---------------------------------------------------------------------------
+# Cache
+#
+# Invariant 5. DRF throttling counts against the default cache, and Django's
+# LocMemCache default lives in process memory — throttle limits would silently
+# become per-worker the moment there is more than one, which is to say they
+# would stop being limits.
+#
+# A different Redis database from the Celery broker, deliberately. Sharing one
+# means cache.clear() deletes queued tasks: the queue empties, nothing raises,
+# and the work simply never happens.
+# ---------------------------------------------------------------------------
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_CACHE_URL"),
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Django REST Framework
+# ---------------------------------------------------------------------------
+REST_FRAMEWORK = {
+    # Invariant 9. The revocation argument is in architecture.md 4.2.
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    # Deny by default: opening an endpoint must be a deliberate act, not the
+    # result of forgetting a permission class.
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    # The browsable API is a development convenience; in production it is an
+    # HTML surface that enumerates endpoints and echoes data back. local.py
+    # adds it for development only.
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    # RFC 9457 Problem Details, one shape everywhere (architecture.md 6.1).
+    "EXCEPTION_HANDLER": "apps.core.exceptions.problem_details_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    # architecture.md 6.4. Per-endpoint scopes — login, playback tokens,
+    # progress — arrive with those endpoints.
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",
+        "user": "300/min",
+    },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Language Platform API",
+    "VERSION": "1.0.0",
+    "DESCRIPTION": "Curated language-learning subscription platform.",
+    # The schema endpoint should not describe itself.
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SCHEMA_PATH_PREFIX": "/api/v1",
+    # Separate request and response components, so generated TypeScript does
+    # not model read-only fields as required on write.
+    "COMPONENT_SPLIT_REQUEST": True,
+}
 
 # ---------------------------------------------------------------------------
 # Celery

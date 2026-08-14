@@ -33,6 +33,16 @@ DEBUG = env.bool("DJANGO_DEBUG", default=True)
 # With DEBUG on and no value set, Django already permits localhost, 127.0.0.1
 # and [::1], so running the backend directly needs no configuration either.
 
+# The browsable API is genuinely useful while developing and is deliberately
+# absent from base, so it can never reach production by accident.
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
+    ],
+}
+
 # Mailpit in the compose stack. Nothing leaves the machine.
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = env("EMAIL_HOST", default="mailpit")
