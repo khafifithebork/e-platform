@@ -1,0 +1,17 @@
+# Installed inside the image for the correct platform. Copying a host
+# node_modules in risks native bindings built for the wrong OS or architecture.
+node_modules/
+
+# Build output. Regenerated in the builder stage; copying a stale one in would
+# be worse than useless.
+.next/
+out/
+
+# Never let a real environment file reach an image layer.
+.env
+.env.*
+!.env.example
+
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
