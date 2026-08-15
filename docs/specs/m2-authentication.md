@@ -176,7 +176,12 @@ weaken a control to make a test pass.
 
 ---
 
-## Open questions — these block implementation
+## Open questions — ALL RESOLVED 2026-08-15
+
+**Settled in `docs/adr/005-m2-authentication-decisions.md`**, all five as
+recommended below. `AuditLog` is out of M2 scope as a result, and ADR-003 is
+amended accordingly. The reasoning is kept here as written; the ADR is the
+durable record.
 
 ### 1. BFF or path routing? *(blocks the frontend half)*
 
