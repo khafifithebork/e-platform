@@ -4,8 +4,8 @@ A curated, admin-approved language-course subscription platform. Video and audio
 lessons with reviewed transcripts, progress tracking, and a single subscription
 tier gated by a central entitlement resolver.
 
-> **Status:** M0 (Foundations) complete. **M1 (Backend Foundation) in progress**
-> — see `docs/STATUS.md` for the current task and blockers.
+> **Status:** M0 (Foundations) and M1 (Backend Foundation) complete.
+> **Next: M2 — Authentication & Accounts.** See `docs/STATUS.md`.
 >
 > There are no product endpoints yet, no models and no migrations. That last one
 > is deliberate: see `docs/adr/003-m1-ships-no-models.md`.
@@ -54,8 +54,9 @@ python -m venv backend/.venv && backend/.venv/bin/pip install -e "backend[dev]"
 | `make test-fast` | Backend tests only |
 | `make lint` | ruff + tsc + eslint |
 | `make check-deploy` | `manage.py check --deploy` |
+| `make schema` | Regenerate `docs/openapi.yaml` from the code |
+| `make types` | Regenerate the schema, then the frontend TypeScript types |
 | `make migrate` | **Refuses by design** until M2 defines the custom `User` |
-| `make types` | **Not available** until M1 T8 — there is no schema yet |
 
 On Windows `make` is not on PATH; MSYS2 provides `mingw32-make`. CI runs on
 Linux and is the authoritative runner.

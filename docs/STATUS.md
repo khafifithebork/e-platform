@@ -7,8 +7,11 @@
 
 ## Current milestone
 
-**M1 — Backend Foundation.** In progress — 5 of 8 tasks complete.
+**M1 — Backend Foundation. Complete — 8 of 8.**
 Branch: `feat/m1-backend-foundation`.
+
+**Next milestone: M2 — Authentication & Accounts.** Read the open questions at
+the bottom of this file before starting; two of them block M2 directly.
 
 | Task | State |
 |---|---|
@@ -17,9 +20,38 @@ Branch: `feat/m1-backend-foundation`.
 | T3 Problem Details exception handler | **done** — `0b565bb`, problem types in `ca56c72` |
 | T4 pagination classes | **done** — `0616c15` |
 | T5 `/healthz` | **done** — `9050775` |
-| T6 `request_id` middleware + JSON logging | pending |
-| T7 `/api/v1/schema/` + CI drift gate | pending |
-| T8 frontend type generation (`make types`) | pending |
+| T6 `request_id` middleware + JSON logging | **done** — `c5eb681` |
+| T7 `/api/v1/schema/` + drift gate | **done** — `38eb242` |
+| T8 frontend type generation (`make types`) | **done** — `38eb242` |
+
+### A redirect loop found by verifying, not by testing
+
+`/api/v1/schema/` through the Next.js rewrite bounced forever: Next 308'd it to
+`/api/v1/schema`, Django's `APPEND_SLASH` 301'd it back. **Every endpoint in
+architecture.md §6.2 ends in a trailing slash**, so this would have broken all
+of them from M2 onwards.
+
+Two causes, both fixed in `next.config.ts`:
+
+- Next's default `trailingSlash: false` strips the slash before the rewrite
+  runs. Now `trailingSlash: true`, aligning with Django rather than disabling
+  canonical redirects on the static marketing surface (invariant 15).
+- The rewrite used `:path*`, which splits on `/` and swallows the terminal
+  slash. Now `:path(.*)`, a greedy capture that forwards the path verbatim.
+
+Verified through the running stack: with slash, without slash, and the
+marketing root all return 200. **No automated test covers this** — it needs
+both services running, so it belongs in the Playwright journeys at M12. Worth
+adding there explicitly.
+
+### Known and unresolved
+
+One plain-text duplicate line appears per Django log record in the container.
+The logger tree was probed in place and is correct — root and `django` both on
+`JsonFormatter`, `django.request` propagating with no handlers of its own — so
+the source is elsewhere, most likely uvicorn's own logging config. **Cosmetic
+log volume, not correctness:** the correlated JSON line is present and right.
+Timeboxed after three diagnostic rounds per `CLAUDE.md` §9.
 
 **ADR-003** settles that M1 creates no concrete models and no migrations; the
 audit log moves to M2, after the custom `User`. A test drives the migration
