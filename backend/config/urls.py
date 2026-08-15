@@ -7,6 +7,7 @@ logging).
 """
 
 from django.urls import URLPattern, URLResolver, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.core.views import healthz
 
@@ -14,4 +15,17 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # Infrastructure, not product: outside /api/v1/ on purpose, so it is not
     # versioned, not in the OpenAPI schema, and not proxied as an API route.
     path("healthz", healthz, name="healthz"),
+    # The contract. Frontend types are generated from this (invariant 16), and
+    # a test asserts the committed docs/openapi.yaml still matches the code.
+    #
+    # Readable without authentication, which DRF's deny-by-default requires an
+    # explicit exemption for. Publishing the surface is deliberate: hiding it
+    # would be obscurity rather than security, since every endpoint is
+    # protected by its own permission check and that is what actually holds.
+    path("api/v1/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/v1/schema/swagger-ui/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
 ]

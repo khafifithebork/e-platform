@@ -1,0 +1,7 @@
+openapi: 3.0.3
+info:
+  title: Language Platform API
+  version: 1.0.0
+  description: Curated language-learning subscription platform.
+paths: {}
+components: {}

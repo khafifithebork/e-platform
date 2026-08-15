@@ -89,6 +89,17 @@ jobs:
       # bare `tsc --noEmit` fails on a clean checkout with an unresolved
       # LayoutProps. This is exactly the difference between a developer machine
       # that has built once and CI, which never has.
+      # Invariant 16: these types are generated, never hand-written. If
+      # regenerating them changes anything, the committed copy is stale and the
+      # frontend is being type-checked against an API that no longer exists.
+      #
+      # The backend half of this contract — that docs/openapi.yaml still
+      # matches the code — is asserted by a test in the backend job.
+      - name: Generated types are current
+        run: |
+          npm run types
+          git diff --exit-code src/types/api.d.ts
+
       - name: Type check
         run: npm run typecheck
 
