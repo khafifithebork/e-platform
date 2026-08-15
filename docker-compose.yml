@@ -88,14 +88,18 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      # A TCP probe, not an HTTP one. There is no /healthz until M1, and the
-      # image deliberately ships no curl.
+      # A real request to /healthz, not the TCP probe this used to be. An open
+      # port only proves something is listening; this proves the application
+      # answers. Uses python rather than curl, which the image does not ship.
+      #
+      # 127.0.0.1 is in DJANGO_ALLOWED_HOSTS below — without that this would
+      # get a 400 from Django's host validation before reaching the view.
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import socket,sys; s=socket.create_connection(('127.0.0.1',8000),2); s.close()",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)",
         ]
       interval: 5s
       timeout: 3s

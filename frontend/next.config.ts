@@ -17,6 +17,23 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   /**
+   * Trailing slashes, to match Django.
+   *
+   * Next redirects `/about/` to `/about` by default, and Django's
+   * `APPEND_SLASH` redirects `/api/v1/schema` back to `/api/v1/schema/`. Left
+   * alone the two disagree forever: a request to any API path bounces between
+   * a 308 from Next and a 301 from Django and never resolves. Every endpoint
+   * in architecture.md 6.2 ends in a slash, so every one of them would have
+   * been affected from M2 onwards.
+   *
+   * Aligning on trailing slashes fixes it in the direction Django already
+   * works. The alternative — `skipTrailingSlashRedirect` — stops the loop by
+   * removing canonical redirects entirely, which would leave the static
+   * marketing surface reachable at two URLs (invariant 15).
+   */
+  trailingSlash: true,
+
+  /**
    * Emit a self-contained server bundle at `.next/standalone`.
    *
    * The container runtime stage copies that instead of the full
@@ -57,8 +74,18 @@ const nextConfig: NextConfig = {
        */
       afterFiles: [
         {
-          source: "/api/:path*",
-          destination: `${apiOrigin}/api/:path*`,
+          /**
+           * `:path(.*)` rather than `:path*`.
+           *
+           * `:path*` splits the remainder on `/`, so a terminal slash is
+           * consumed as a separator and never reaches Django —
+           * `/api/v1/schema/` arrives as `/api/v1/schema`, Django's
+           * APPEND_SLASH redirects it back, and the request bounces forever.
+           * A greedy capture forwards the path verbatim, trailing slash and
+           * all.
+           */
+          source: "/api/:path(.*)",
+          destination: `${apiOrigin}/api/:path`,
         },
       ],
 

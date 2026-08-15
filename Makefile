@@ -14,7 +14,7 @@ NPM     ?= npm
 COMPOSE ?= docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help bootstrap dev test test-fast lint migrate types check-deploy
+.PHONY: help bootstrap dev test test-fast lint migrate schema types check-deploy
 
 help:
 	@echo "bootstrap     generate the local .env compose needs (idempotent)"
@@ -23,7 +23,8 @@ help:
 	@echo "test-fast     backend tests only"
 	@echo "lint          ruff + tsc + eslint"
 	@echo "migrate       apply migrations (guarded until a custom User model exists)"
-	@echo "types         regenerate the OpenAPI schema and frontend types"
+	@echo "schema        regenerate docs/openapi.yaml from the code"
+	@echo "types         regenerate the schema, then the frontend TypeScript types"
 	@echo "check-deploy  manage.py check --deploy"
 
 # Generates the root .env with fresh secrets. Idempotent — an existing key is
@@ -60,11 +61,16 @@ migrate:
 	cd backend && $(PYTHON) ../scripts/check_custom_user_model.py
 	cd backend && $(PYTHON) manage.py migrate
 
-# Depends on drf-spectacular, which arrives in M1 along with the first
-# endpoints. There is no schema to generate from an API that does not exist.
-types:
-	@echo "make types is not available yet: no OpenAPI schema before M1." >&2
-	@exit 1
+# Regenerate the OpenAPI document. A test asserts the committed copy still
+# matches the code, so this is the command that test tells you to run.
+schema:
+	cd backend && DJANGO_SETTINGS_MODULE=config.settings.test $(PYTHON) manage.py spectacular --file ../docs/openapi.yaml
+
+# Invariant 16: frontend request and response types are generated from the
+# schema, never hand-written. Regenerates the schema first, so the types can
+# never be built from a stale contract.
+types: schema
+	cd frontend && $(NPM) run types
 
 check-deploy:
 	cd backend && DJANGO_SETTINGS_MODULE=config.settings.production $(PYTHON) manage.py check --deploy
