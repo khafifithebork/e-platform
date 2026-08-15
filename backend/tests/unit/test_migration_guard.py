@@ -29,14 +29,19 @@ class TestCustomUserModelPredicate:
         assert _load_guard().is_custom_user_model("accounts.User") is True
 
 
-class TestGuardIsActiveRightNow:
-    def test_the_project_still_uses_the_default_user_model(self) -> None:
-        """Documents the current state rather than asserting it forever.
+class TestGuardHasServedItsPurpose:
+    """M2 landed the custom model, so the guard now permits migrations.
 
-        When M2 lands the custom model this test fails, which is the intended
-        signal: come back, delete this class, and the guard starts passing on
-        its own.
-        """
+    The class this replaced asserted `AUTH_USER_MODEL == "auth.User"` and was
+    written to fail exactly once — the moment M2 defined the real model — as a
+    reminder to come back here. It did.
+
+    What remains is the assertion that matters going forward: the project must
+    never revert to Django's default user model, because doing so would mean
+    the first migration had fixed the wrong one.
+    """
+
+    def test_the_project_uses_its_own_user_model(self) -> None:
         from django.conf import settings
 
-        assert settings.AUTH_USER_MODEL == "auth.User"
+        assert settings.AUTH_USER_MODEL == "accounts.User"

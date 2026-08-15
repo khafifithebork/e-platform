@@ -65,8 +65,11 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Assertions are the point of a test file.
-"tests/**" = ["S101"]
+# Assertions are the point of a test file. S105/S106 flag string literals that
+# look like passwords: in tests those are fixtures for accounts that exist for
+# milliseconds in a throwaway database, and the alternative — generating them —
+# would obscure what each test is actually doing.
+"tests/**" = ["S101", "S105", "S106"]
 # Settings modules legitimately re-export with star imports.
 "config/settings/*" = ["F403", "F405"]
 

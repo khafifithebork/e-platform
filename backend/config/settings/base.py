@@ -48,6 +48,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "apps.core",
+    "apps.accounts",
 ]
 
 INSTALLED_APPS = [*DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]
@@ -93,6 +94,15 @@ TEMPLATES = [
 DATABASES = {"default": env.db("DATABASE_URL")}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---------------------------------------------------------------------------
+# Authentication
+#
+# This value is effectively permanent. The first migration applied to a
+# database fixes it, and changing it afterwards is a manual table rename plus a
+# migration-graph rewrite plus every foreign key repointed.
+# ---------------------------------------------------------------------------
+AUTH_USER_MODEL = "accounts.User"
 
 # ---------------------------------------------------------------------------
 # Sessions
