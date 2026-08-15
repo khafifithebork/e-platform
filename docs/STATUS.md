@@ -7,7 +7,7 @@
 
 ## Current milestone
 
-**M1 — Backend Foundation.** In progress — 4 of 8 tasks complete.
+**M1 — Backend Foundation.** In progress — 5 of 8 tasks complete.
 Branch: `feat/m1-backend-foundation`.
 
 | Task | State |
@@ -16,7 +16,7 @@ Branch: `feat/m1-backend-foundation`.
 | T2 DRF + drf-spectacular configuration | **done** — `616eede`, pins fixed in `9f630ec` |
 | T3 Problem Details exception handler | **done** — `0b565bb`, problem types in `ca56c72` |
 | T4 pagination classes | **done** — `0616c15` |
-| T5 `/healthz` | pending |
+| T5 `/healthz` | **done** — `9050775` |
 | T6 `request_id` middleware + JSON logging | pending |
 | T7 `/api/v1/schema/` + CI drift gate | pending |
 | T8 frontend type generation (`make types`) | pending |
@@ -36,7 +36,7 @@ without the handler changing.
 88 tests pass, ruff clean, `check --deploy` clean, 100% branch coverage on the
 exception handler.
 
-### Two CI failures, both the same root cause
+### Three CI failures, all the same root cause
 
 Both were environment drift — the local machine had state CI did not, and both
 are now guarded:
@@ -50,6 +50,13 @@ are now guarded:
   `LocMemCache`, and the production assertions moved to a subprocess check
   against production settings. Reproduce this class of failure by stopping the
   relevant compose service before trusting a green local run.
+- **`REDIS_CACHE_URL` was never added to the CI workflow.** T2 added it as a
+  required variable and taught `.env.example`, `test.py` and
+  `docker-compose.yml` about it — but not `ci.yml`, so `check --deploy` died
+  with `ImproperlyConfigured`. Fixed **and guarded** in `0e9b4fe`: a test parses
+  `ci.yml`, extracts what the deployment step supplies, and compares it against
+  every default-less `env()` read in `base.py`. **This class of drift is now
+  caught by the suite** rather than by CI.
 
 ---
 
