@@ -53,6 +53,10 @@ LOCAL_APPS = [
 INSTALLED_APPS = [*DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]
 
 MIDDLEWARE = [
+    # First, deliberately. A request rejected by a later middleware — a host
+    # validation failure, a CSRF rejection — is exactly the kind worth
+    # investigating, and it would otherwise be logged with no correlation id.
+    "apps.core.middleware.RequestIDMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -212,11 +216,35 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # ---------------------------------------------------------------------------
 # Logging
 #
-# Structured JSON logging with a propagated request_id is an M1 deliverable.
+# JSON to stdout, one object per line, every line carrying a request id.
+# Invariant 5: the app tier writes nothing to local disk, so the platform
+# collects the stream.
 # ---------------------------------------------------------------------------
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {
+        "request_id": {"()": "apps.core.logging.RequestIDFilter"},
+    },
+    "formatters": {
+        "json": {"()": "apps.core.logging.JsonFormatter"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "filters": ["request_id"],
+        },
+    },
+    "loggers": {
+        # Django ships its own `django` logger with a plain-text console
+        # handler. Without overriding it every Django record is emitted twice,
+        # once unstructured and once as JSON, and half the output is unparseable.
+        "django": {
+            "handlers": ["console"],
+            "level": env("DJANGO_LOG_LEVEL", default="INFO"),
+            "propagate": False,
+        },
+    },
     "root": {"handlers": ["console"], "level": env("DJANGO_LOG_LEVEL", default="INFO")},
 }
