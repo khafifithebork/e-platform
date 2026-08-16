@@ -11,6 +11,19 @@ forbids environment variable values in code or tests even when throwaway.
 
 import os
 import secrets
+from pathlib import Path
+
+import environ
+
+# From M2 the suite has models, so it needs a real database — the one promise
+# in this module's docstring that no longer holds unqualified. Reading
+# backend/.env gives a developer's local run the database `make bootstrap`
+# configured, without anyone exporting DATABASE_URL by hand.
+#
+# read_env never overwrites a variable that is already set, so CI — which sets
+# DATABASE_URL for its own Postgres service — is unaffected, and so are the
+# setdefaults below.
+environ.Env.read_env(Path(__file__).resolve().parents[2] / ".env")
 
 os.environ.setdefault("DJANGO_SECRET_KEY", secrets.token_urlsafe(50))
 os.environ.setdefault("DJANGO_ALLOWED_HOSTS", "testserver")
@@ -18,7 +31,9 @@ os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("REDIS_CACHE_URL", "redis://localhost:6379/1")
 
-from .base import *
+# E402: the import genuinely must follow read_env and the setdefaults above,
+# because base reads its environment at import time.
+from .base import *  # noqa: E402
 
 DEBUG = False
 
