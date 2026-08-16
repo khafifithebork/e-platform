@@ -64,6 +64,12 @@ is not being edited: `CLAUDE.md` §2 says later ADRs beat earlier documents, and
 rewriting the design doc to match every implementation choice would destroy its
 value as a record of what was originally intended.
 
-**Carried into M2:** `AuditLog` is now M2 work and must be built *after* the
-custom `User`, not alongside it. M2's own ordering therefore matters — `User`
-first, everything else second.
+**Carried into M2:** `AuditLog` must be built *after* the custom `User`, not
+alongside it. M2's own ordering therefore matters — `User` first, everything
+else second.
+
+> **Amended by ADR-005 §3 (2026-08-15).** `AuditLog` moves to **M10**, not M2.
+> The ordering constraint above is satisfied the moment `User` lands, but that
+> does not mean the table should be built then: nothing writes an audit row
+> until the admin actions in M10 exist. The reasoning in this ADR stands; only
+> the destination milestone changed.

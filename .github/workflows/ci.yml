@@ -19,6 +19,30 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+
+    # From M2 the suite has models, so tests need a real database. Postgres
+    # rather than SQLite deliberately: the schema relies on Postgres-specific
+    # behaviour — functional unique constraints, and later JSONB and full-text
+    # search — so a test passing against SQLite would prove nothing about
+    # production.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          # Ephemeral, reachable only from this runner, destroyed when the job
+          # ends. It grants access to nothing and is not a secret; a repository
+          # secret here would teach the wrong habit.
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: backend
@@ -45,6 +69,8 @@ jobs:
         run: ruff format --check . ../scripts
 
       - name: Tests
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
         run: pytest
 
       - name: Deployment check
