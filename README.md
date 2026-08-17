@@ -4,11 +4,11 @@ A curated, admin-approved language-course subscription platform. Video and audio
 lessons with reviewed transcripts, progress tracking, and a single subscription
 tier gated by a central entitlement resolver.
 
-> **Status:** M0 (Foundations) and M1 (Backend Foundation) complete.
-> **Next: M2 — Authentication & Accounts.** See `docs/STATUS.md`.
+> **Status:** M0 and M1 complete. **M2 (Authentication & Accounts) in progress —
+> 4 of 10.** See `docs/STATUS.md`.
 >
-> There are no product endpoints yet, no models and no migrations. That last one
-> is deliberate: see `docs/adr/003-m1-ships-no-models.md`.
+> Registration, email verification and session hardening exist. Login, password
+> reset and `/auth/me/` do not yet.
 
 ## Quick start
 
@@ -27,7 +27,7 @@ overwrites an existing key) and starts six services:
 | web | http://localhost:3000 | Next.js. `/api/*` is proxied to Django |
 | api | http://localhost:8000 | Django under Uvicorn |
 | mailpit | http://localhost:8025 | Catches all outbound mail |
-| postgres | localhost:5432 | |
+| postgres | localhost:5432 | Set `POSTGRES_PORT` if a native Postgres already holds it |
 | redis | localhost:6379 | Broker on db 0, cache on db 1 |
 | worker | — | Celery, no tasks yet |
 
@@ -56,7 +56,7 @@ python -m venv backend/.venv && backend/.venv/bin/pip install -e "backend[dev]"
 | `make check-deploy` | `manage.py check --deploy` |
 | `make schema` | Regenerate `docs/openapi.yaml` from the code |
 | `make types` | Regenerate the schema, then the frontend TypeScript types |
-| `make migrate` | **Refuses by design** until M2 defines the custom `User` |
+| `make migrate` | Apply migrations. The M0 guard now permits it — `AUTH_USER_MODEL` is set |
 
 On Windows `make` is not on PATH; MSYS2 provides `mingw32-make`. CI runs on
 Linux and is the authoritative runner.
@@ -80,6 +80,12 @@ relevant compose service and re-running.
 **Settings fail fast.** A missing environment variable stops the process at
 import rather than defaulting. That is intended — see
 `backend/config/settings/base.py`.
+
+**A native Postgres will silently win port 5432.** A Windows PostgreSQL service
+bound to `0.0.0.0:5432` takes IPv4 loopback ahead of Docker's mapping. The
+symptom is baffling: `psql` works *inside* the container while the host gets
+`password authentication failed` with the same credentials. Set `POSTGRES_PORT`
+in the root `.env` — the compose file already reads it.
 
 ## Layout
 

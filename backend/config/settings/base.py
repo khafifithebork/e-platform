@@ -44,6 +44,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "drf_spectacular",
+    "axes",
 ]
 
 LOCAL_APPS = [
@@ -65,6 +66,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last, as django-axes requires: it needs the authentication middleware to
+    # have run so that a failed attempt can be attributed.
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -168,9 +172,18 @@ REST_FRAMEWORK = {
     ],
     # architecture.md 6.4. Per-endpoint scopes — login, playback tokens,
     # progress — arrive with those endpoints.
+    # architecture.md 6.4. Per-endpoint scopes are deliberately tighter than
+    # the anonymous baseline: these are the endpoints worth attacking, and each
+    # one either creates state or reveals whether an address exists.
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
         "user": "300/min",
+        # Trial abuse (§7.1) starts with cheap account creation.
+        "register": "5/hour",
+        "resend_verification": "3/hour",
+        # No account to lock out here, so the rate limit is the only brake on
+        # guessing a token.
+        "verify_email": "10/hour",
     },
 }
 
@@ -200,7 +213,57 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # ---------------------------------------------------------------------------
-# Authentication
+# Password hashing
+#
+# Argon2 first (architecture.md §4.2). It is memory-hard, so an attacker with a
+# GPU farm gains far less against it than against PBKDF2, which is compute-hard
+# and parallelises well.
+#
+# PBKDF2 stays below it and is not decoration: Django verifies an existing hash
+# with whichever hasher produced it and upgrades it on the next successful
+# login. Removing the old hasher would lock out every account created before
+# the switch.
+# ---------------------------------------------------------------------------
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+]
+
+# ---------------------------------------------------------------------------
+# Brute-force lockout (django-axes)
+#
+# AxesStandaloneBackend must come first. Behind ModelBackend it would only be
+# consulted after Django had already authenticated the request, which is too
+# late to refuse one.
+# ---------------------------------------------------------------------------
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+AXES_FAILURE_LIMIT = 5
+
+# Hours. Temporary rather than permanent on purpose: a lockout that never
+# expires is a denial-of-service an attacker can trigger against any account
+# whose email address they know.
+AXES_COOLOFF_TIME = 1
+
+# Both together. Keying on IP alone punishes everyone behind one NAT — a
+# school or an office — for one person's typos; keying on username alone lets
+# an attacker lock a known account out from anywhere. The pair is what makes
+# the control usable.
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+
+# The login field is the email address, not a username.
+AXES_USERNAME_FORM_FIELD = "email"
+
+# Successful logins reset the counter, so a legitimate user who mistypes twice
+# and then succeeds does not carry those failures forward.
+AXES_RESET_ON_SUCCESS = True
+
+# ---------------------------------------------------------------------------
+# Password validation
 # ---------------------------------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

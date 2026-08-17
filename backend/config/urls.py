@@ -6,12 +6,13 @@ unreachable until it is hardened in M10 (obscure path, staff-only, 2FA, audit
 logging).
 """
 
-from django.urls import URLPattern, URLResolver, path
+from django.urls import URLPattern, URLResolver, include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.core.views import healthz
 
 urlpatterns: list[URLPattern | URLResolver] = [
+    path("api/v1/auth/", include("apps.accounts.urls")),
     # Infrastructure, not product: outside /api/v1/ on purpose, so it is not
     # versioned, not in the OpenAPI schema, and not proxied as an API route.
     path("healthz", healthz, name="healthz"),

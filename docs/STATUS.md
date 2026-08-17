@@ -1,17 +1,83 @@
 # STATUS
 
-**Last updated:** 2026-08-13
-**Updated by:** agent session (M0 T1 and T2 implemented)
+**Last updated:** 2026-08-17
+**Updated by:** agent session (M2 T1–T4 implemented)
 
 ---
 
 ## Current milestone
 
-**M1 — Backend Foundation. Complete — 8 of 8.**
-Branch: `feat/m1-backend-foundation`.
+**M2 — Authentication & Accounts.** In progress — **4 of 10 tasks complete**.
+Branch: `feat/m1-backend-foundation` — the name predates the milestone; the M2
+work is on it.
 
-**Next milestone: M2 — Authentication & Accounts.** Read the open questions at
-the bottom of this file before starting; two of them block M2 directly.
+Spec: `docs/specs/m2-authentication.md`
+Decisions: `docs/adr/005-m2-authentication-decisions.md`
+
+| Task | State |
+|---|---|
+| T1 custom `User` + first migration | **done** — `da72ff4` |
+| T2 Argon2, session settings, `django-axes` | **done** — `07ebd47` |
+| T3 account creation service | **done** — `1243253` |
+| T4 registration + email verification | **done** — `abb7938` |
+| T5 login / logout | **next** |
+| T6 password reset + confirm + change | pending |
+| T7 `GET /auth/me/` (no `access` object until M4) | pending |
+| T8 throttle scopes applied and tested | pending |
+| T9 frontend login / register / reset flows | pending |
+| T10 regenerate schema + types; ADR for anything settled | pending |
+
+Also landed: `21bad4c` fixed the bootstrap gap — `make bootstrap` now writes
+`backend/.env` as well as the root one, so `make migrate` and local
+`manage.py` work without exporting variables by hand.
+
+**204 tests pass**, ruff clean, tsc clean, `check --deploy` clean.
+
+### Tests now need Postgres
+
+M2 is the first milestone with models. CI runs Postgres as a service
+(`b36bdbb`) — chosen over SQLite deliberately, because the schema depends on a
+functional unique constraint now and JSONB and full-text search later, so a
+SQLite pass would prove nothing about production.
+
+**Local gotcha, cost an hour:** a native **PostgreSQL 18 Windows service** on
+this machine binds `0.0.0.0:5432` and wins over Docker's mapping for IPv4
+loopback. Auth succeeded *inside* the container and failed from the host with
+the same credentials. The compose stack now uses **`POSTGRES_PORT=5433`** (set
+in the root `.env`). Third collision of this kind, after port 3000 and the
+home-directory lockfile.
+
+### The threat model is the spec
+
+`docs/specs/m2-authentication.md` lists eight abuse cases. Three are now
+covered:
+
+- **1 — enumeration.** A taken address is indistinguishable from a free one at
+  registration, *and* a second attempt does not overwrite the existing
+  password. The second half is the one that would have been account takeover.
+- **3 — privilege escalation.** `role`, `is_staff`, `is_superuser` and
+  `is_email_verified` in a request body reach nothing: the serializer declares
+  two fields, so there is no path from the wire to them.
+- **4 & 5 — token replay and expiry.** Verification tokens are stored hashed,
+  single-use and expiring. Unknown, expired and already-used give one
+  indistinguishable answer, so a failed guess yields no information.
+
+**Not yet proven: abuse case 6** (lockout not bypassed by changing User-Agent),
+which lands with T5, and **7 and 8**, which land with T7.
+
+### Milestone-order guards have now fired, all correctly
+
+- The M0 `make migrate` guard refused for the whole of M1 and now permits.
+- The M0 test asserting the default user model was written to fail *exactly
+  once*, as a reminder to come back. It did, and has been replaced.
+- The M1 schema drift gate failed the moment endpoints existed — and exposed
+  something larger than drift: drf-spectacular cannot infer request bodies from
+  a plain `APIView`, so generated types would have been empty and invariant 16
+  satisfied in name only. Views are annotated; types describe real operations.
+
+---
+
+## M1 — Backend Foundation. Complete — 8 of 8.
 
 | Task | State |
 |---|---|
