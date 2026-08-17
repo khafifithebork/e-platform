@@ -3,10 +3,110 @@
  * Do not make direct changes to the file.
  */
 
-export type paths = Record<string, never>;
+export interface paths {
+    "/api/v1/auth/register/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register an account
+         * @description Create an account and send a verification email.
+         *
+         *     Always answers 202 with the same body. That is abuse case 1: a differing
+         *     status, body, or field error would let someone test an address list against
+         *     this endpoint and learn who has an account here.
+         *
+         *     The response is 202 rather than 201 because the meaningful part — the email
+         *     — has not happened yet, and because 201 with a Location header would imply
+         *     a resource the caller may now fetch.
+         */
+        post: operations["auth_register_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/resend-verification/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend the verification email
+         * @description Issue a fresh verification token.
+         *
+         *     Same uniform response for the same reason, and it covers three cases that
+         *     must look identical: no such account, an account already verified, and a
+         *     genuine resend.
+         */
+        post: operations["auth_resend_verification_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an email address
+         * @description Consume a verification token.
+         *
+         *     Unlike registration this one may fail visibly: the caller is holding a
+         *     token and needs to know it did not work. It still says only that the token
+         *     is invalid, never which of unknown, expired or already-used applies —
+         *     telling them would turn a failed guess into information.
+         */
+        post: operations["auth_verify_email_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        /** @description For resending a verification email. */
+        EmailOnlyRequest: {
+            /** Format: email */
+            email: string;
+        };
+        /**
+         * @description Registration input.
+         *
+         *     Two fields, and that is the security control. DRF ignores fields it does
+         *     not declare, so `role`, `is_staff` and `is_superuser` in a request body go
+         *     nowhere — there is no path from here to them. Abuse case 3.
+         */
+        RegisterRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        /** @description For consuming a verification token. */
+        VerifyEmailRequest: {
+            token: string;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -14,4 +114,91 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    auth_register_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RegisterRequest"];
+                "multipart/form-data": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. Identical whether or not the address was free. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed input or a password that fails validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_resend_verification_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailOnlyRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["EmailOnlyRequest"];
+                "multipart/form-data": components["schemas"]["EmailOnlyRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. Identical for unknown and verified addresses. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_verify_email_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["VerifyEmailRequest"];
+                "multipart/form-data": components["schemas"]["VerifyEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Email address verified. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Token unknown, expired or already used — deliberately not distinguished. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+}

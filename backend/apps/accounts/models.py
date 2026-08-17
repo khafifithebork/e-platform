@@ -100,6 +100,41 @@ class User(UUIDPrimaryKeyModel, AbstractBaseUser, PermissionsMixin):
         return self.email
 
 
+class EmailVerificationToken(UUIDPrimaryKeyModel, TimestampedModel):
+    """A single-use, expiring proof that someone can read an inbox.
+
+    Only the *hash* is stored. A token in the database is a bearer credential,
+    so storing it raw means a read-only leak — a backup, a log line, an errant
+    admin query — hands over every pending account. `architecture.md` §10 M2
+    names this as the mistake to avoid, and it is treated exactly like a
+    password: the raw value exists only in transit.
+
+    Rows are kept after use rather than deleted, so "this link was already
+    used" is answerable when a support ticket asks.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="email_verification_tokens",
+    )
+
+    # SHA-256 hex. Unique because a collision would let one token verify two
+    # accounts; indexed because every verification is a lookup on it.
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes: ClassVar[list] = [
+            models.Index(fields=["user", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Verification token for {self.user_id}"
+
+
 class StudentProfile(UUIDPrimaryKeyModel, TimestampedModel):
     """Learner-facing profile, created with the account (ADR-005 §2.4).
 

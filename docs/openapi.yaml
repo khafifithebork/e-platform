@@ -3,5 +3,153 @@ info:
   title: Language Platform API
   version: 1.0.0
   description: Curated language-learning subscription platform.
-paths: {}
-components: {}
+paths:
+  /api/v1/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: |-
+        Create an account and send a verification email.
+
+        Always answers 202 with the same body. That is abuse case 1: a differing
+        status, body, or field error would let someone test an address list against
+        this endpoint and learn who has an account here.
+
+        The response is 202 rather than 201 because the meaningful part — the email
+        — has not happened yet, and because 201 with a Location header would imply
+        a resource the caller may now fetch.
+      summary: Register an account
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '202':
+          description: Accepted. Identical whether or not the address was free.
+        '400':
+          description: Malformed input or a password that fails validation.
+  /api/v1/auth/resend-verification/:
+    post:
+      operationId: auth_resend_verification_create
+      description: |-
+        Issue a fresh verification token.
+
+        Same uniform response for the same reason, and it covers three cases that
+        must look identical: no such account, an account already verified, and a
+        genuine resend.
+      summary: Resend the verification email
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailOnlyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailOnlyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailOnlyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '202':
+          description: Accepted. Identical for unknown and verified addresses.
+  /api/v1/auth/verify-email/:
+    post:
+      operationId: auth_verify_email_create
+      description: |-
+        Consume a verification token.
+
+        Unlike registration this one may fail visibly: the caller is holding a
+        token and needs to know it did not work. It still says only that the token
+        is invalid, never which of unknown, expired or already-used applies —
+        telling them would turn a failed guess into information.
+      summary: Verify an email address
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: Email address verified.
+        '400':
+          description: Token unknown, expired or already used — deliberately not distinguished.
+components:
+  schemas:
+    EmailOnlyRequest:
+      type: object
+      description: For resending a verification email.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+      required:
+      - email
+    RegisterRequest:
+      type: object
+      description: |-
+        Registration input.
+
+        Two fields, and that is the security control. DRF ignores fields it does
+        not declare, so `role`, `is_staff` and `is_superuser` in a request body go
+        nowhere — there is no path from here to them. Abuse case 3.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - password
+    VerifyEmailRequest:
+      type: object
+      description: For consuming a verification token.
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 256
+      required:
+      - token
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

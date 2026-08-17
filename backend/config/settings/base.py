@@ -172,9 +172,18 @@ REST_FRAMEWORK = {
     ],
     # architecture.md 6.4. Per-endpoint scopes — login, playback tokens,
     # progress — arrive with those endpoints.
+    # architecture.md 6.4. Per-endpoint scopes are deliberately tighter than
+    # the anonymous baseline: these are the endpoints worth attacking, and each
+    # one either creates state or reveals whether an address exists.
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
         "user": "300/min",
+        # Trial abuse (§7.1) starts with cheap account creation.
+        "register": "5/hour",
+        "resend_verification": "3/hour",
+        # No account to lock out here, so the rate limit is the only brake on
+        # guessing a token.
+        "verify_email": "10/hour",
     },
 }
 
