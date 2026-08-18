@@ -26,14 +26,15 @@ def courses_for_instructor(*, user: User):
     forbidden — it is *not found*, which is what §6.3 requires. A 403 would
     confirm it exists.
 
-    Joined on language and instructor: a list of courses renders both, and
-    without the join that is two extra queries per row.
+    Not joined on language or instructor, despite rendering both. The
+    instructor serializer emits them as primary keys, which come from the
+    ``_id`` columns already on the row — nothing dereferences the related
+    object, so ``select_related`` here bought two JOINs per page and saved
+    nothing. Measured, not assumed: the list costs the same three queries with
+    it and without. ``test_query_counts`` pins that, so the join can be added
+    back the moment a serializer nests either relation.
     """
-    return (
-        Course.objects.filter(instructor=user)
-        .select_related("language", "instructor")
-        .order_by("-created_at")
-    )
+    return Course.objects.filter(instructor=user).order_by("-created_at")
 
 
 def sections_for_course(*, course: Course):
@@ -49,14 +50,13 @@ def sections_for_course(*, course: Course):
 def lessons_for_course(*, course: Course):
     """A course's lessons, ordered by section then position.
 
-    Joined on section: a lesson list renders the section it sits in, and
-    without the join that is one extra query per lesson.
+    The ordering needs the section, so the join happens either way — but as an
+    ORDER BY, not a ``select_related``. The serializer emits ``section`` as a
+    primary key and never dereferences it, so selecting the related row would
+    widen every result for nothing. Same reasoning as
+    ``courses_for_instructor``, and pinned by the same test.
     """
-    return (
-        Lesson.objects.filter(course=course)
-        .select_related("section")
-        .order_by("section__position", "position")
-    )
+    return Lesson.objects.filter(course=course).order_by("section__position", "position")
 
 
 def review_events_for_course(*, course: Course):
