@@ -143,3 +143,143 @@ class Course(UUIDPrimaryKeyModel, TimestampedModel):
 
     def __str__(self) -> str:
         return self.title
+
+
+class CourseReviewEvent(UUIDPrimaryKeyModel, TimestampedModel):
+    """One step in a course's passage through review.
+
+    Append-only. A mutable status says what is true now; it cannot answer why
+    a course is live, who decided, or what they said — which is what a support
+    ticket six weeks later actually asks (§5.2 makes the same argument for
+    subscription events).
+
+    Records submissions as well as decisions, which is why the fields are
+    ``actor``/``action`` rather than ``reviewer``/``decision``: the actor is
+    the instructor on a submission and an admin on everything else. Submission
+    has to be here rather than in a ``Course.submitted_at`` column because the
+    review queue orders on it — a column would be corrupted by any later edit,
+    letting a typo fix jump the queue — and because the reject-fix-resubmit
+    loop is history a single column cannot hold.
+
+    Nothing downstream derives publication from this table; the state machine
+    in ``services.py`` does that. The trail explains, it does not authorise.
+    """
+
+    class Action(models.TextChoices):
+        SUBMITTED = "SUBMITTED", "Submitted for review"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+        CHANGES_REQUESTED = "CHANGES_REQUESTED", "Changes requested"
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="review_events")
+    actor = models.ForeignKey(
+        User,
+        # PROTECT (§5.4): deleting an admin must not erase the record of who
+        # approved what.
+        on_delete=models.PROTECT,
+        related_name="course_reviews",
+    )
+    action = models.CharField(max_length=20, choices=Action.choices)
+    # Read by the instructor whose course this is — that is the point of
+    # rejection notes. Not a private scratchpad: anything an admin would not
+    # say to the instructor does not belong in this field.
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        indexes: ClassVar[list] = [
+            models.Index(fields=["course", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.action} on {self.course_id}"
+
+
+class Section(UUIDPrimaryKeyModel, TimestampedModel):
+    """A chapter within a course."""
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sections")
+    title = models.CharField(max_length=200)
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["position"]
+        constraints: ClassVar[list] = [
+            # Deferrable, so a reorder can swap two positions inside one
+            # transaction. Without DEFERRED the intermediate state — two
+            # sections briefly at the same position — violates the constraint
+            # mid-statement and the whole reorder fails.
+            models.UniqueConstraint(
+                fields=["course", "position"],
+                name="section_position_unique_per_course",
+                deferrable=models.Deferrable.DEFERRED,
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class LessonType(models.TextChoices):
+    """Extensible on purpose (ADR-002 §7.5): a live session is a lesson type,
+    not a boolean somewhere."""
+
+    VIDEO = "VIDEO", "Video"
+    AUDIO = "AUDIO", "Audio"
+    TEXT = "TEXT", "Text"
+    RESOURCE = "RESOURCE", "Resource"
+
+
+class Lesson(UUIDPrimaryKeyModel, TimestampedModel):
+    """A single lesson.
+
+    Carries **both** ``section`` and ``course``. ADR-007 §1: §6.2 routes
+    /courses/{slug}/lessons/{lesson_slug}/, which resolves to one lesson only
+    if the slug is unique per course — and a constraint spanning two joins is
+    not something Django can express. Uniqueness enforced in a service is
+    uniqueness a bulk import walks straight past, so the redundant foreign key
+    buys a real database guarantee (invariant 11). It also makes
+    lesson-to-course one hop on the hottest read path.
+
+    No media here. MediaAsset, duration and playback are M5.
+    """
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="lessons")
+
+    slug = models.SlugField(max_length=140)
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+
+    lesson_type = models.CharField(
+        max_length=16, choices=LessonType.choices, default=LessonType.VIDEO
+    )
+    position = models.PositiveIntegerField()
+
+    is_preview = models.BooleanField(
+        default=False,
+        help_text=(
+            "Watchable without a subscription. The entitlement resolver reads "
+            "this in M4; it grants nothing on its own."
+        ),
+    )
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["position"]
+        indexes: ClassVar[list] = [
+            models.Index(fields=["section", "position"]),
+        ]
+        constraints: ClassVar[list] = [
+            # The URL contract from §6.2, as a database guarantee.
+            models.UniqueConstraint(
+                fields=["course", "slug"], name="lesson_slug_unique_per_course"
+            ),
+            models.UniqueConstraint(
+                fields=["section", "position"],
+                name="lesson_position_unique_per_section",
+                deferrable=models.Deferrable.DEFERRED,
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
