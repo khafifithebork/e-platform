@@ -81,6 +81,12 @@ relevant compose service and re-running.
 import rather than defaulting. That is intended — see
 `backend/config/settings/base.py`.
 
+**Do not run `npm run build` on the host while the web container is running.**
+Both write to `frontend/.next/` through the bind mount and corrupt each
+other's generated route types — the symptom is TypeScript errors inside
+`.next/dev/types/routes.d.ts`, which is a generated file nobody wrote. Stop the
+container first, or build inside it.
+
 **A native Postgres will silently win port 5432.** A Windows PostgreSQL service
 bound to `0.0.0.0:5432` takes IPv4 loopback ahead of Docker's mapping. The
 symptom is baffling: `psql` works *inside* the container while the host gets
