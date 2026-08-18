@@ -1,13 +1,87 @@
 # STATUS
 
-**Last updated:** 2026-08-17
-**Updated by:** agent session (M2 complete)
+**Last updated:** 2026-08-18
+**Updated by:** agent session (M3 complete)
 
 ---
 
 ## Current milestone
 
-**M2 — Authentication & Accounts. Complete — 10 of 10.**
+**M3 — Catalogue domain. Complete — 10 of 10.**
+Branch: `feat/m3-catalogue`.
+
+Spec: `docs/specs/m3-catalogue.md`
+Decisions: `docs/adr/007-m3-catalogue-decisions.md` (spec time),
+`docs/adr/008-m3-implementation-decisions.md` (implementation),
+`docs/adr/009-measure-do-not-reason-about-queries.md` (standing rule)
+
+| Task | State |
+|---|---|
+| T1 spec + ADR-007 | **done** |
+| T2 `Language`, `Course`, state machine | **done** |
+| T3 `Section`, `Lesson`, deferrable ordering constraints | **done** |
+| T4 instructor course API, scoped | **done** — `64ffbe6` |
+| T5 section/lesson CRUD + bulk reorder | **done** — `aaa598f` |
+| T6 submissions on the review trail | **done** — `ba4cac8` |
+| T7 admin review queue, unrouted | **done** — `0c31bee` |
+| T8 public catalogue | **done** — `15d8640` |
+| T9 query counts pinned | **done** — `fef7617` |
+| T10 ADRs, schema, types | **done** |
+
+**352 tests pass**, ruff clean, tsc clean, `check --deploy` clean. Schema and
+types regenerate to no diff.
+
+### All nine abuse cases have a test that fails without its control
+
+Including the two that are easy to fake. Abuse case 7 (reorder with a foreign
+id) was checked against a deliberately permissive implementation — filter the
+foreign id out, apply the rest — and both reorder tests failed against it.
+Abuse cases 5 and 6 each have a **positive twin**: a filter matching *nothing*
+would satisfy "the public never sees a draft" perfectly and ship an empty
+catalogue, so one test archives a live course and watches it disappear.
+
+### A fourth inert control, same shape as M2's two
+
+`InstructorReviewEventViewSet` was declared
+`(_CourseScopedViewSet, ReadOnlyModelViewSet)`. The scoped base already
+extended `ModelViewSet`, so its `CreateModelMixin` won the MRO: **the route
+accepted POSTs while its class name said it could not**, and an instructor
+could have written themselves an `APPROVED` event. Caught only by a test that
+provokes each verb individually. The shared base is now a mixin carrying no
+verbs, so a viewset's own base decides what it accepts.
+
+ADR-006 has now paid for itself four times. Read it before M4.
+
+### Three false performance claims — ADR-009 is the response
+
+I wrote three docstrings in this milestone that were confidently wrong: that
+the reorder needed the deferrable constraint to survive `bulk_update` (it
+survives by batching), that the catalogue list costs two queries (one — cursor
+pagination issues no `COUNT`), and that two `select_related` calls saved a
+query per row (they saved none; the serializers render those relations as
+primary keys). All three read as correct in review. None would have failed a
+functional test.
+
+**ADR-009** makes measurement mandatory for any claim about query counts,
+index use, lock behaviour or constraint timing, and describes how to write a
+query-count test that means something: run the endpoint at two dataset sizes
+and assert the count is *identical*, with a distinct related object per row,
+and verify the test fails when the join is removed.
+
+### Two things M4 inherits directly
+
+- **The public serializer has no `body` field at all** (ADR-008 §6), rather
+  than a conditionally hidden one. When `resolve_access` exists, entitled
+  playback is a *different serializer* chosen by the resolver — not a
+  conditional field added to this one. That regression is the thing to watch.
+- **Django Admin is built and unrouted** (ADR-008 §5). A staff account that is
+  not `role == ADMIN` cannot publish — proven against a superuser — but can
+  still edit course fields. Who gets `is_staff` is M10's question.
+
+---
+
+## M2 — Authentication & Accounts. Complete — 10 of 10.
+
 Branch: `feat/m2-authentication`.
 
 Spec: `docs/specs/m2-authentication.md`
@@ -322,22 +396,38 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ---
 
-## Next milestone: M3 — Catalogue & Course Domain
+## Next milestone: M4 — Entitlements
 
-`Language`, `Course`, `Section`, `Lesson`; the draft/review/publish state
-machine; slugs and ordering; instructor CRUD scoped to their own courses;
-Django Admin configured.
+**The most consequential milestone in the build, and the one where guessing is
+most expensive** (CLAUDE.md §9). One resolver,
+`entitlements.services.resolve_access(user, content) -> AccessDecision`,
+returning a *reason* and never a bare boolean. Never duplicated, never inlined,
+never a stored `has_access` column.
 
-Two things to carry in from M2:
+Carried in from M3:
 
-- **ADR-006 applies to M3's scoping.** `architecture.md` §10 M3 names the
-  failure directly: letting instructors query courses without a `get_queryset()`
-  scope filter. Write the IDOR test first, and make it fail before the filter
-  exists.
-- **`AuditLog` is M10**, not M3 (ADR-005 §3 amending ADR-003).
+- **ADR-006 and ADR-009 both apply, and M4 is where they were aimed.** An inert
+  entitlement check gives the product away; a fan-out in the resolver is a
+  fan-out on the hottest path in the product. Provoke the control, and count
+  the queries rather than reasoning about them.
+- **The public catalogue serializer has no `body` field** (ADR-008 §6). Entitled
+  playback is a new serializer selected by the resolver's decision, not a
+  conditional field added to the public one.
+- **M4 is built against a fake billing provider.** CLAUDE.md §10 is explicit
+  that entitlements are fully tested before a real payment provider exists, and
+  that access rules inside a webhook handler mean something has gone wrong.
 
-Still blocking, unchanged: **the payment provider decision** gates M4's schema
-and M8 entirely. Standing rule until resolved — **do not model billing.**
+**Still blocking, unchanged: the payment provider decision** gates M4's *schema*
+and M8 entirely. Standing rule until resolved — **do not model billing.** M4 can
+proceed on subscription *state* behind a fake provider; it cannot model prices,
+invoices or a payment processor's objects.
+
+### Branch tidy-up, outstanding since M0
+
+Five branches with overlapping history and nothing merged to `master`:
+`chore/untrack-planning-docs` (PR #1), `feat/m0-foundations`,
+`feat/m1-backend-foundation`, `feat/m2-authentication`, `feat/m3-catalogue`.
+Worth resolving before M4 adds a sixth.
 
 ## Earlier next-action notes
 
