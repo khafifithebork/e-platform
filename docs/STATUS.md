@@ -1,18 +1,18 @@
 # STATUS
 
 **Last updated:** 2026-08-17
-**Updated by:** agent session (M2 T1–T4 implemented)
+**Updated by:** agent session (M2 complete)
 
 ---
 
 ## Current milestone
 
-**M2 — Authentication & Accounts.** In progress — **4 of 10 tasks complete**.
-Branch: `feat/m1-backend-foundation` — the name predates the milestone; the M2
-work is on it.
+**M2 — Authentication & Accounts. Complete — 10 of 10.**
+Branch: `feat/m2-authentication`.
 
 Spec: `docs/specs/m2-authentication.md`
-Decisions: `docs/adr/005-m2-authentication-decisions.md`
+Decisions: `docs/adr/005-m2-authentication-decisions.md`,
+`docs/adr/006-security-controls-must-be-provoked.md`
 
 | Task | State |
 |---|---|
@@ -20,12 +20,38 @@ Decisions: `docs/adr/005-m2-authentication-decisions.md`
 | T2 Argon2, session settings, `django-axes` | **done** — `07ebd47` |
 | T3 account creation service | **done** — `1243253` |
 | T4 registration + email verification | **done** — `abb7938` |
-| T5 login / logout | **next** |
-| T6 password reset + confirm + change | pending |
-| T7 `GET /auth/me/` (no `access` object until M4) | pending |
-| T8 throttle scopes applied and tested | pending |
-| T9 frontend login / register / reset flows | pending |
-| T10 regenerate schema + types; ADR for anything settled | pending |
+| T5 login / logout / CSRF bootstrap | **done** — `f189a68` |
+| T6 password reset + confirm + change | **done** — `fa7daed` |
+| T7 `GET /auth/me/` | **done** — `5805353` |
+| T8 throttle scopes provoked and tested | **done** — `74f42ed` |
+| T9 frontend auth flows + design foundation | **done** — `245d226` |
+| T10 ADR, schema and types | **done** |
+
+**252 tests pass**, ruff clean, tsc clean, `check --deploy` clean.
+
+### All eight abuse cases are covered
+
+Every case in `docs/specs/m2-authentication.md` now has a passing test. The
+enumeration one includes the variant that matters most: a second registration
+for a taken address does **not** overwrite the existing password.
+
+### Two controls were configured and inert — read ADR-006 before M4
+
+The `django-axes` lockout (T5) and every per-endpoint rate limit (T8) were
+correctly configured, read correctly in review, and did nothing. Neither was
+caught by review, types, or any functional test — only by a test that tried to
+trip the control and saw it fail to trip.
+
+**ADR-006 makes provoking a control the standard**, and it exists because M4's
+entitlement resolver and M8's webhook signature check would fail the same way,
+far more expensively: an inert entitlement check gives the product away, an
+inert signature check makes the webhook a free-subscription API.
+
+### ADR-005 §2.1 validated end to end
+
+No BFF layer. Verified through the running stack: `csrf` sets the cookie,
+register returns 202, login returns 200 and sets `sessionid`, `/auth/me/`
+returns the right user — all through the Next rewrite.
 
 Also landed: `21bad4c` fixed the bootstrap gap — `make bootstrap` now writes
 `backend/.env` as well as the root one, so `make migrate` and local
@@ -296,7 +322,24 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ---
 
-## Next action
+## Next milestone: M3 — Catalogue & Course Domain
+
+`Language`, `Course`, `Section`, `Lesson`; the draft/review/publish state
+machine; slugs and ordering; instructor CRUD scoped to their own courses;
+Django Admin configured.
+
+Two things to carry in from M2:
+
+- **ADR-006 applies to M3's scoping.** `architecture.md` §10 M3 names the
+  failure directly: letting instructors query courses without a `get_queryset()`
+  scope filter. Write the IDOR test first, and make it fail before the filter
+  exists.
+- **`AuditLog` is M10**, not M3 (ADR-005 §3 amending ADR-003).
+
+Still blocking, unchanged: **the payment provider decision** gates M4's schema
+and M8 entirely. Standing rule until resolved — **do not model billing.**
+
+## Earlier next-action notes
 
 1. Confirm CI passes on GitHub for `feat/m0-foundations`. The type-check fix in
    `36be0e9` has not yet been *observed* passing — it is the last unverified

@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens.
+ *
+ * The palette is warm ink-on-paper with a single ochre accent — deliberately
+ * not the blue-or-violet a product like this defaults to. A curated language
+ * catalogue is closer to a well-set book than to a dashboard, and the surface
+ * should say so before any copy is read.
+ *
+ * Every colour here is committed to in both schemes. Semantic names only:
+ * nothing in a component should reference a raw value.
+ */
+@theme {
+  /* Warm near-black. Pure #000 on warm paper reads as a hole in the page. */
+  --color-ink: #1c1917;
+  --color-ink-muted: #57534e;
+  --color-ink-subtle: #78716c;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Paper, not white. */
+  --color-paper: #faf8f5;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f2efe9;
+
+  --color-line: #e3ddd3;
+  --color-line-strong: #cec6b8;
+
+  /* Ochre. Warm enough to sit on paper, dark enough for white text at AA. */
+  --color-accent: #a8621b;
+  --color-accent-hover: #8c4f13;
+  --color-accent-subtle: #fdf3e7;
+
+  --color-danger: #9f1e39;
+  --color-danger-subtle: #fdf0f2;
+  --color-success: #2f6b46;
+  --color-success-subtle: #eef6f0;
+
+  /*
+   * An editorial serif for display, from the system stack. No web font: it
+   * costs a network request, a layout shift, and — on this machine — a build
+   * that fails when the font CDN is unreachable.
+   */
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
+
+  /*
+   * A restrained radius scale. One value everywhere reads as a template;
+   * the difference between a field and a card is part of the hierarchy.
+   */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  @theme {
+    --color-ink: #f5f1eb;
+    --color-ink-muted: #b8b0a5;
+    --color-ink-subtle: #928a7e;
+
+    --color-paper: #17150f;
+    --color-surface: #201d17;
+    --color-surface-sunken: #14120d;
+
+    --color-line: #332e25;
+    --color-line-strong: #4a4437;
+
+    /* Lifted for contrast against the dark surface. */
+    --color-accent: #e0932f;
+    --color-accent-hover: #f0a743;
+    --color-accent-subtle: #2b2114;
+
+    --color-danger: #e8798f;
+    --color-danger-subtle: #2c1319;
+    --color-success: #6fb98a;
+    --color-success-subtle: #12231a;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * A single, visible focus ring everywhere. Browsers' defaults vary and are
+ * often invisible against a warm background; anyone navigating by keyboard
+ * needs to see where they are without hunting.
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
