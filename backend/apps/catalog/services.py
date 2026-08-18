@@ -9,13 +9,15 @@ a view, a serializer and an admin action, the three drift, and the one that
 drifts is the one nobody tested.
 """
 
+from collections.abc import Sequence
 from typing import ClassVar
+from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
-from apps.catalog.models import Course, CourseReviewEvent, CourseStatus
+from apps.catalog.models import Course, CourseReviewEvent, CourseStatus, Lesson, Section
 
 
 class InvalidTransition(Exception):
@@ -154,3 +156,75 @@ def archive(*, course: Course, by: User) -> Course:
     course.published_at = None
     course.save(update_fields=["status", "published_at", "updated_at"])
     return course
+
+
+class InvalidReorder(Exception):
+    """The submitted order does not name exactly the rows being reordered."""
+
+
+def _apply_order(*, queryset, ordered_ids: Sequence[UUID]) -> None:
+    """Rewrite ``position`` to match ``ordered_ids``, or change nothing.
+
+    Two things make this worth a service rather than a loop in a view.
+
+    The first is *all or nothing*. A reorder payload is a list of ids, which
+    makes it the easiest place in the API to smuggle in a row belonging to
+    somebody else. Validating each id as it is applied would leave the caller's
+    own rows half-moved when the foreign one is rejected — so the membership
+    check runs against the whole set first, before a single write. The set
+    comparison catches both directions at once: an id that does not belong
+    here, and an id that belongs here but was left out. Omission matters
+    because a row not named keeps a position another row is about to take.
+
+    The second is that the intermediate state is illegal. Swapping positions 1
+    and 2 passes through a moment where both rows hold the same value, which
+    the unique constraint forbids. ``bulk_update`` hides that for small inputs
+    by writing the whole permutation in one UPDATE — PostgreSQL checks a
+    deferrable constraint at end of statement, so a single-statement
+    permutation is never caught mid-way. That is luck, not design, and it runs
+    out: ``bulk_update`` splits into batches once the list is long enough, and
+    between two batches the duplicate is committed-visible within the
+    transaction.
+
+    ``section_position_unique_per_course`` and
+    ``lesson_position_unique_per_section`` are therefore DEFERRABLE, which
+    postpones the check to commit and covers the split case as well as any
+    future refactor to per-row saves. The alternative is a sentinel pass
+    through negative positions — two writes per row, and debris if it fails
+    half way. ``test_a_row_by_row_swap_needs_the_deferred_constraint`` and its
+    twin pin this down; the deferral is invisible under test rollback
+    otherwise.
+
+    ``select_for_update`` serialises concurrent reorders of the same parent.
+    Without it two requests can each read consistent positions, each write a
+    valid permutation, and interleave into one that is neither.
+    """
+    rows = {row.pk: row for row in queryset.select_for_update()}
+
+    submitted = list(ordered_ids)
+    if len(submitted) != len(set(submitted)) or set(submitted) != set(rows):
+        raise InvalidReorder(
+            "The order must name every item being reordered, exactly once, and nothing else."
+        )
+
+    for position, pk in enumerate(submitted, start=1):
+        rows[pk].position = position
+
+    queryset.model.objects.bulk_update(rows.values(), ["position", "updated_at"])
+
+
+@transaction.atomic
+def reorder_sections(*, course: Course, ordered_ids: Sequence[UUID]) -> None:
+    """Reorder a course's sections. Scoping is the caller's job, above this."""
+    _apply_order(queryset=Section.objects.filter(course=course), ordered_ids=ordered_ids)
+
+
+@transaction.atomic
+def reorder_lessons(*, section: Section, ordered_ids: Sequence[UUID]) -> None:
+    """Reorder one section's lessons.
+
+    Scoped to a section, not a course, because the uniqueness of ``position``
+    is per section — a course-wide reorder would have to know which section
+    each lesson belongs to and would silently move lessons between them.
+    """
+    _apply_order(queryset=Lesson.objects.filter(section=section), ordered_ids=ordered_ids)

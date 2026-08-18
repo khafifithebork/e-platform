@@ -338,6 +338,506 @@ paths:
               schema:
                 $ref: '#/components/schemas/Course'
           description: ''
+  /api/v1/instructor/courses/{course_pk}/lessons/:
+    get:
+      operationId: instructor_courses_lessons_list
+      description: Lessons of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLessonList'
+          description: ''
+    post:
+      operationId: instructor_courses_lessons_create
+      description: Lessons of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LessonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LessonRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+          description: ''
+  /api/v1/instructor/courses/{course_pk}/lessons/{id}/:
+    get:
+      operationId: instructor_courses_lessons_retrieve
+      description: Lessons of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lesson.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+          description: ''
+    put:
+      operationId: instructor_courses_lessons_update
+      description: Lessons of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lesson.
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LessonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LessonRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+          description: ''
+    patch:
+      operationId: instructor_courses_lessons_partial_update
+      description: Lessons of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lesson.
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLessonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLessonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLessonRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+          description: ''
+    delete:
+      operationId: instructor_courses_lessons_destroy
+      description: Lessons of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lesson.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/instructor/courses/{course_pk}/lessons/reorder/:
+    post:
+      operationId: instructor_courses_lessons_reorder_create
+      description: Lessons of one of your courses.
+      summary: Reorder one section's lessons
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonReorderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LessonReorderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LessonReorderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLessonList'
+          description: ''
+        '400':
+          description: The order did not name exactly these lessons.
+        '404':
+          description: No such course or section of yours.
+  /api/v1/instructor/courses/{course_pk}/sections/:
+    get:
+      operationId: instructor_courses_sections_list
+      description: Sections of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSectionList'
+          description: ''
+    post:
+      operationId: instructor_courses_sections_create
+      description: Sections of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SectionRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+  /api/v1/instructor/courses/{course_pk}/sections/{id}/:
+    get:
+      operationId: instructor_courses_sections_retrieve
+      description: Sections of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+    put:
+      operationId: instructor_courses_sections_update
+      description: Sections of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SectionRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+    patch:
+      operationId: instructor_courses_sections_partial_update
+      description: Sections of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSectionRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+    delete:
+      operationId: instructor_courses_sections_destroy
+      description: Sections of one of your courses.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/instructor/courses/{course_pk}/sections/reorder/:
+    post:
+      operationId: instructor_courses_sections_reorder_create
+      description: Sections of one of your courses.
+      summary: Reorder a course's sections
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSectionList'
+          description: ''
+        '400':
+          description: The order did not name exactly these sections.
+        '404':
+          description: No such course of yours.
   /api/v1/instructor/courses/{id}/:
     get:
       operationId: instructor_courses_retrieve
@@ -630,6 +1130,127 @@ components:
           maxLength: 254
       required:
       - email
+    Lesson:
+      type: object
+      description: |-
+        ``section`` is writable, and the view narrows its queryset to the course
+        in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
+        turns another course's section id into a 400 rather than a cross-course
+        write, a constraint the database cannot express because both rows are
+        individually valid.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course:
+          type: string
+          format: uuid
+          readOnly: true
+        section:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+        lesson_type:
+          $ref: '#/components/schemas/LessonTypeEnum'
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        is_preview:
+          type: boolean
+          description: Watchable without a subscription. The entitlement resolver
+            reads this in M4; it grants nothing on its own.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - course
+      - created_at
+      - id
+      - position
+      - section
+      - slug
+      - title
+      - updated_at
+    LessonReorderRequest:
+      type: object
+      description: Shape only. Whether the ids are *yours* is decided in the service.
+      properties:
+        order:
+          type: array
+          items:
+            type: string
+            format: uuid
+        section:
+          type: string
+          format: uuid
+      required:
+      - order
+      - section
+    LessonRequest:
+      type: object
+      description: |-
+        ``section`` is writable, and the view narrows its queryset to the course
+        in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
+        turns another course's section id into a 400 rather than a cross-course
+        write, a constraint the database cannot express because both rows are
+        individually valid.
+      properties:
+        section:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        body:
+          type: string
+        lesson_type:
+          $ref: '#/components/schemas/LessonTypeEnum'
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        is_preview:
+          type: boolean
+          description: Watchable without a subscription. The entitlement resolver
+            reads this in M4; it grants nothing on its own.
+      required:
+      - position
+      - section
+      - slug
+      - title
+    LessonTypeEnum:
+      enum:
+      - VIDEO
+      - AUDIO
+      - TEXT
+      - RESOURCE
+      type: string
+      description: |-
+        * `VIDEO` - Video
+        * `AUDIO` - Audio
+        * `TEXT` - Text
+        * `RESOURCE` - Resource
     LevelEnum:
       enum:
       - A1
@@ -729,6 +1350,44 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Course'
+    PaginatedLessonList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lesson'
+    PaginatedSectionList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Section'
     PasswordChangeRequest:
       type: object
       description: |-
@@ -799,6 +1458,56 @@ components:
           $ref: '#/components/schemas/LevelEnum'
         skill_areas:
           description: Free-form tags, e.g. ['listening', 'grammar'].
+    PatchedLessonRequest:
+      type: object
+      description: |-
+        ``section`` is writable, and the view narrows its queryset to the course
+        in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
+        turns another course's section id into a 400 rather than a cross-course
+        write, a constraint the database cannot express because both rows are
+        individually valid.
+      properties:
+        section:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        body:
+          type: string
+        lesson_type:
+          $ref: '#/components/schemas/LessonTypeEnum'
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        is_preview:
+          type: boolean
+          description: Watchable without a subscription. The entitlement resolver
+            reads this in M4; it grants nothing on its own.
+    PatchedSectionRequest:
+      type: object
+      description: |-
+        ``course`` is read-only: it comes from the URL, never the body.
+
+        A writable ``course`` would let an instructor post a section into somebody
+        else's course by id, which is precisely the hole the scoped queryset closes
+        everywhere else.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
     RegisterRequest:
       type: object
       description: |-
@@ -821,6 +1530,76 @@ components:
       required:
       - email
       - password
+    ReorderRequest:
+      type: object
+      description: Shape only. Whether the ids are *yours* is decided in the service.
+      properties:
+        order:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - order
+    Section:
+      type: object
+      description: |-
+        ``course`` is read-only: it comes from the URL, never the body.
+
+        A writable ``course`` would let an instructor post a section into somebody
+        else's course by id, which is precisely the hole the scoped queryset closes
+        everywhere else.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - course
+      - created_at
+      - id
+      - position
+      - title
+      - updated_at
+    SectionRequest:
+      type: object
+      description: |-
+        ``course`` is read-only: it comes from the URL, never the body.
+
+        A writable ``course`` would let an instructor post a section into somebody
+        else's course by id, which is precisely the hole the scoped queryset closes
+        everywhere else.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - position
+      - title
     StatusEnum:
       enum:
       - DRAFT

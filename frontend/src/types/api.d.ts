@@ -258,6 +258,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instructor/courses/{course_pk}/lessons/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lessons of one of your courses. */
+        get: operations["instructor_courses_lessons_list"];
+        put?: never;
+        /** @description Lessons of one of your courses. */
+        post: operations["instructor_courses_lessons_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{course_pk}/lessons/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lessons of one of your courses. */
+        get: operations["instructor_courses_lessons_retrieve"];
+        /** @description Lessons of one of your courses. */
+        put: operations["instructor_courses_lessons_update"];
+        post?: never;
+        /** @description Lessons of one of your courses. */
+        delete: operations["instructor_courses_lessons_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Lessons of one of your courses. */
+        patch: operations["instructor_courses_lessons_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{course_pk}/lessons/reorder/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reorder one section's lessons
+         * @description Lessons of one of your courses.
+         */
+        post: operations["instructor_courses_lessons_reorder_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{course_pk}/sections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Sections of one of your courses. */
+        get: operations["instructor_courses_sections_list"];
+        put?: never;
+        /** @description Sections of one of your courses. */
+        post: operations["instructor_courses_sections_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{course_pk}/sections/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Sections of one of your courses. */
+        get: operations["instructor_courses_sections_retrieve"];
+        /** @description Sections of one of your courses. */
+        put: operations["instructor_courses_sections_update"];
+        post?: never;
+        /** @description Sections of one of your courses. */
+        delete: operations["instructor_courses_sections_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Sections of one of your courses. */
+        patch: operations["instructor_courses_sections_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{course_pk}/sections/reorder/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reorder a course's sections
+         * @description Sections of one of your courses.
+         */
+        post: operations["instructor_courses_sections_reorder_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instructor/courses/{id}/": {
         parameters: {
             query?: never;
@@ -409,6 +525,64 @@ export interface components {
             email: string;
         };
         /**
+         * @description ``section`` is writable, and the view narrows its queryset to the course
+         *     in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
+         *     turns another course's section id into a 400 rather than a cross-course
+         *     write, a constraint the database cannot express because both rows are
+         *     individually valid.
+         */
+        Lesson: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly course: string;
+            /** Format: uuid */
+            section: string;
+            slug: string;
+            title: string;
+            body?: string;
+            lesson_type?: components["schemas"]["LessonTypeEnum"];
+            position: number;
+            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
+            is_preview?: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description Shape only. Whether the ids are *yours* is decided in the service. */
+        LessonReorderRequest: {
+            order: string[];
+            /** Format: uuid */
+            section: string;
+        };
+        /**
+         * @description ``section`` is writable, and the view narrows its queryset to the course
+         *     in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
+         *     turns another course's section id into a 400 rather than a cross-course
+         *     write, a constraint the database cannot express because both rows are
+         *     individually valid.
+         */
+        LessonRequest: {
+            /** Format: uuid */
+            section: string;
+            slug: string;
+            title: string;
+            body?: string;
+            lesson_type?: components["schemas"]["LessonTypeEnum"];
+            position: number;
+            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
+            is_preview?: boolean;
+        };
+        /**
+         * @description * `VIDEO` - Video
+         *     * `AUDIO` - Audio
+         *     * `TEXT` - Text
+         *     * `RESOURCE` - Resource
+         * @enum {string}
+         */
+        LessonTypeEnum: "VIDEO" | "AUDIO" | "TEXT" | "RESOURCE";
+        /**
          * @description * `A1` - A1 — Beginner
          *     * `A2` - A2 — Elementary
          *     * `B1` - B1 — Intermediate
@@ -468,6 +642,32 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Course"][];
         };
+        PaginatedLessonList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Lesson"][];
+        };
+        PaginatedSectionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Section"][];
+        };
         /**
          * @description Change a signed-in user's password.
          *
@@ -507,6 +707,35 @@ export interface components {
             skill_areas?: unknown;
         };
         /**
+         * @description ``section`` is writable, and the view narrows its queryset to the course
+         *     in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
+         *     turns another course's section id into a 400 rather than a cross-course
+         *     write, a constraint the database cannot express because both rows are
+         *     individually valid.
+         */
+        PatchedLessonRequest: {
+            /** Format: uuid */
+            section?: string;
+            slug?: string;
+            title?: string;
+            body?: string;
+            lesson_type?: components["schemas"]["LessonTypeEnum"];
+            position?: number;
+            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
+            is_preview?: boolean;
+        };
+        /**
+         * @description ``course`` is read-only: it comes from the URL, never the body.
+         *
+         *     A writable ``course`` would let an instructor post a section into somebody
+         *     else's course by id, which is precisely the hole the scoped queryset closes
+         *     everywhere else.
+         */
+        PatchedSectionRequest: {
+            title?: string;
+            position?: number;
+        };
+        /**
          * @description Registration input.
          *
          *     Two fields, and that is the security control. DRF ignores fields it does
@@ -517,6 +746,40 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+        };
+        /** @description Shape only. Whether the ids are *yours* is decided in the service. */
+        ReorderRequest: {
+            order: string[];
+        };
+        /**
+         * @description ``course`` is read-only: it comes from the URL, never the body.
+         *
+         *     A writable ``course`` would let an instructor post a section into somebody
+         *     else's course by id, which is precisely the hole the scoped queryset closes
+         *     everywhere else.
+         */
+        Section: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly course: string;
+            title: string;
+            position: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description ``course`` is read-only: it comes from the URL, never the body.
+         *
+         *     A writable ``course`` would let an instructor post a section into somebody
+         *     else's course by id, which is precisely the hole the scoped queryset closes
+         *     everywhere else.
+         */
+        SectionRequest: {
+            title: string;
+            position: number;
         };
         /**
          * @description * `DRAFT` - Draft
@@ -836,6 +1099,410 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Course"];
                 };
+            };
+        };
+    };
+    instructor_courses_lessons_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                course_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLessonList"];
+                };
+            };
+        };
+    };
+    instructor_courses_lessons_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LessonRequest"];
+                "multipart/form-data": components["schemas"]["LessonRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lesson"];
+                };
+            };
+        };
+    };
+    instructor_courses_lessons_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this lesson. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lesson"];
+                };
+            };
+        };
+    };
+    instructor_courses_lessons_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this lesson. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LessonRequest"];
+                "multipart/form-data": components["schemas"]["LessonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lesson"];
+                };
+            };
+        };
+    };
+    instructor_courses_lessons_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this lesson. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    instructor_courses_lessons_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this lesson. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedLessonRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedLessonRequest"];
+                "multipart/form-data": components["schemas"]["PatchedLessonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lesson"];
+                };
+            };
+        };
+    };
+    instructor_courses_lessons_reorder_create: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                course_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonReorderRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LessonReorderRequest"];
+                "multipart/form-data": components["schemas"]["LessonReorderRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLessonList"];
+                };
+            };
+            /** @description The order did not name exactly these lessons. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such course or section of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    instructor_courses_sections_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                course_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSectionList"];
+                };
+            };
+        };
+    };
+    instructor_courses_sections_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SectionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SectionRequest"];
+                "multipart/form-data": components["schemas"]["SectionRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Section"];
+                };
+            };
+        };
+    };
+    instructor_courses_sections_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this section. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Section"];
+                };
+            };
+        };
+    };
+    instructor_courses_sections_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this section. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SectionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SectionRequest"];
+                "multipart/form-data": components["schemas"]["SectionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Section"];
+                };
+            };
+        };
+    };
+    instructor_courses_sections_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this section. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    instructor_courses_sections_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this section. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSectionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedSectionRequest"];
+                "multipart/form-data": components["schemas"]["PatchedSectionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Section"];
+                };
+            };
+        };
+    };
+    instructor_courses_sections_reorder_create: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                course_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReorderRequest"];
+                "multipart/form-data": components["schemas"]["ReorderRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSectionList"];
+                };
+            };
+            /** @description The order did not name exactly these sections. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such course of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

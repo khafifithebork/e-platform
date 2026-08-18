@@ -1,7 +1,7 @@
 """Catalogue reads."""
 
 from apps.accounts.models import User
-from apps.catalog.models import Course
+from apps.catalog.models import Course, Lesson, Section
 
 
 def courses_for_instructor(*, user: User):
@@ -24,4 +24,27 @@ def courses_for_instructor(*, user: User):
         Course.objects.filter(instructor=user)
         .select_related("language", "instructor")
         .order_by("-created_at")
+    )
+
+
+def sections_for_course(*, course: Course):
+    """A course's sections in their curriculum order.
+
+    Ordering comes from ``Meta.ordering`` on the model, and is restated here so
+    that a later change to the default cannot silently reorder the curriculum a
+    student sees.
+    """
+    return Section.objects.filter(course=course).order_by("position")
+
+
+def lessons_for_course(*, course: Course):
+    """A course's lessons, ordered by section then position.
+
+    Joined on section: a lesson list renders the section it sits in, and
+    without the join that is one extra query per lesson.
+    """
+    return (
+        Lesson.objects.filter(course=course)
+        .select_related("section")
+        .order_by("section__position", "position")
     )

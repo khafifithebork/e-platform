@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from apps.catalog.models import Course
+from apps.catalog.models import Course, Lesson, Section
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -45,3 +45,60 @@ class CourseSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class SectionSerializer(serializers.ModelSerializer):
+    """``course`` is read-only: it comes from the URL, never the body.
+
+    A writable ``course`` would let an instructor post a section into somebody
+    else's course by id, which is precisely the hole the scoped queryset closes
+    everywhere else.
+    """
+
+    class Meta:
+        model = Section
+        fields: ClassVar[list[str]] = [
+            "id",
+            "course",
+            "title",
+            "position",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields: ClassVar[list[str]] = ["id", "course", "created_at", "updated_at"]
+
+
+class LessonSerializer(serializers.ModelSerializer):
+    """``section`` is writable, and the view narrows its queryset to the course
+    in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
+    turns another course's section id into a 400 rather than a cross-course
+    write, a constraint the database cannot express because both rows are
+    individually valid.
+    """
+
+    class Meta:
+        model = Lesson
+        fields: ClassVar[list[str]] = [
+            "id",
+            "course",
+            "section",
+            "slug",
+            "title",
+            "body",
+            "lesson_type",
+            "position",
+            "is_preview",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields: ClassVar[list[str]] = ["id", "course", "created_at", "updated_at"]
+
+
+class ReorderSerializer(serializers.Serializer):
+    """Shape only. Whether the ids are *yours* is decided in the service."""
+
+    order = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
+
+
+class LessonReorderSerializer(ReorderSerializer):
+    section = serializers.UUIDField()

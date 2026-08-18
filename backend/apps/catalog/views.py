@@ -7,12 +7,31 @@ HTTP concerns only (invariant 2). The publication rules live in
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
-from apps.catalog.models import Course
-from apps.catalog.selectors import courses_for_instructor
-from apps.catalog.serializers import CourseSerializer
-from apps.catalog.services import InvalidTransition, NotPermitted, submit_for_review
+from apps.catalog.models import Course, Lesson, Section
+from apps.catalog.selectors import (
+    courses_for_instructor,
+    lessons_for_course,
+    sections_for_course,
+)
+from apps.catalog.serializers import (
+    CourseSerializer,
+    LessonReorderSerializer,
+    LessonSerializer,
+    ReorderSerializer,
+    SectionSerializer,
+)
+from apps.catalog.services import (
+    InvalidReorder,
+    InvalidTransition,
+    NotPermitted,
+    reorder_lessons,
+    reorder_sections,
+    submit_for_review,
+)
 
 
 @extend_schema(tags=["instructor"])
@@ -77,3 +96,126 @@ class InstructorCourseViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         return Response(self.get_serializer(course).data)
+
+
+class _CourseScopedViewSet(viewsets.ModelViewSet):
+    """Base for anything that hangs off a course the caller must own.
+
+    Every route resolves the parent course through
+    ``courses_for_instructor``, so a course belonging to somebody else is a 404
+    before a section or lesson is ever looked at. Nothing below this class
+    repeats the ownership check, and nothing below it may skip one.
+    """
+
+    def _course(self) -> Course:
+        cached = getattr(self, "_course_cache", None)
+        if cached is None:
+            # DRF's get_object_or_404, not Django's: it turns a malformed UUID
+            # into a 404 instead of letting a ValidationError become a 500.
+            cached = get_object_or_404(
+                courses_for_instructor(user=self.request.user),
+                pk=self.kwargs["course_pk"],
+            )
+            self._course_cache = cached
+        return cached
+
+
+@extend_schema(tags=["instructor"])
+class InstructorSectionViewSet(_CourseScopedViewSet):
+    """Sections of one of your courses."""
+
+    serializer_class = SectionSerializer
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Section.objects.none()
+        return sections_for_course(course=self._course())
+
+    def perform_create(self, serializer):
+        serializer.save(course=self._course())
+
+    @extend_schema(
+        request=ReorderSerializer,
+        responses={
+            200: SectionSerializer(many=True),
+            400: OpenApiResponse(description="The order did not name exactly these sections."),
+            404: OpenApiResponse(description="No such course of yours."),
+        },
+        summary="Reorder a course's sections",
+    )
+    @action(detail=False, methods=["post"])
+    def reorder(self, request, course_pk=None):
+        course = self._course()
+        payload = ReorderSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        try:
+            reorder_sections(course=course, ordered_ids=payload.validated_data["order"])
+        except InvalidReorder as exc:
+            # 400, not 409: the payload itself is wrong, and nothing about the
+            # course's state would make this same request succeed later.
+            raise ValidationError({"order": [str(exc)]}) from exc
+
+        return Response(self.get_serializer(self.get_queryset(), many=True).data)
+
+
+@extend_schema(tags=["instructor"])
+class InstructorLessonViewSet(_CourseScopedViewSet):
+    """Lessons of one of your courses."""
+
+    serializer_class = LessonSerializer
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Lesson.objects.none()
+        return lessons_for_course(course=self._course())
+
+    def get_serializer(self, *args, **kwargs):
+        """Narrow ``section`` to this course.
+
+        Both the lesson and the section are individually valid rows, so no
+        database constraint can reject the pairing; the only place that knows
+        they must share a course is here, where the URL names it. Narrowing the
+        related queryset makes DRF answer 400 "does not exist" — the same reply
+        a wholly invented id gets, which is what §6.3 wants: no confirmation
+        that the other course's section is real.
+        """
+        serializer = super().get_serializer(*args, **kwargs)
+        target = getattr(serializer, "child", serializer)
+        field = target.fields.get("section")
+        if field is not None and not getattr(self, "swagger_fake_view", False):
+            field.queryset = Section.objects.filter(course=self._course())
+        return serializer
+
+    def perform_create(self, serializer):
+        # `course` comes from the URL and the section is already narrowed to
+        # it, so the two cannot disagree.
+        serializer.save(course=self._course())
+
+    @extend_schema(
+        request=LessonReorderSerializer,
+        responses={
+            200: LessonSerializer(many=True),
+            400: OpenApiResponse(description="The order did not name exactly these lessons."),
+            404: OpenApiResponse(description="No such course or section of yours."),
+        },
+        summary="Reorder one section's lessons",
+    )
+    @action(detail=False, methods=["post"])
+    def reorder(self, request, course_pk=None):
+        course = self._course()
+        payload = LessonReorderSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        # Scoped to the course from the URL, so a section of somebody else's
+        # course is a 404 rather than a reorder of their lessons.
+        section = get_object_or_404(
+            Section.objects.filter(course=course), pk=payload.validated_data["section"]
+        )
+
+        try:
+            reorder_lessons(section=section, ordered_ids=payload.validated_data["order"])
+        except InvalidReorder as exc:
+            raise ValidationError({"order": [str(exc)]}) from exc
+
+        return Response(self.get_serializer(self.get_queryset(), many=True).data)
