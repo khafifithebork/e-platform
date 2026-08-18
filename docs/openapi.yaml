@@ -272,6 +272,101 @@ paths:
           description: Email address verified.
         '400':
           description: Token unknown, expired or already used — deliberately not distinguished.
+  /api/v1/catalogue/courses/:
+    get:
+      operationId: catalogue_courses_list
+      description: |-
+        Published courses, by slug.
+
+        ``AllowAny`` is explicit and deliberate: DRF is configured to deny by
+        default, so a public endpoint is an exemption, and an exemption is a thing
+        to test rather than assume. ``authentication_classes = ()`` goes with it —
+        the catalogue must behave identically for a signed-in visitor and an
+        anonymous one, and skipping session lookup is also what keeps the response
+        cacheable at the edge (invariant 15).
+
+        Read-only because there is no public write anywhere in this product.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - catalogue
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPublicCourseList'
+          description: ''
+  /api/v1/catalogue/courses/{slug}/:
+    get:
+      operationId: catalogue_courses_retrieve
+      description: |-
+        Published courses, by slug.
+
+        ``AllowAny`` is explicit and deliberate: DRF is configured to deny by
+        default, so a public endpoint is an exemption, and an exemption is a thing
+        to test rather than assume. ``authentication_classes = ()`` goes with it —
+        the catalogue must behave identically for a signed-in visitor and an
+        anonymous one, and skipping session lookup is also what keeps the response
+        cacheable at the edge (invariant 15).
+
+        Read-only because there is no public write anywhere in this product.
+      summary: One published course, with its curriculum
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          pattern: ^[-\w]+$
+        required: true
+      tags:
+      - catalogue
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicCourseDetail'
+          description: ''
+        '404':
+          description: No published course with that slug.
+  /api/v1/catalogue/languages/:
+    get:
+      operationId: catalogue_languages_list
+      description: |-
+        Languages a visitor can actually browse.
+
+        Unpaginated: this list is bounded by the number of languages taught, which
+        is a handful, and a paginated filter control is a worse control.
+      summary: Languages on offer
+      tags:
+      - catalogue
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Language'
+          description: ''
   /api/v1/instructor/courses/:
     get:
       operationId: instructor_courses_list
@@ -1266,6 +1361,25 @@ components:
           maxLength: 254
       required:
       - email
+    Language:
+      type: object
+      properties:
+        code:
+          type: string
+          description: ISO 639 code, e.g. 'es'. The natural key.
+          maxLength: 10
+        name:
+          type: string
+          description: English name, e.g. 'Spanish'.
+          maxLength: 100
+        native_name:
+          type: string
+          description: e.g. 'Español'.
+          maxLength: 100
+      required:
+      - code
+      - name
+      - native_name
     Lesson:
       type: object
       description: |-
@@ -1524,6 +1638,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Lesson'
+    PaginatedPublicCourseList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicCourse'
     PaginatedSectionList:
       type: object
       required:
@@ -1663,6 +1796,161 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
+    PublicCourse:
+      type: object
+      description: |-
+        A catalogue card.
+
+        ``instructor_name`` rather than the instructor's id or email: the
+        catalogue is unauthenticated, and an email address on a public page is a
+        spam list.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        slug:
+          type: string
+          description: The public URL. Unique across the catalogue, not per instructor.
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        language:
+          allOf:
+          - $ref: '#/components/schemas/Language'
+          readOnly: true
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        skill_areas:
+          description: Free-form tags, e.g. ['listening', 'grammar'].
+        instructor_name:
+          type: string
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when an admin approves. Null means it has never been live.
+      required:
+      - id
+      - instructor_name
+      - language
+      - level
+      - slug
+      - title
+    PublicCourseDetail:
+      type: object
+      description: |-
+        The card plus the curriculum. Structure sells the course; content does
+        not appear until someone is entitled to it.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        slug:
+          type: string
+          description: The public URL. Unique across the catalogue, not per instructor.
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        language:
+          allOf:
+          - $ref: '#/components/schemas/Language'
+          readOnly: true
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        skill_areas:
+          description: Free-form tags, e.g. ['listening', 'grammar'].
+        instructor_name:
+          type: string
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when an admin approves. Null means it has never been live.
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicSection'
+          readOnly: true
+      required:
+      - id
+      - instructor_name
+      - language
+      - level
+      - sections
+      - slug
+      - title
+    PublicLesson:
+      type: object
+      description: |-
+        A lesson as an anonymous visitor sees it: a title and a shape.
+
+        ``body`` is absent from ``fields``, not hidden by a condition. Entitlements
+        arrive in M4 and there is nothing to gate with yet, so the safe form is a
+        serializer that has no way to render paid content at all — a field that is
+        usually hidden is one wrong branch from being visible.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        slug:
+          type: string
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          maxLength: 200
+        lesson_type:
+          $ref: '#/components/schemas/LessonTypeEnum'
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        is_preview:
+          type: boolean
+          description: Watchable without a subscription. The entitlement resolver
+            reads this in M4; it grants nothing on its own.
+      required:
+      - id
+      - position
+      - slug
+      - title
+    PublicSection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicLesson'
+          readOnly: true
+      required:
+      - id
+      - lessons
+      - position
+      - title
     RegisterRequest:
       type: object
       description: |-

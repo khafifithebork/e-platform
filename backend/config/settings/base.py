@@ -184,6 +184,11 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
         "user": "300/min",
+        # The catalogue is the only surface an anonymous visitor is meant to
+        # browse, and browsing means several requests per page — the general
+        # anonymous limit would throttle ordinary use. A starting figure, not
+        # a measured one: revisit when there is traffic to measure.
+        "catalogue": "120/min",
         # Trial abuse (§7.1) starts with cheap account creation.
         "register": "5/hour",
         # Credential stuffing. django-axes locks a single account; this limits
