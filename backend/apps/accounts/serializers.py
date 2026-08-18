@@ -38,6 +38,22 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
 
+class LoginSerializer(serializers.Serializer):
+    """Login input.
+
+    No password validators here. They exist to stop weak passwords being
+    *chosen*; applying them at login would reject a valid credential set before
+    a stricter policy, and would leak the policy to anyone probing.
+    """
+
+    email = serializers.EmailField(max_length=254)
+    password = serializers.CharField(
+        write_only=True,
+        max_length=128,
+        style={"input_type": "password"},
+    )
+
+
 class EmailOnlySerializer(serializers.Serializer):
     """For resending a verification email."""
 

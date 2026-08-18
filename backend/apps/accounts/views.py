@@ -12,7 +12,10 @@ be able to learn which ones have accounts here.
 
 from typing import ClassVar
 
+from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_safe
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -21,6 +24,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.serializers import (
     EmailOnlySerializer,
+    LoginSerializer,
     RegisterSerializer,
     VerifyEmailSerializer,
 )
@@ -184,3 +188,90 @@ class VerifyEmailView(APIView):
             )
 
         return Response({"detail": "Email address verified."}, status=status.HTTP_200_OK)
+
+
+# One answer for every failed sign-in. A wrong password and an address with no
+# account must be indistinguishable, or the endpoint becomes a way to test an
+# address list against the user table.
+LOGIN_REFUSED = {"detail": "Those credentials are not valid."}
+
+
+@extend_schema(
+    request=LoginSerializer,
+    responses={
+        200: OpenApiResponse(description="Signed in. A session cookie is set."),
+        400: OpenApiResponse(
+            description="Credentials refused, or the account is locked. Deliberately one answer."
+        ),
+    },
+    summary="Sign in",
+)
+class LoginView(APIView):
+    """Establish a session.
+
+    `authenticate` runs through AxesStandaloneBackend first, so a locked
+    account fails here exactly as a wrong password does — and says the same
+    thing. Telling a caller "this account is locked" would confirm the address
+    exists and tell them their guessing worked well enough to matter.
+
+    Deliberately not CSRF-exempt. Forcing a victim's browser to sign in as the
+    attacker is a real attack: everything they do next is recorded against the
+    wrong account.
+    """
+
+    permission_classes: ClassVar[list] = [AllowAny]
+    throttle_scope = "login"
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = authenticate(
+            request,
+            username=serializer.validated_data["email"],
+            password=serializer.validated_data["password"],
+        )
+
+        if user is None:
+            return Response(LOGIN_REFUSED, status=status.HTTP_400_BAD_REQUEST)
+
+        # Django cycles the session key here, which is what defeats session
+        # fixation: a cookie planted before sign-in is worthless afterwards.
+        login(request, user)
+
+        return Response({"detail": "Signed in."}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    request=None,
+    responses={200: OpenApiResponse(description="Signed out. Idempotent.")},
+    summary="Sign out",
+)
+class LogoutView(APIView):
+    """Destroy the session.
+
+    Idempotent, and permitted while unauthenticated: a client retrying after a
+    timeout should not receive an error for succeeding twice, and refusing an
+    anonymous caller would leak whether their session was still alive.
+    """
+
+    permission_classes: ClassVar[list] = [AllowAny]
+
+    def post(self, request):
+        logout(request)
+        return Response({"detail": "Signed out."}, status=status.HTTP_200_OK)
+
+
+@require_safe
+@ensure_csrf_cookie
+def csrf(request):
+    """Hand the browser a CSRF token.
+
+    The frontend cannot POST anything until it has one, and Django only sets
+    the cookie when a view asks for it. A plain Django view rather than a DRF
+    one so it sits outside deny-by-default and the throttles — it grants
+    nothing and reveals nothing.
+    """
+    from django.http import JsonResponse
+
+    return JsonResponse({"detail": "CSRF cookie set."})

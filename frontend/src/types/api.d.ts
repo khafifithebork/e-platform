@@ -4,6 +4,59 @@
  */
 
 export interface paths {
+    "/api/v1/auth/login/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in
+         * @description Establish a session.
+         *
+         *     `authenticate` runs through AxesStandaloneBackend first, so a locked
+         *     account fails here exactly as a wrong password does — and says the same
+         *     thing. Telling a caller "this account is locked" would confirm the address
+         *     exists and tell them their guessing worked well enough to matter.
+         *
+         *     Deliberately not CSRF-exempt. Forcing a victim's browser to sign in as the
+         *     attacker is a real attack: everything they do next is recorded against the
+         *     wrong account.
+         */
+        post: operations["auth_login_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out
+         * @description Destroy the session.
+         *
+         *     Idempotent, and permitted while unauthenticated: a client retrying after a
+         *     timeout should not receive an error for succeeding twice, and refusing an
+         *     anonymous caller would leak whether their session was still alive.
+         */
+        post: operations["auth_logout_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register/": {
         parameters: {
             query?: never;
@@ -91,6 +144,18 @@ export interface components {
             email: string;
         };
         /**
+         * @description Login input.
+         *
+         *     No password validators here. They exist to stop weak passwords being
+         *     *chosen*; applying them at login would reject a valid credential set before
+         *     a stricter policy, and would leak the policy to anyone probing.
+         */
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        /**
          * @description Registration input.
          *
          *     Two fields, and that is the security control. DRF ignores fields it does
@@ -115,6 +180,55 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    auth_login_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LoginRequest"];
+                "multipart/form-data": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. A session cookie is set. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Credentials refused, or the account is locked. Deliberately one answer. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_logout_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out. Idempotent. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     auth_register_create: {
         parameters: {
             query?: never;
