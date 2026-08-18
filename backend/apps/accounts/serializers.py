@@ -64,3 +64,41 @@ class VerifyEmailSerializer(serializers.Serializer):
     """For consuming a verification token."""
 
     token = serializers.CharField(max_length=256, trim_whitespace=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Consume a reset token and set a new password."""
+
+    token = serializers.CharField(max_length=256, trim_whitespace=True)
+    new_password = serializers.CharField(
+        write_only=True, max_length=128, style={"input_type": "password"}
+    )
+
+    def validate_new_password(self, value: str) -> str:
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from exc
+        return value
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    """Change a signed-in user's password.
+
+    The current password is required even though the caller is authenticated —
+    a session left open on a shared machine is exactly what this stops.
+    """
+
+    current_password = serializers.CharField(
+        write_only=True, max_length=128, style={"input_type": "password"}
+    )
+    new_password = serializers.CharField(
+        write_only=True, max_length=128, style={"input_type": "password"}
+    )
+
+    def validate_new_password(self, value: str) -> str:
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from exc
+        return value

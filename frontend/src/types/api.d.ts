@@ -57,6 +57,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password/change/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your password
+         * @description Change the password of the signed-in user.
+         *
+         *     The only endpoint here that requires authentication, so it uses the
+         *     project default rather than AllowAny.
+         */
+        post: operations["auth_password_change_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a password reset
+         * @description Send a reset link.
+         *
+         *     Always 202. §6.2 is explicit that this must never reveal whether an account
+         *     exists, and a reset endpoint is the most attractive enumeration oracle in
+         *     any application because it is designed to be used by people who are locked
+         *     out and therefore unauthenticated.
+         */
+        post: operations["auth_password_reset_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a new password with a reset token */
+        post: operations["auth_password_reset_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register/": {
         parameters: {
             query?: never;
@@ -156,6 +221,21 @@ export interface components {
             password: string;
         };
         /**
+         * @description Change a signed-in user's password.
+         *
+         *     The current password is required even though the caller is authenticated —
+         *     a session left open on a shared machine is exactly what this stops.
+         */
+        PasswordChangeRequest: {
+            current_password: string;
+            new_password: string;
+        };
+        /** @description Consume a reset token and set a new password. */
+        PasswordResetConfirmRequest: {
+            token: string;
+            new_password: string;
+        };
+        /**
          * @description Registration input.
          *
          *     Two fields, and that is the security control. DRF ignores fields it does
@@ -222,6 +302,92 @@ export interface operations {
         responses: {
             /** @description Signed out. Idempotent. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_password_change_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChangeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PasswordChangeRequest"];
+                "multipart/form-data": components["schemas"]["PasswordChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Current password wrong, or new password rejected. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_password_reset_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailOnlyRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["EmailOnlyRequest"];
+                "multipart/form-data": components["schemas"]["EmailOnlyRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. Identical for unknown addresses. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_password_reset_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PasswordResetConfirmRequest"];
+                "multipart/form-data": components["schemas"]["PasswordResetConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed. All sessions are invalidated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Token invalid, or the new password was rejected. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

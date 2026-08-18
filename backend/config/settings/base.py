@@ -184,6 +184,10 @@ REST_FRAMEWORK = {
         # an attacker spraying one password across many addresses, which no
         # per-account lockout can see.
         "login": "10/hour",
+        # Enumeration and mail-bombing: this endpoint sends an email to any
+        # address supplied, so it is a spam vector as well as an oracle.
+        "password_reset": "5/hour",
+        "password_change": "5/hour",
         "resend_verification": "3/hour",
         # No account to lock out here, so the rate limit is the only brake on
         # guessing a token.

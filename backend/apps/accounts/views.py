@@ -12,7 +12,7 @@ be able to learn which ones have accounts here.
 
 from typing import ClassVar
 
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.core.mail import send_mail
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_safe
@@ -25,15 +25,22 @@ from rest_framework.views import APIView
 from apps.accounts.serializers import (
     EmailOnlySerializer,
     LoginSerializer,
+    PasswordChangeSerializer,
+    PasswordResetConfirmSerializer,
     RegisterSerializer,
     VerifyEmailSerializer,
 )
 from apps.accounts.services import (
     EmailAlreadyRegistered,
+    IncorrectPassword,
+    InvalidPasswordResetToken,
     InvalidVerificationToken,
     User,
+    change_password,
     create_account,
     issue_email_verification,
+    issue_password_reset,
+    reset_password,
     verify_email,
 )
 
@@ -275,3 +282,123 @@ def csrf(request):
     from django.http import JsonResponse
 
     return JsonResponse({"detail": "CSRF cookie set."})
+
+
+PASSWORD_RESET_ACCEPTED = {"detail": "If that address has an account, a reset link is on its way."}
+
+
+def _send_password_reset_email(*, email: str, token: str) -> None:
+    send_mail(
+        subject="Reset your password",
+        message=(
+            "Use this token to set a new password:\n\n"
+            f"{token}\n\n"
+            "It expires in one hour. If you did not ask to reset your "
+            "password, you can ignore this message — nothing has changed."
+        ),
+        from_email=None,
+        recipient_list=[email],
+        fail_silently=False,
+    )
+
+
+@extend_schema(
+    request=EmailOnlySerializer,
+    responses={202: OpenApiResponse(description="Accepted. Identical for unknown addresses.")},
+    summary="Request a password reset",
+)
+class PasswordResetView(APIView):
+    """Send a reset link.
+
+    Always 202. §6.2 is explicit that this must never reveal whether an account
+    exists, and a reset endpoint is the most attractive enumeration oracle in
+    any application because it is designed to be used by people who are locked
+    out and therefore unauthenticated.
+    """
+
+    permission_classes: ClassVar[list] = [AllowAny]
+    throttle_scope = "password_reset"
+
+    def post(self, request):
+        serializer = EmailOnlySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = User.objects.filter(email=serializer.validated_data["email"]).first()
+        if user is not None:
+            _send_password_reset_email(email=user.email, token=issue_password_reset(user=user))
+
+        return Response(PASSWORD_RESET_ACCEPTED, status=status.HTTP_202_ACCEPTED)
+
+
+@extend_schema(
+    request=PasswordResetConfirmSerializer,
+    responses={
+        200: OpenApiResponse(description="Password changed. All sessions are invalidated."),
+        400: OpenApiResponse(description="Token invalid, or the new password was rejected."),
+    },
+    summary="Set a new password with a reset token",
+)
+class PasswordResetConfirmView(APIView):
+    permission_classes: ClassVar[list] = [AllowAny]
+    throttle_scope = "password_reset"
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            reset_password(
+                token=serializer.validated_data["token"],
+                new_password=serializer.validated_data["new_password"],
+            )
+        except InvalidPasswordResetToken:
+            return Response(
+                {"detail": "That reset link is not valid."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"detail": "Password changed. Please sign in again."},
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    request=PasswordChangeSerializer,
+    responses={
+        200: OpenApiResponse(description="Password changed."),
+        400: OpenApiResponse(description="Current password wrong, or new password rejected."),
+    },
+    summary="Change your password",
+)
+class PasswordChangeView(APIView):
+    """Change the password of the signed-in user.
+
+    The only endpoint here that requires authentication, so it uses the
+    project default rather than AllowAny.
+    """
+
+    throttle_scope = "password_change"
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            change_password(
+                user=request.user,
+                current_password=serializer.validated_data["current_password"],
+                new_password=serializer.validated_data["new_password"],
+            )
+        except IncorrectPassword:
+            return Response(
+                {"detail": "Your current password is not correct."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Without this the caller is signed out of the browser they just used,
+        # because changing the password rotates the session auth hash. Other
+        # sessions still die, which is the intent.
+        update_session_auth_hash(request, request.user)
+
+        return Response({"detail": "Password changed."}, status=status.HTTP_200_OK)
