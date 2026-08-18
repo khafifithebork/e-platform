@@ -22,9 +22,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.selectors import get_user_for_me
 from apps.accounts.serializers import (
     EmailOnlySerializer,
     LoginSerializer,
+    MeSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     RegisterSerializer,
@@ -402,3 +404,27 @@ class PasswordChangeView(APIView):
         update_session_auth_hash(request, request.user)
 
         return Response({"detail": "Password changed."}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    responses={
+        200: MeSerializer,
+        403: OpenApiResponse(description="Not signed in."),
+    },
+    summary="The signed-in user",
+)
+class MeView(APIView):
+    """Who am I.
+
+    Identity comes from the session and nothing else. There is no path
+    parameter, no query parameter and no header that selects a user — a
+    stronger guarantee than filtering one out, because there is nothing to
+    filter. architecture.md section 4.4 calls fetching by a client-supplied
+    identifier the single most common IDOR in DRF codebases; the fix here is
+    to never accept one.
+    """
+
+    throttle_scope = "me"
+
+    def get(self, request):
+        return Response(MeSerializer(get_user_for_me(user=request.user)).data)

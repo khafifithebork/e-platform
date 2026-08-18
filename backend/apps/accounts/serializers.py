@@ -102,3 +102,33 @@ class PasswordChangeSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages)) from exc
         return value
+
+
+class StudentProfileSerializer(serializers.Serializer):
+    """Output only."""
+
+    display_name = serializers.CharField()
+
+
+class MeSerializer(serializers.Serializer):
+    """The signed-in user.
+
+    A field allowlist rather than a ModelSerializer with `exclude`. With
+    `exclude`, every field added to User later is exposed by default and
+    somebody has to remember to hide it; here the default is that new fields
+    stay private until named.
+
+    `is_staff`, `is_superuser`, `groups` and `user_permissions` are therefore
+    absent: they are internal authorisation detail, and the frontend branches
+    on `role`.
+
+    No `access` object until M4 (architecture.md section 6.2). Adding an
+    optional object later is backward compatible; shipping a fake one now would
+    invite the frontend to depend on a shape with no logic behind it.
+    """
+
+    id = serializers.UUIDField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    role = serializers.CharField(read_only=True)
+    is_email_verified = serializers.BooleanField(read_only=True)
+    profile = StudentProfileSerializer(source="student_profile", read_only=True)

@@ -188,6 +188,9 @@ REST_FRAMEWORK = {
         # address supplied, so it is a spam vector as well as an oracle.
         "password_reset": "5/hour",
         "password_change": "5/hour",
+        # Generous: the frontend calls this on load and after every auth
+        # transition, so a tight limit would break normal use.
+        "me": "120/min",
         "resend_verification": "3/hour",
         # No account to lock out here, so the rate limit is the only brake on
         # guessing a token.

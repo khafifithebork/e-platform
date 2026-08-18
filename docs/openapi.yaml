@@ -60,6 +60,32 @@ paths:
       responses:
         '200':
           description: Signed out. Idempotent.
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: |-
+        Who am I.
+
+        Identity comes from the session and nothing else. There is no path
+        parameter, no query parameter and no header that selects a user — a
+        stronger guarantee than filtering one out, because there is nothing to
+        filter. architecture.md section 4.4 calls fetching by a client-supplied
+        identifier the single most common IDOR in DRF codebases; the fix here is
+        to never accept one.
+      summary: The signed-in user
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+        '403':
+          description: Not signed in.
   /api/v1/auth/password/change/:
     post:
       operationId: auth_password_change_create
@@ -281,6 +307,48 @@ components:
       required:
       - email
       - password
+    Me:
+      type: object
+      description: |-
+        The signed-in user.
+
+        A field allowlist rather than a ModelSerializer with `exclude`. With
+        `exclude`, every field added to User later is exposed by default and
+        somebody has to remember to hide it; here the default is that new fields
+        stay private until named.
+
+        `is_staff`, `is_superuser`, `groups` and `user_permissions` are therefore
+        absent: they are internal authorisation detail, and the frontend branches
+        on `role`.
+
+        No `access` object until M4 (architecture.md section 6.2). Adding an
+        optional object later is backward compatible; shipping a fake one now would
+        invite the frontend to depend on a shape with no logic behind it.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          type: string
+          readOnly: true
+        is_email_verified:
+          type: boolean
+          readOnly: true
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/StudentProfile'
+          readOnly: true
+      required:
+      - email
+      - id
+      - is_email_verified
+      - profile
+      - role
     PasswordChangeRequest:
       type: object
       description: |-
@@ -340,6 +408,14 @@ components:
       required:
       - email
       - password
+    StudentProfile:
+      type: object
+      description: Output only.
+      properties:
+        display_name:
+          type: string
+      required:
+      - display_name
     VerifyEmailRequest:
       type: object
       description: For consuming a verification token.

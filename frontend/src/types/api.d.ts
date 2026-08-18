@@ -57,6 +57,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in user
+         * @description Who am I.
+         *
+         *     Identity comes from the session and nothing else. There is no path
+         *     parameter, no query parameter and no header that selects a user — a
+         *     stronger guarantee than filtering one out, because there is nothing to
+         *     filter. architecture.md section 4.4 calls fetching by a client-supplied
+         *     identifier the single most common IDOR in DRF codebases; the fix here is
+         *     to never accept one.
+         */
+        get: operations["auth_me_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/password/change/": {
         parameters: {
             query?: never;
@@ -221,6 +248,31 @@ export interface components {
             password: string;
         };
         /**
+         * @description The signed-in user.
+         *
+         *     A field allowlist rather than a ModelSerializer with `exclude`. With
+         *     `exclude`, every field added to User later is exposed by default and
+         *     somebody has to remember to hide it; here the default is that new fields
+         *     stay private until named.
+         *
+         *     `is_staff`, `is_superuser`, `groups` and `user_permissions` are therefore
+         *     absent: they are internal authorisation detail, and the frontend branches
+         *     on `role`.
+         *
+         *     No `access` object until M4 (architecture.md section 6.2). Adding an
+         *     optional object later is backward compatible; shipping a fake one now would
+         *     invite the frontend to depend on a shape with no logic behind it.
+         */
+        Me: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: string;
+            readonly is_email_verified: boolean;
+            readonly profile: components["schemas"]["StudentProfile"];
+        };
+        /**
          * @description Change a signed-in user's password.
          *
          *     The current password is required even though the caller is authenticated —
@@ -246,6 +298,10 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+        };
+        /** @description Output only. */
+        StudentProfile: {
+            display_name: string;
         };
         /** @description For consuming a verification token. */
         VerifyEmailRequest: {
@@ -302,6 +358,32 @@ export interface operations {
         responses: {
             /** @description Signed out. Idempotent. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Not signed in. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
