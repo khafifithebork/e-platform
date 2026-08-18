@@ -13,6 +13,7 @@ from apps.core.views import healthz
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/auth/", include("apps.accounts.urls")),
+    path("api/v1/instructor/", include("apps.catalog.urls")),
     # Infrastructure, not product: outside /api/v1/ on purpose, so it is not
     # versioned, not in the OpenAPI schema, and not proxied as an API route.
     path("healthz", healthz, name="healthz"),

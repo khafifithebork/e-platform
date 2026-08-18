@@ -226,15 +226,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instructor/courses/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description CRUD over the courses you own.
+         *
+         *     There is deliberately **no publish action here at all**. An instructor's
+         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
+         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+         *     guarantee than a permission check on an endpoint that exists.
+         */
+        get: operations["instructor_courses_list"];
+        put?: never;
+        /**
+         * @description CRUD over the courses you own.
+         *
+         *     There is deliberately **no publish action here at all**. An instructor's
+         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
+         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+         *     guarantee than a permission check on an endpoint that exists.
+         */
+        post: operations["instructor_courses_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description CRUD over the courses you own.
+         *
+         *     There is deliberately **no publish action here at all**. An instructor's
+         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
+         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+         *     guarantee than a permission check on an endpoint that exists.
+         */
+        get: operations["instructor_courses_retrieve"];
+        /**
+         * @description CRUD over the courses you own.
+         *
+         *     There is deliberately **no publish action here at all**. An instructor's
+         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
+         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+         *     guarantee than a permission check on an endpoint that exists.
+         */
+        put: operations["instructor_courses_update"];
+        post?: never;
+        /**
+         * @description CRUD over the courses you own.
+         *
+         *     There is deliberately **no publish action here at all**. An instructor's
+         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
+         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+         *     guarantee than a permission check on an endpoint that exists.
+         */
+        delete: operations["instructor_courses_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description CRUD over the courses you own.
+         *
+         *     There is deliberately **no publish action here at all**. An instructor's
+         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
+         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+         *     guarantee than a permission check on an endpoint that exists.
+         */
+        patch: operations["instructor_courses_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{id}/submit-for-review/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a course for review
+         * @description CRUD over the courses you own.
+         *
+         *     There is deliberately **no publish action here at all**. An instructor's
+         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
+         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+         *     guarantee than a permission check on an endpoint that exists.
+         */
+        post: operations["instructor_courses_submit_for_review_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description An instructor's view of their own course.
+         *
+         *     ``status``, ``published_at`` and ``instructor`` are read-only, and that is
+         *     a security control rather than a convenience. A writable ``status`` would
+         *     hand every instructor the publish button — the one thing
+         *     ``architecture.md`` §3 promises they do not have — and a writable
+         *     ``instructor`` would let them assign a course to somebody else, or claim
+         *     one.
+         *
+         *     Ownership comes from the session in ``perform_create``, never from the
+         *     request body.
+         */
+        Course: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description The public URL. Unique across the catalogue, not per instructor. */
+            slug: string;
+            title: string;
+            description?: string;
+            language: number;
+            level: components["schemas"]["LevelEnum"];
+            /** @description Free-form tags, e.g. ['listening', 'grammar']. */
+            skill_areas?: unknown;
+            /**
+             * @description Never writable from a request body. Changed only by services.transition.
+             *
+             *     * `DRAFT` - Draft
+             *     * `IN_REVIEW` - In review
+             *     * `PUBLISHED` - Published
+             *     * `ARCHIVED` - Archived
+             */
+            readonly status: components["schemas"]["StatusEnum"];
+            /**
+             * Format: date-time
+             * @description Set when an admin approves. Null means it has never been live.
+             */
+            readonly published_at: string | null;
+            /** Format: uuid */
+            readonly instructor: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description An instructor's view of their own course.
+         *
+         *     ``status``, ``published_at`` and ``instructor`` are read-only, and that is
+         *     a security control rather than a convenience. A writable ``status`` would
+         *     hand every instructor the publish button — the one thing
+         *     ``architecture.md`` §3 promises they do not have — and a writable
+         *     ``instructor`` would let them assign a course to somebody else, or claim
+         *     one.
+         *
+         *     Ownership comes from the session in ``perform_create``, never from the
+         *     request body.
+         */
+        CourseRequest: {
+            /** @description The public URL. Unique across the catalogue, not per instructor. */
+            slug: string;
+            title: string;
+            description?: string;
+            language: number;
+            level: components["schemas"]["LevelEnum"];
+            /** @description Free-form tags, e.g. ['listening', 'grammar']. */
+            skill_areas?: unknown;
+        };
         /** @description For resending a verification email. */
         EmailOnlyRequest: {
             /** Format: email */
             email: string;
         };
+        /**
+         * @description * `A1` - A1 — Beginner
+         *     * `A2` - A2 — Elementary
+         *     * `B1` - B1 — Intermediate
+         *     * `B2` - B2 — Upper intermediate
+         *     * `C1` - C1 — Advanced
+         *     * `C2` - C2 — Proficient
+         * @enum {string}
+         */
+        LevelEnum: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
         /**
          * @description Login input.
          *
@@ -272,6 +455,19 @@ export interface components {
             readonly is_email_verified: boolean;
             readonly profile: components["schemas"]["StudentProfile"];
         };
+        PaginatedCourseList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Course"][];
+        };
         /**
          * @description Change a signed-in user's password.
          *
@@ -288,6 +484,29 @@ export interface components {
             new_password: string;
         };
         /**
+         * @description An instructor's view of their own course.
+         *
+         *     ``status``, ``published_at`` and ``instructor`` are read-only, and that is
+         *     a security control rather than a convenience. A writable ``status`` would
+         *     hand every instructor the publish button — the one thing
+         *     ``architecture.md`` §3 promises they do not have — and a writable
+         *     ``instructor`` would let them assign a course to somebody else, or claim
+         *     one.
+         *
+         *     Ownership comes from the session in ``perform_create``, never from the
+         *     request body.
+         */
+        PatchedCourseRequest: {
+            /** @description The public URL. Unique across the catalogue, not per instructor. */
+            slug?: string;
+            title?: string;
+            description?: string;
+            language?: number;
+            level?: components["schemas"]["LevelEnum"];
+            /** @description Free-form tags, e.g. ['listening', 'grammar']. */
+            skill_areas?: unknown;
+        };
+        /**
          * @description Registration input.
          *
          *     Two fields, and that is the security control. DRF ignores fields it does
@@ -299,6 +518,14 @@ export interface components {
             email: string;
             password: string;
         };
+        /**
+         * @description * `DRAFT` - Draft
+         *     * `IN_REVIEW` - In review
+         *     * `PUBLISHED` - Published
+         *     * `ARCHIVED` - Archived
+         * @enum {string}
+         */
+        StatusEnum: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED";
         /** @description Output only. */
         StudentProfile: {
             display_name: string;
@@ -556,6 +783,190 @@ export interface operations {
             };
             /** @description Token unknown, expired or already used — deliberately not distinguished. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    instructor_courses_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseList"];
+                };
+            };
+        };
+    };
+    instructor_courses_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CourseRequest"];
+                "multipart/form-data": components["schemas"]["CourseRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Course"];
+                };
+            };
+        };
+    };
+    instructor_courses_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this course. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Course"];
+                };
+            };
+        };
+    };
+    instructor_courses_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this course. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CourseRequest"];
+                "multipart/form-data": components["schemas"]["CourseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Course"];
+                };
+            };
+        };
+    };
+    instructor_courses_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this course. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    instructor_courses_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this course. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCourseRequest"];
+                "multipart/form-data": components["schemas"]["PatchedCourseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Course"];
+                };
+            };
+        };
+    };
+    instructor_courses_submit_for_review_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this course. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Course"];
+                };
+            };
+            /** @description No such course of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not in a state that can be submitted. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

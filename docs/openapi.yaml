@@ -272,8 +272,353 @@ paths:
           description: Email address verified.
         '400':
           description: Token unknown, expired or already used — deliberately not distinguished.
+  /api/v1/instructor/courses/:
+    get:
+      operationId: instructor_courses_list
+      description: |-
+        CRUD over the courses you own.
+
+        There is deliberately **no publish action here at all**. An instructor's
+        only forward move is ``submit-for-review``; the route to PUBLISHED exists
+        solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+        guarantee than a permission check on an endpoint that exists.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCourseList'
+          description: ''
+    post:
+      operationId: instructor_courses_create
+      description: |-
+        CRUD over the courses you own.
+
+        There is deliberately **no publish action here at all**. An instructor's
+        only forward move is ``submit-for-review``; the route to PUBLISHED exists
+        solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+        guarantee than a permission check on an endpoint that exists.
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+  /api/v1/instructor/courses/{id}/:
+    get:
+      operationId: instructor_courses_retrieve
+      description: |-
+        CRUD over the courses you own.
+
+        There is deliberately **no publish action here at all**. An instructor's
+        only forward move is ``submit-for-review``; the route to PUBLISHED exists
+        solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+        guarantee than a permission check on an endpoint that exists.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    put:
+      operationId: instructor_courses_update
+      description: |-
+        CRUD over the courses you own.
+
+        There is deliberately **no publish action here at all**. An instructor's
+        only forward move is ``submit-for-review``; the route to PUBLISHED exists
+        solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+        guarantee than a permission check on an endpoint that exists.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    patch:
+      operationId: instructor_courses_partial_update
+      description: |-
+        CRUD over the courses you own.
+
+        There is deliberately **no publish action here at all**. An instructor's
+        only forward move is ``submit-for-review``; the route to PUBLISHED exists
+        solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+        guarantee than a permission check on an endpoint that exists.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - instructor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    delete:
+      operationId: instructor_courses_destroy
+      description: |-
+        CRUD over the courses you own.
+
+        There is deliberately **no publish action here at all**. An instructor's
+        only forward move is ``submit-for-review``; the route to PUBLISHED exists
+        solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+        guarantee than a permission check on an endpoint that exists.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/instructor/courses/{id}/submit-for-review/:
+    post:
+      operationId: instructor_courses_submit_for_review_create
+      description: |-
+        CRUD over the courses you own.
+
+        There is deliberately **no publish action here at all**. An instructor's
+        only forward move is ``submit-for-review``; the route to PUBLISHED exists
+        solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
+        guarantee than a permission check on an endpoint that exists.
+      summary: Submit a course for review
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+        '404':
+          description: No such course of yours.
+        '409':
+          description: Not in a state that can be submitted.
 components:
   schemas:
+    Course:
+      type: object
+      description: |-
+        An instructor's view of their own course.
+
+        ``status``, ``published_at`` and ``instructor`` are read-only, and that is
+        a security control rather than a convenience. A writable ``status`` would
+        hand every instructor the publish button — the one thing
+        ``architecture.md`` §3 promises they do not have — and a writable
+        ``instructor`` would let them assign a course to somebody else, or claim
+        one.
+
+        Ownership comes from the session in ``perform_create``, never from the
+        request body.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        slug:
+          type: string
+          description: The public URL. Unique across the catalogue, not per instructor.
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        language:
+          type: integer
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        skill_areas:
+          description: Free-form tags, e.g. ['listening', 'grammar'].
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+          description: |-
+            Never writable from a request body. Changed only by services.transition.
+
+            * `DRAFT` - Draft
+            * `IN_REVIEW` - In review
+            * `PUBLISHED` - Published
+            * `ARCHIVED` - Archived
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: Set when an admin approves. Null means it has never been live.
+        instructor:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - instructor
+      - language
+      - level
+      - published_at
+      - slug
+      - status
+      - title
+      - updated_at
+    CourseRequest:
+      type: object
+      description: |-
+        An instructor's view of their own course.
+
+        ``status``, ``published_at`` and ``instructor`` are read-only, and that is
+        a security control rather than a convenience. A writable ``status`` would
+        hand every instructor the publish button — the one thing
+        ``architecture.md`` §3 promises they do not have — and a writable
+        ``instructor`` would let them assign a course to somebody else, or claim
+        one.
+
+        Ownership comes from the session in ``perform_create``, never from the
+        request body.
+      properties:
+        slug:
+          type: string
+          minLength: 1
+          description: The public URL. Unique across the catalogue, not per instructor.
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        language:
+          type: integer
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        skill_areas:
+          description: Free-form tags, e.g. ['listening', 'grammar'].
+      required:
+      - language
+      - level
+      - slug
+      - title
     EmailOnlyRequest:
       type: object
       description: For resending a verification email.
@@ -285,6 +630,22 @@ components:
           maxLength: 254
       required:
       - email
+    LevelEnum:
+      enum:
+      - A1
+      - A2
+      - B1
+      - B2
+      - C1
+      - C2
+      type: string
+      description: |-
+        * `A1` - A1 — Beginner
+        * `A2` - A2 — Elementary
+        * `B1` - B1 — Intermediate
+        * `B2` - B2 — Upper intermediate
+        * `C1` - C1 — Advanced
+        * `C2` - C2 — Proficient
     LoginRequest:
       type: object
       description: |-
@@ -349,6 +710,25 @@ components:
       - is_email_verified
       - profile
       - role
+    PaginatedCourseList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Course'
     PasswordChangeRequest:
       type: object
       description: |-
@@ -386,6 +766,39 @@ components:
       required:
       - new_password
       - token
+    PatchedCourseRequest:
+      type: object
+      description: |-
+        An instructor's view of their own course.
+
+        ``status``, ``published_at`` and ``instructor`` are read-only, and that is
+        a security control rather than a convenience. A writable ``status`` would
+        hand every instructor the publish button — the one thing
+        ``architecture.md`` §3 promises they do not have — and a writable
+        ``instructor`` would let them assign a course to somebody else, or claim
+        one.
+
+        Ownership comes from the session in ``perform_create``, never from the
+        request body.
+      properties:
+        slug:
+          type: string
+          minLength: 1
+          description: The public URL. Unique across the catalogue, not per instructor.
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        language:
+          type: integer
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        skill_areas:
+          description: Free-form tags, e.g. ['listening', 'grammar'].
     RegisterRequest:
       type: object
       description: |-
@@ -408,6 +821,18 @@ components:
       required:
       - email
       - password
+    StatusEnum:
+      enum:
+      - DRAFT
+      - IN_REVIEW
+      - PUBLISHED
+      - ARCHIVED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `IN_REVIEW` - In review
+        * `PUBLISHED` - Published
+        * `ARCHIVED` - Archived
     StudentProfile:
       type: object
       description: Output only.
