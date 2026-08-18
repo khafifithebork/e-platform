@@ -169,6 +169,11 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
+        # Without this, `throttle_scope` on a view is an attribute nothing
+        # reads. Every per-endpoint rate below would be inert and the only
+        # limit in force would be the general anonymous one — which is six
+        # times more permissive than the login limit it would be replacing.
+        "rest_framework.throttling.ScopedRateThrottle",
     ],
     # architecture.md 6.4. Per-endpoint scopes — login, playback tokens,
     # progress — arrive with those endpoints.
