@@ -4,6 +4,62 @@ info:
   version: 1.0.0
   description: Curated language-learning subscription platform.
 paths:
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Establish a session.
+
+        `authenticate` runs through AxesStandaloneBackend first, so a locked
+        account fails here exactly as a wrong password does — and says the same
+        thing. Telling a caller "this account is locked" would confirm the address
+        exists and tell them their guessing worked well enough to matter.
+
+        Deliberately not CSRF-exempt. Forcing a victim's browser to sign in as the
+        attacker is a real attack: everything they do next is recorded against the
+        wrong account.
+      summary: Sign in
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: Signed in. A session cookie is set.
+        '400':
+          description: Credentials refused, or the account is locked. Deliberately
+            one answer.
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: |-
+        Destroy the session.
+
+        Idempotent, and permitted while unauthenticated: a client retrying after a
+        timeout should not receive an error for succeeding twice, and refusing an
+        anonymous caller would leak whether their session was still alive.
+      summary: Sign out
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: Signed out. Idempotent.
   /api/v1/auth/register/:
     post:
       operationId: auth_register_create
@@ -116,6 +172,28 @@ components:
           maxLength: 254
       required:
       - email
+    LoginRequest:
+      type: object
+      description: |-
+        Login input.
+
+        No password validators here. They exist to stop weak passwords being
+        *chosen*; applying them at login would reject a valid credential set before
+        a stricter policy, and would leak the policy to anyone probing.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - password
     RegisterRequest:
       type: object
       description: |-

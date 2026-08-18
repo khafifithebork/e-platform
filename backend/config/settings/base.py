@@ -180,6 +180,10 @@ REST_FRAMEWORK = {
         "user": "300/min",
         # Trial abuse (§7.1) starts with cheap account creation.
         "register": "5/hour",
+        # Credential stuffing. django-axes locks a single account; this limits
+        # an attacker spraying one password across many addresses, which no
+        # per-account lockout can see.
+        "login": "10/hour",
         "resend_verification": "3/hour",
         # No account to lock out here, so the rate limit is the only brake on
         # guessing a token.
@@ -257,6 +261,12 @@ AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 
 # The login field is the email address, not a username.
 AXES_USERNAME_FORM_FIELD = "email"
+
+# Without this the lockout silently does nothing on a JSON API. Axes reads the
+# username from request.POST, which is empty for an application/json body, so
+# every attempt is recorded with username=None — the table fills, the logs look
+# healthy, and the (username, ip_address) lookup never matches a real account.
+AXES_USERNAME_CALLABLE = "apps.accounts.axes.get_username"
 
 # Successful logins reset the counter, so a legitimate user who mistypes twice
 # and then succeeds does not carry those failures forward.
