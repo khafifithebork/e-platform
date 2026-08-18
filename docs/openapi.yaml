@@ -60,6 +60,119 @@ paths:
       responses:
         '200':
           description: Signed out. Idempotent.
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: |-
+        Who am I.
+
+        Identity comes from the session and nothing else. There is no path
+        parameter, no query parameter and no header that selects a user — a
+        stronger guarantee than filtering one out, because there is nothing to
+        filter. architecture.md section 4.4 calls fetching by a client-supplied
+        identifier the single most common IDOR in DRF codebases; the fix here is
+        to never accept one.
+      summary: The signed-in user
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+        '403':
+          description: Not signed in.
+  /api/v1/auth/password/change/:
+    post:
+      operationId: auth_password_change_create
+      description: |-
+        Change the password of the signed-in user.
+
+        The only endpoint here that requires authentication, so it uses the
+        project default rather than AllowAny.
+      summary: Change your password
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Password changed.
+        '400':
+          description: Current password wrong, or new password rejected.
+  /api/v1/auth/password/reset/:
+    post:
+      operationId: auth_password_reset_create
+      description: |-
+        Send a reset link.
+
+        Always 202. §6.2 is explicit that this must never reveal whether an account
+        exists, and a reset endpoint is the most attractive enumeration oracle in
+        any application because it is designed to be used by people who are locked
+        out and therefore unauthenticated.
+      summary: Request a password reset
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailOnlyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailOnlyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailOnlyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '202':
+          description: Accepted. Identical for unknown addresses.
+  /api/v1/auth/password/reset/confirm/:
+    post:
+      operationId: auth_password_reset_confirm_create
+      summary: Set a new password with a reset token
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: Password changed. All sessions are invalidated.
+        '400':
+          description: Token invalid, or the new password was rejected.
   /api/v1/auth/register/:
     post:
       operationId: auth_register_create
@@ -194,6 +307,85 @@ components:
       required:
       - email
       - password
+    Me:
+      type: object
+      description: |-
+        The signed-in user.
+
+        A field allowlist rather than a ModelSerializer with `exclude`. With
+        `exclude`, every field added to User later is exposed by default and
+        somebody has to remember to hide it; here the default is that new fields
+        stay private until named.
+
+        `is_staff`, `is_superuser`, `groups` and `user_permissions` are therefore
+        absent: they are internal authorisation detail, and the frontend branches
+        on `role`.
+
+        No `access` object until M4 (architecture.md section 6.2). Adding an
+        optional object later is backward compatible; shipping a fake one now would
+        invite the frontend to depend on a shape with no logic behind it.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          type: string
+          readOnly: true
+        is_email_verified:
+          type: boolean
+          readOnly: true
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/StudentProfile'
+          readOnly: true
+      required:
+      - email
+      - id
+      - is_email_verified
+      - profile
+      - role
+    PasswordChangeRequest:
+      type: object
+      description: |-
+        Change a signed-in user's password.
+
+        The current password is required even though the caller is authenticated —
+        a session left open on a shared machine is exactly what this stops.
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - current_password
+      - new_password
+    PasswordResetConfirmRequest:
+      type: object
+      description: Consume a reset token and set a new password.
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 256
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - new_password
+      - token
     RegisterRequest:
       type: object
       description: |-
@@ -216,6 +408,14 @@ components:
       required:
       - email
       - password
+    StudentProfile:
+      type: object
+      description: Output only.
+      properties:
+        display_name:
+          type: string
+      required:
+      - display_name
     VerifyEmailRequest:
       type: object
       description: For consuming a verification token.

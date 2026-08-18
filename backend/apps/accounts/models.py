@@ -135,6 +135,37 @@ class EmailVerificationToken(UUIDPrimaryKeyModel, TimestampedModel):
         return f"Verification token for {self.user_id}"
 
 
+class PasswordResetToken(UUIDPrimaryKeyModel, TimestampedModel):
+    """A single-use, expiring authority to set a new password.
+
+    Same shape as ``EmailVerificationToken`` and deliberately a separate model
+    rather than one abstraction over both: they differ in lifetime, in blast
+    radius, and in what consuming them does. Two concrete implementations read
+    more clearly than one generalisation with a ``kind`` column.
+
+    The blast radius is the difference that matters. A leaked verification
+    token marks an address confirmed; a leaked reset token *is* account
+    takeover. Hence the much shorter lifetime.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="password_reset_tokens",
+    )
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes: ClassVar[list] = [
+            models.Index(fields=["user", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Password reset token for {self.user_id}"
+
+
 class StudentProfile(UUIDPrimaryKeyModel, TimestampedModel):
     """Learner-facing profile, created with the account (ADR-005 §2.4).
 

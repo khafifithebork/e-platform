@@ -13,7 +13,12 @@ from datetime import timedelta
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.accounts.models import EmailVerificationToken, StudentProfile, User
+from apps.accounts.models import (
+    EmailVerificationToken,
+    PasswordResetToken,
+    StudentProfile,
+    User,
+)
 
 # 32 bytes of entropy, URL-safe. Long enough that guessing is not a strategy —
 # unlike login, a token endpoint has no account to lock out, so brute-force
@@ -135,5 +140,91 @@ def verify_email(*, token: str) -> User:
     user = record.user
     user.is_email_verified = True
     user.save(update_fields=["is_email_verified"])
+
+    return user
+
+
+class InvalidPasswordResetToken(Exception):
+    """Unknown, expired, or already consumed — one exception for all three."""
+
+
+class IncorrectPassword(Exception):
+    """The current password supplied to a change did not match."""
+
+
+# Deliberately far shorter than verification's 24 hours. A leaked verification
+# token marks an address confirmed; a leaked reset token is account takeover.
+PASSWORD_RESET_TOKEN_LIFETIME = timedelta(hours=1)
+
+
+def issue_password_reset(*, user: User) -> str:
+    """Create a reset token and return the raw value, which is never stored."""
+    raw = secrets.token_urlsafe(VERIFICATION_TOKEN_BYTES)
+
+    PasswordResetToken.objects.create(
+        user=user,
+        token_hash=_hash_token(raw),
+        expires_at=timezone.now() + PASSWORD_RESET_TOKEN_LIFETIME,
+    )
+
+    return raw
+
+
+@transaction.atomic
+def reset_password(*, token: str, new_password: str) -> User:
+    """Consume a token and set a new password.
+
+    Changing the password rotates Django's session auth hash, which invalidates
+    every existing session for the account. That is the point rather than a
+    side effect: someone resetting their password may be doing it *because*
+    they think an attacker has access, and leaving the attacker's session alive
+    would defeat the whole exercise.
+
+    Locked read, so two requests racing the same emailed link cannot both
+    succeed.
+    """
+    if not token:
+        raise InvalidPasswordResetToken
+
+    try:
+        record = PasswordResetToken.objects.select_for_update().get(token_hash=_hash_token(token))
+    except PasswordResetToken.DoesNotExist as exc:
+        raise InvalidPasswordResetToken from exc
+
+    if record.consumed_at is not None:
+        raise InvalidPasswordResetToken
+    if record.expires_at <= timezone.now():
+        raise InvalidPasswordResetToken
+
+    record.consumed_at = timezone.now()
+    record.save(update_fields=["consumed_at", "updated_at"])
+
+    user = record.user
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+
+    # Any other reset token outstanding for this account is now moot, and
+    # leaving them live would mean an attacker who requested one earlier still
+    # holds a working key.
+    PasswordResetToken.objects.filter(user=user, consumed_at__isnull=True).update(
+        consumed_at=timezone.now()
+    )
+
+    return user
+
+
+def change_password(*, user: User, current_password: str, new_password: str) -> User:
+    """Change a signed-in user's password.
+
+    The current password is required even though the caller is authenticated.
+    A session left open on a shared machine is exactly the situation this
+    stops, and it is cheap insurance against a stolen session becoming a
+    permanent one.
+    """
+    if not user.check_password(current_password):
+        raise IncorrectPassword
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
 
     return user

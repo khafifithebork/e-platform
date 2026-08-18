@@ -169,6 +169,11 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
+        # Without this, `throttle_scope` on a view is an attribute nothing
+        # reads. Every per-endpoint rate below would be inert and the only
+        # limit in force would be the general anonymous one — which is six
+        # times more permissive than the login limit it would be replacing.
+        "rest_framework.throttling.ScopedRateThrottle",
     ],
     # architecture.md 6.4. Per-endpoint scopes — login, playback tokens,
     # progress — arrive with those endpoints.
@@ -184,6 +189,13 @@ REST_FRAMEWORK = {
         # an attacker spraying one password across many addresses, which no
         # per-account lockout can see.
         "login": "10/hour",
+        # Enumeration and mail-bombing: this endpoint sends an email to any
+        # address supplied, so it is a spam vector as well as an oracle.
+        "password_reset": "5/hour",
+        "password_change": "5/hour",
+        # Generous: the frontend calls this on load and after every auth
+        # transition, so a tight limit would break normal use.
+        "me": "120/min",
         "resend_verification": "3/hour",
         # No account to lock out here, so the rate limit is the only brake on
         # guessing a token.
