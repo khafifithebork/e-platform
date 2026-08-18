@@ -11,13 +11,15 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
-from apps.catalog.models import Course, Lesson, Section
+from apps.catalog.models import Course, CourseReviewEvent, Lesson, Section
 from apps.catalog.selectors import (
     courses_for_instructor,
     lessons_for_course,
+    review_events_for_course,
     sections_for_course,
 )
 from apps.catalog.serializers import (
+    CourseReviewEventSerializer,
     CourseSerializer,
     LessonReorderSerializer,
     LessonSerializer,
@@ -98,13 +100,21 @@ class InstructorCourseViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(course).data)
 
 
-class _CourseScopedViewSet(viewsets.ModelViewSet):
-    """Base for anything that hangs off a course the caller must own.
+class _CourseScopedMixin:
+    """Ownership resolution for anything that hangs off a course.
 
-    Every route resolves the parent course through
-    ``courses_for_instructor``, so a course belonging to somebody else is a 404
-    before a section or lesson is ever looked at. Nothing below this class
-    repeats the ownership check, and nothing below it may skip one.
+    Every route resolves the parent course through ``courses_for_instructor``,
+    so a course belonging to somebody else is a 404 before a section or lesson
+    is ever looked at. Nothing using this mixin repeats the ownership check,
+    and nothing using it may skip one.
+
+    Deliberately a mixin and not a ``ModelViewSet`` subclass. It was the
+    latter, and ``InstructorReviewEventViewSet(_CourseScopedViewSet,
+    ReadOnlyModelViewSet)`` then resolved ``CreateModelMixin`` from the *base*
+    first: the read-only viewset was shadowed and the trail accepted POSTs
+    while the class name said it could not. A mixin carries no verbs, so each
+    viewset's own base decides what it accepts and cannot be overruled from
+    here.
     """
 
     def _course(self) -> Course:
@@ -121,7 +131,7 @@ class _CourseScopedViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=["instructor"])
-class InstructorSectionViewSet(_CourseScopedViewSet):
+class InstructorSectionViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
     """Sections of one of your courses."""
 
     serializer_class = SectionSerializer
@@ -160,7 +170,7 @@ class InstructorSectionViewSet(_CourseScopedViewSet):
 
 
 @extend_schema(tags=["instructor"])
-class InstructorLessonViewSet(_CourseScopedViewSet):
+class InstructorLessonViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
     """Lessons of one of your courses."""
 
     serializer_class = LessonSerializer
@@ -219,3 +229,23 @@ class InstructorLessonViewSet(_CourseScopedViewSet):
             raise ValidationError({"order": [str(exc)]}) from exc
 
         return Response(self.get_serializer(self.get_queryset(), many=True).data)
+
+
+@extend_schema(tags=["instructor"])
+class InstructorReviewEventViewSet(_CourseScopedMixin, viewsets.ReadOnlyModelViewSet):
+    """The review history of one of your courses.
+
+    ``ReadOnlyModelViewSet``, and that is the security control rather than a
+    convenience: a writable trail would let an instructor POST themselves an
+    APPROVED event. Nothing downstream reads this table to decide access —
+    publication runs through the state machine in ``services.py`` — so a
+    forgery would mislead a human rather than grant anything, which is still a
+    bug worth closing at the route.
+    """
+
+    serializer_class = CourseReviewEventSerializer
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return CourseReviewEvent.objects.none()
+        return review_events_for_course(course=self._course())

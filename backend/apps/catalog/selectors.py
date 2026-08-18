@@ -1,7 +1,7 @@
 """Catalogue reads."""
 
 from apps.accounts.models import User
-from apps.catalog.models import Course, Lesson, Section
+from apps.catalog.models import Course, CourseReviewEvent, Lesson, Section
 
 
 def courses_for_instructor(*, user: User):
@@ -47,4 +47,17 @@ def lessons_for_course(*, course: Course):
         Lesson.objects.filter(course=course)
         .select_related("section")
         .order_by("section__position", "position")
+    )
+
+
+def review_events_for_course(*, course: Course):
+    """A course's review history, newest first.
+
+    Joined on actor: the trail is read to find out *who*, and without the join
+    that is one query per row.
+    """
+    return (
+        CourseReviewEvent.objects.filter(course=course)
+        .select_related("actor")
+        .order_by("-created_at")
     )

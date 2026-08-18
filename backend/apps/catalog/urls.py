@@ -16,6 +16,7 @@ from rest_framework.routers import DefaultRouter
 from apps.catalog.views import (
     InstructorCourseViewSet,
     InstructorLessonViewSet,
+    InstructorReviewEventViewSet,
     InstructorSectionViewSet,
 )
 
@@ -30,5 +31,8 @@ router = DefaultRouter()
 router.register("courses", InstructorCourseViewSet, basename="instructor-course")
 router.register(f"{COURSE}/sections", InstructorSectionViewSet, basename="instructor-section")
 router.register(f"{COURSE}/lessons", InstructorLessonViewSet, basename="instructor-lesson")
+router.register(
+    f"{COURSE}/review-events", InstructorReviewEventViewSet, basename="instructor-review-event"
+)
 
 urlpatterns = router.urls

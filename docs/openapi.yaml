@@ -588,6 +588,85 @@ paths:
           description: The order did not name exactly these lessons.
         '404':
           description: No such course or section of yours.
+  /api/v1/instructor/courses/{course_pk}/review-events/:
+    get:
+      operationId: instructor_courses_review_events_list
+      description: |-
+        The review history of one of your courses.
+
+        ``ReadOnlyModelViewSet``, and that is the security control rather than a
+        convenience: a writable trail would let an instructor POST themselves an
+        APPROVED event. Nothing downstream reads this table to decide access —
+        publication runs through the state machine in ``services.py`` — so a
+        forgery would mislead a human rather than grant anything, which is still a
+        bug worth closing at the route.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCourseReviewEventList'
+          description: ''
+  /api/v1/instructor/courses/{course_pk}/review-events/{id}/:
+    get:
+      operationId: instructor_courses_review_events_retrieve
+      description: |-
+        The review history of one of your courses.
+
+        ``ReadOnlyModelViewSet``, and that is the security control rather than a
+        convenience: a writable trail would let an instructor POST themselves an
+        APPROVED event. Nothing downstream reads this table to decide access —
+        publication runs through the state machine in ``services.py`` — so a
+        forgery would mislead a human rather than grant anything, which is still a
+        bug worth closing at the route.
+      parameters:
+      - in: path
+        name: course_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course review event.
+        required: true
+      tags:
+      - instructor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseReviewEvent'
+          description: ''
   /api/v1/instructor/courses/{course_pk}/sections/:
     get:
       operationId: instructor_courses_sections_list
@@ -1006,6 +1085,18 @@ paths:
           description: Not in a state that can be submitted.
 components:
   schemas:
+    ActionEnum:
+      enum:
+      - SUBMITTED
+      - APPROVED
+      - REJECTED
+      - CHANGES_REQUESTED
+      type: string
+      description: |-
+        * `SUBMITTED` - Submitted for review
+        * `APPROVED` - Approved
+        * `REJECTED` - Rejected
+        * `CHANGES_REQUESTED` - Changes requested
     Course:
       type: object
       description: |-
@@ -1119,6 +1210,51 @@ components:
       - level
       - slug
       - title
+    CourseReviewEvent:
+      type: object
+      description: |-
+        Read-only in both directions.
+
+        Every field is read-only *and* the viewset is read-only. That is
+        deliberate belt-and-braces: if someone later swaps the base class for a
+        ModelViewSet — the obvious "while I'm here" change — the serializer still
+        refuses to write, and an instructor still cannot forge their own approval.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course:
+          type: string
+          format: uuid
+          readOnly: true
+        actor:
+          type: string
+          format: uuid
+          readOnly: true
+        actor_email:
+          type: string
+          format: email
+          readOnly: true
+        action:
+          allOf:
+          - $ref: '#/components/schemas/ActionEnum'
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor
+      - actor_email
+      - course
+      - created_at
+      - id
+      - notes
     EmailOnlyRequest:
       type: object
       description: For resending a verification email.
@@ -1350,6 +1486,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Course'
+    PaginatedCourseReviewEventList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseReviewEvent'
     PaginatedLessonList:
       type: object
       required:

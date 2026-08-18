@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from apps.catalog.models import Course, Lesson, Section
+from apps.catalog.models import Course, CourseReviewEvent, Lesson, Section
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -102,3 +102,28 @@ class ReorderSerializer(serializers.Serializer):
 
 class LessonReorderSerializer(ReorderSerializer):
     section = serializers.UUIDField()
+
+
+class CourseReviewEventSerializer(serializers.ModelSerializer):
+    """Read-only in both directions.
+
+    Every field is read-only *and* the viewset is read-only. That is
+    deliberate belt-and-braces: if someone later swaps the base class for a
+    ModelViewSet — the obvious "while I'm here" change — the serializer still
+    refuses to write, and an instructor still cannot forge their own approval.
+    """
+
+    actor_email = serializers.EmailField(source="actor.email", read_only=True)
+
+    class Meta:
+        model = CourseReviewEvent
+        fields: ClassVar[list[str]] = [
+            "id",
+            "course",
+            "actor",
+            "actor_email",
+            "action",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields: ClassVar[list[str]] = fields

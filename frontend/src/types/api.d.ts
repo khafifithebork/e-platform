@@ -316,6 +316,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instructor/courses/{course_pk}/review-events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The review history of one of your courses.
+         *
+         *     ``ReadOnlyModelViewSet``, and that is the security control rather than a
+         *     convenience: a writable trail would let an instructor POST themselves an
+         *     APPROVED event. Nothing downstream reads this table to decide access —
+         *     publication runs through the state machine in ``services.py`` — so a
+         *     forgery would mislead a human rather than grant anything, which is still a
+         *     bug worth closing at the route.
+         */
+        get: operations["instructor_courses_review_events_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instructor/courses/{course_pk}/review-events/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The review history of one of your courses.
+         *
+         *     ``ReadOnlyModelViewSet``, and that is the security control rather than a
+         *     convenience: a writable trail would let an instructor POST themselves an
+         *     APPROVED event. Nothing downstream reads this table to decide access —
+         *     publication runs through the state machine in ``services.py`` — so a
+         *     forgery would mislead a human rather than grant anything, which is still a
+         *     bug worth closing at the route.
+         */
+        get: operations["instructor_courses_review_events_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instructor/courses/{course_pk}/sections/": {
         parameters: {
             query?: never;
@@ -452,6 +504,14 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * @description * `SUBMITTED` - Submitted for review
+         *     * `APPROVED` - Approved
+         *     * `REJECTED` - Rejected
+         *     * `CHANGES_REQUESTED` - Changes requested
+         * @enum {string}
+         */
+        ActionEnum: "SUBMITTED" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
+        /**
          * @description An instructor's view of their own course.
          *
          *     ``status``, ``published_at`` and ``instructor`` are read-only, and that is
@@ -518,6 +578,28 @@ export interface components {
             level: components["schemas"]["LevelEnum"];
             /** @description Free-form tags, e.g. ['listening', 'grammar']. */
             skill_areas?: unknown;
+        };
+        /**
+         * @description Read-only in both directions.
+         *
+         *     Every field is read-only *and* the viewset is read-only. That is
+         *     deliberate belt-and-braces: if someone later swaps the base class for a
+         *     ModelViewSet — the obvious "while I'm here" change — the serializer still
+         *     refuses to write, and an instructor still cannot forge their own approval.
+         */
+        CourseReviewEvent: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly course: string;
+            /** Format: uuid */
+            readonly actor: string;
+            /** Format: email */
+            readonly actor_email: string;
+            readonly action: components["schemas"]["ActionEnum"];
+            readonly notes: string;
+            /** Format: date-time */
+            readonly created_at: string;
         };
         /** @description For resending a verification email. */
         EmailOnlyRequest: {
@@ -641,6 +723,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Course"][];
+        };
+        PaginatedCourseReviewEventList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseReviewEvent"][];
         };
         PaginatedLessonList: {
             /**
@@ -1301,6 +1396,55 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    instructor_courses_review_events_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                course_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseReviewEventList"];
+                };
+            };
+        };
+    };
+    instructor_courses_review_events_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_pk: string;
+                /** @description A UUID string identifying this course review event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseReviewEvent"];
+                };
             };
         };
     };

@@ -134,7 +134,7 @@ class TestOnlyAdminsPublish:
 
 
 @pytest.mark.django_db
-class TestReviewDecisionsAreRecorded:
+class TestReviewActionsAreRecorded:
     def test_approval_records_who_and_when(self, course, instructor, admin) -> None:
         """§7.2. "Why is this live?" has to be answerable later."""
         from apps.catalog.models import CourseReviewEvent
@@ -143,9 +143,11 @@ class TestReviewDecisionsAreRecorded:
         submit_for_review(course=course, by=instructor)
         approve(course=course, by=admin, notes="Good pacing.")
 
-        event = CourseReviewEvent.objects.get(course=course)
-        assert event.decision == "APPROVED"
-        assert event.reviewer == admin
+        # Named by action: the submission is on the trail too, and a bare
+        # get() would break every time a new step is recorded.
+        event = CourseReviewEvent.objects.get(course=course, action="APPROVED")
+        assert event.action == "APPROVED"
+        assert event.actor == admin
         assert event.notes == "Good pacing."
 
     def test_rejection_returns_it_to_draft_and_records_why(self, course, instructor, admin) -> None:
@@ -158,7 +160,7 @@ class TestReviewDecisionsAreRecorded:
 
         assert course.status == "DRAFT"
         assert course.published_at is None
-        assert CourseReviewEvent.objects.get(course=course).decision == "REJECTED"
+        assert CourseReviewEvent.objects.filter(course=course, action="REJECTED").exists()
 
     def test_archiving_clears_published_at(self, course, instructor, admin) -> None:
         """A course that is no longer live must not keep a date saying it is,

@@ -78,6 +78,15 @@ def submit_for_review(*, course: Course, by: User) -> Course:
 
     course.status = CourseStatus.IN_REVIEW
     course.save(update_fields=["status", "updated_at"])
+
+    # Written only after the transition is allowed, so a refused submission
+    # leaves no trace — the review queue orders on these rows, and a rejected
+    # attempt in the trail would put the course in the wrong place.
+    CourseReviewEvent.objects.create(
+        course=course,
+        actor=by,
+        action=CourseReviewEvent.Action.SUBMITTED,
+    )
     return course
 
 
@@ -98,14 +107,14 @@ def approve(*, course: Course, by: User, notes: str = "") -> Course:
 
     CourseReviewEvent.objects.create(
         course=course,
-        reviewer=by,
-        decision=CourseReviewEvent.Decision.APPROVED,
+        actor=by,
+        action=CourseReviewEvent.Action.APPROVED,
         notes=notes,
     )
     return course
 
 
-def _return_to_draft(*, course: Course, by: User, decision: str, notes: str) -> Course:
+def _return_to_draft(*, course: Course, by: User, action: str, notes: str) -> Course:
     _require_admin(by)
     _require_transition(course, CourseStatus.DRAFT)
 
@@ -115,7 +124,7 @@ def _return_to_draft(*, course: Course, by: User, decision: str, notes: str) -> 
     course.published_at = None
     course.save(update_fields=["status", "published_at", "updated_at"])
 
-    CourseReviewEvent.objects.create(course=course, reviewer=by, decision=decision, notes=notes)
+    CourseReviewEvent.objects.create(course=course, actor=by, action=action, notes=notes)
     return course
 
 
@@ -123,7 +132,7 @@ def _return_to_draft(*, course: Course, by: User, decision: str, notes: str) -> 
 def reject(*, course: Course, by: User, notes: str = "") -> Course:
     """Send it back as unsuitable."""
     return _return_to_draft(
-        course=course, by=by, decision=CourseReviewEvent.Decision.REJECTED, notes=notes
+        course=course, by=by, action=CourseReviewEvent.Action.REJECTED, notes=notes
     )
 
 
@@ -137,7 +146,7 @@ def request_changes(*, course: Course, by: User, notes: str = "") -> Course:
     return _return_to_draft(
         course=course,
         by=by,
-        decision=CourseReviewEvent.Decision.CHANGES_REQUESTED,
+        action=CourseReviewEvent.Action.CHANGES_REQUESTED,
         notes=notes,
     )
 

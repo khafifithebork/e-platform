@@ -146,28 +146,43 @@ class Course(UUIDPrimaryKeyModel, TimestampedModel):
 
 
 class CourseReviewEvent(UUIDPrimaryKeyModel, TimestampedModel):
-    """An admin's decision on a submitted course.
+    """One step in a course's passage through review.
 
     Append-only. A mutable status says what is true now; it cannot answer why
     a course is live, who decided, or what they said — which is what a support
     ticket six weeks later actually asks (§5.2 makes the same argument for
     subscription events).
+
+    Records submissions as well as decisions, which is why the fields are
+    ``actor``/``action`` rather than ``reviewer``/``decision``: the actor is
+    the instructor on a submission and an admin on everything else. Submission
+    has to be here rather than in a ``Course.submitted_at`` column because the
+    review queue orders on it — a column would be corrupted by any later edit,
+    letting a typo fix jump the queue — and because the reject-fix-resubmit
+    loop is history a single column cannot hold.
+
+    Nothing downstream derives publication from this table; the state machine
+    in ``services.py`` does that. The trail explains, it does not authorise.
     """
 
-    class Decision(models.TextChoices):
+    class Action(models.TextChoices):
+        SUBMITTED = "SUBMITTED", "Submitted for review"
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
         CHANGES_REQUESTED = "CHANGES_REQUESTED", "Changes requested"
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="review_events")
-    reviewer = models.ForeignKey(
+    actor = models.ForeignKey(
         User,
         # PROTECT (§5.4): deleting an admin must not erase the record of who
         # approved what.
         on_delete=models.PROTECT,
         related_name="course_reviews",
     )
-    decision = models.CharField(max_length=20, choices=Decision.choices)
+    action = models.CharField(max_length=20, choices=Action.choices)
+    # Read by the instructor whose course this is — that is the point of
+    # rejection notes. Not a private scratchpad: anything an admin would not
+    # say to the instructor does not belong in this field.
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -177,7 +192,7 @@ class CourseReviewEvent(UUIDPrimaryKeyModel, TimestampedModel):
         ]
 
     def __str__(self) -> str:
-        return f"{self.decision} on {self.course_id}"
+        return f"{self.action} on {self.course_id}"
 
 
 class Section(UUIDPrimaryKeyModel, TimestampedModel):
