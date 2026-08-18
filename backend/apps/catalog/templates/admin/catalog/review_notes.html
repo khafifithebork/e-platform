@@ -1,0 +1,31 @@
+{% extends "admin/base_site.html" %}
+
+{# Collects the reason a course is being sent back. The notes land on the
+   CourseReviewEvent and the instructor reads them, so this is the only place
+   in the workflow where "what should I fix?" gets an answer. #}
+
+{% block content %}
+  <p>{{ title }}. The instructor will see these notes.</p>
+
+  <ul>
+    {% for course in courses %}
+      <li>{{ course.title }}</li>
+    {% endfor %}
+  </ul>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% for course in courses %}
+      <input type="hidden" name="_selected_action" value="{{ course.pk }}">
+    {% endfor %}
+    <input type="hidden" name="action" value="{{ action }}">
+
+    <p>
+      <label for="notes">Notes for the instructor</label><br>
+      <textarea id="notes" name="notes" rows="6" cols="70"></textarea>
+    </p>
+
+    <input type="submit" value="Confirm">
+  </form>
+{% endblock %}
