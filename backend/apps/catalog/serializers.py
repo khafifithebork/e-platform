@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from apps.catalog.models import Course, CourseReviewEvent, Lesson, Section
+from apps.catalog.models import Course, CourseReviewEvent, Language, Lesson, Section
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -127,3 +127,74 @@ class CourseReviewEventSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields: ClassVar[list[str]] = fields
+
+
+class LanguageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Language
+        fields: ClassVar[list[str]] = ["code", "name", "native_name"]
+
+
+class PublicLessonSerializer(serializers.ModelSerializer):
+    """A lesson as an anonymous visitor sees it: a title and a shape.
+
+    ``body`` is absent from ``fields``, not hidden by a condition. Entitlements
+    arrive in M4 and there is nothing to gate with yet, so the safe form is a
+    serializer that has no way to render paid content at all — a field that is
+    usually hidden is one wrong branch from being visible.
+    """
+
+    class Meta:
+        model = Lesson
+        fields: ClassVar[list[str]] = [
+            "id",
+            "slug",
+            "title",
+            "lesson_type",
+            "position",
+            "is_preview",
+        ]
+
+
+class PublicSectionSerializer(serializers.ModelSerializer):
+    lessons = PublicLessonSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Section
+        fields: ClassVar[list[str]] = ["id", "title", "position", "lessons"]
+
+
+class PublicCourseSerializer(serializers.ModelSerializer):
+    """A catalogue card.
+
+    ``instructor_name`` rather than the instructor's id or email: the
+    catalogue is unauthenticated, and an email address on a public page is a
+    spam list.
+    """
+
+    language = LanguageSerializer(read_only=True)
+    instructor_name = serializers.CharField(source="instructor.get_full_name", read_only=True)
+
+    class Meta:
+        model = Course
+        fields: ClassVar[list[str]] = [
+            "id",
+            "slug",
+            "title",
+            "description",
+            "language",
+            "level",
+            "skill_areas",
+            "instructor_name",
+            "published_at",
+        ]
+
+
+class PublicCourseDetailSerializer(PublicCourseSerializer):
+    """The card plus the curriculum. Structure sells the course; content does
+    not appear until someone is entitled to it."""
+
+    sections = PublicSectionSerializer(many=True, read_only=True)
+
+    class Meta(PublicCourseSerializer.Meta):
+        fields: ClassVar[list[str]] = [*PublicCourseSerializer.Meta.fields, "sections"]

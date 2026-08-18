@@ -226,6 +226,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalogue/courses/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Published courses, by slug.
+         *
+         *     ``AllowAny`` is explicit and deliberate: DRF is configured to deny by
+         *     default, so a public endpoint is an exemption, and an exemption is a thing
+         *     to test rather than assume. ``authentication_classes = ()`` goes with it —
+         *     the catalogue must behave identically for a signed-in visitor and an
+         *     anonymous one, and skipping session lookup is also what keeps the response
+         *     cacheable at the edge (invariant 15).
+         *
+         *     Read-only because there is no public write anywhere in this product.
+         */
+        get: operations["catalogue_courses_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalogue/courses/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One published course, with its curriculum
+         * @description Published courses, by slug.
+         *
+         *     ``AllowAny`` is explicit and deliberate: DRF is configured to deny by
+         *     default, so a public endpoint is an exemption, and an exemption is a thing
+         *     to test rather than assume. ``authentication_classes = ()`` goes with it —
+         *     the catalogue must behave identically for a signed-in visitor and an
+         *     anonymous one, and skipping session lookup is also what keeps the response
+         *     cacheable at the edge (invariant 15).
+         *
+         *     Read-only because there is no public write anywhere in this product.
+         */
+        get: operations["catalogue_courses_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalogue/languages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Languages on offer
+         * @description Languages a visitor can actually browse.
+         *
+         *     Unpaginated: this list is bounded by the number of languages taught, which
+         *     is a handful, and a paginated filter control is a worse control.
+         */
+        get: operations["catalogue_languages_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instructor/courses/": {
         parameters: {
             query?: never;
@@ -606,6 +686,14 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        Language: {
+            /** @description ISO 639 code, e.g. 'es'. The natural key. */
+            code: string;
+            /** @description English name, e.g. 'Spanish'. */
+            name: string;
+            /** @description e.g. 'Español'. */
+            native_name: string;
+        };
         /**
          * @description ``section`` is writable, and the view narrows its queryset to the course
          *     in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
@@ -750,6 +838,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Lesson"][];
         };
+        PaginatedPublicCourseList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["PublicCourse"][];
+        };
         PaginatedSectionList: {
             /**
              * Format: uri
@@ -829,6 +930,79 @@ export interface components {
         PatchedSectionRequest: {
             title?: string;
             position?: number;
+        };
+        /**
+         * @description A catalogue card.
+         *
+         *     ``instructor_name`` rather than the instructor's id or email: the
+         *     catalogue is unauthenticated, and an email address on a public page is a
+         *     spam list.
+         */
+        PublicCourse: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description The public URL. Unique across the catalogue, not per instructor. */
+            slug: string;
+            title: string;
+            description?: string;
+            readonly language: components["schemas"]["Language"];
+            level: components["schemas"]["LevelEnum"];
+            /** @description Free-form tags, e.g. ['listening', 'grammar']. */
+            skill_areas?: unknown;
+            readonly instructor_name: string;
+            /**
+             * Format: date-time
+             * @description Set when an admin approves. Null means it has never been live.
+             */
+            published_at?: string | null;
+        };
+        /**
+         * @description The card plus the curriculum. Structure sells the course; content does
+         *     not appear until someone is entitled to it.
+         */
+        PublicCourseDetail: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description The public URL. Unique across the catalogue, not per instructor. */
+            slug: string;
+            title: string;
+            description?: string;
+            readonly language: components["schemas"]["Language"];
+            level: components["schemas"]["LevelEnum"];
+            /** @description Free-form tags, e.g. ['listening', 'grammar']. */
+            skill_areas?: unknown;
+            readonly instructor_name: string;
+            /**
+             * Format: date-time
+             * @description Set when an admin approves. Null means it has never been live.
+             */
+            published_at?: string | null;
+            readonly sections: components["schemas"]["PublicSection"][];
+        };
+        /**
+         * @description A lesson as an anonymous visitor sees it: a title and a shape.
+         *
+         *     ``body`` is absent from ``fields``, not hidden by a condition. Entitlements
+         *     arrive in M4 and there is nothing to gate with yet, so the safe form is a
+         *     serializer that has no way to render paid content at all — a field that is
+         *     usually hidden is one wrong branch from being visible.
+         */
+        PublicLesson: {
+            /** Format: uuid */
+            readonly id: string;
+            slug: string;
+            title: string;
+            lesson_type?: components["schemas"]["LessonTypeEnum"];
+            position: number;
+            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
+            is_preview?: boolean;
+        };
+        PublicSection: {
+            /** Format: uuid */
+            readonly id: string;
+            title: string;
+            position: number;
+            readonly lessons: components["schemas"]["PublicLesson"][];
         };
         /**
          * @description Registration input.
@@ -1145,6 +1319,77 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    catalogue_courses_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPublicCourseList"];
+                };
+            };
+        };
+    };
+    catalogue_courses_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCourseDetail"];
+                };
+            };
+            /** @description No published course with that slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalogue_languages_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Language"][];
+                };
             };
         };
     };

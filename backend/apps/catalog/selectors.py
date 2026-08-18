@@ -1,7 +1,16 @@
 """Catalogue reads."""
 
+from django.db.models import Prefetch
+
 from apps.accounts.models import User
-from apps.catalog.models import Course, CourseReviewEvent, Lesson, Section
+from apps.catalog.models import (
+    Course,
+    CourseReviewEvent,
+    CourseStatus,
+    Language,
+    Lesson,
+    Section,
+)
 
 
 def courses_for_instructor(*, user: User):
@@ -60,4 +69,49 @@ def review_events_for_course(*, course: Course):
         CourseReviewEvent.objects.filter(course=course)
         .select_related("actor")
         .order_by("-created_at")
+    )
+
+
+def published_courses():
+    """The catalogue as the public sees it.
+
+    One filter, in one place, used by every public view. Abuse cases 5 and 6
+    both reduce to this queryset being the only way a request reaches a course
+    — a second, hand-rolled filter somewhere else is how a DRAFT eventually
+    leaks.
+
+    Ordered by ``-published_at`` to match the partial index on published rows,
+    and because "newest first" is what a catalogue means.
+    """
+    return (
+        Course.objects.filter(status=CourseStatus.PUBLISHED)
+        .select_related("language", "instructor")
+        .order_by("-published_at")
+    )
+
+
+def published_course_detail(*, slug: str) -> Course:
+    """One published course, with its curriculum, or ``DoesNotExist``.
+
+    Prefetched: a detail page renders every section and every lesson, which is
+    one query per section without this.
+    """
+    return (
+        published_courses()
+        .prefetch_related(
+            Prefetch("sections", queryset=Section.objects.order_by("position")),
+            Prefetch("sections__lessons", queryset=Lesson.objects.order_by("position")),
+        )
+        .get(slug=slug)
+    )
+
+
+def languages_with_published_courses():
+    """Languages the visitor can actually browse.
+
+    Offering a language with nothing published gives the visitor a dead end
+    and gives everyone else a free list of what is being worked on.
+    """
+    return (
+        Language.objects.filter(courses__status=CourseStatus.PUBLISHED).distinct().order_by("name")
     )
