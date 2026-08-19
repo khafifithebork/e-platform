@@ -51,6 +51,7 @@ LOCAL_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.catalog",
+    "apps.entitlements",
 ]
 
 INSTALLED_APPS = [*DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]
@@ -139,6 +140,18 @@ CACHES = {
         "LOCATION": env("REDIS_CACHE_URL"),
     }
 }
+
+# ---------------------------------------------------------------------------
+# Entitlements
+# ---------------------------------------------------------------------------
+# How long a PAST_DUE subscription keeps access. A business decision with
+# revenue consequences both ways — too short and a failed card locks out a
+# paying customer mid-lesson, too long and access continues after payment
+# stops. Seven days covers a typical card retry cycle (ADR-010 section 3).
+#
+# A setting rather than a literal so the boundary is a tested value and
+# changing it is configuration, not a code change.
+ENTITLEMENT_GRACE_PERIOD_DAYS = env.int("ENTITLEMENT_GRACE_PERIOD_DAYS", default=7)
 
 # ---------------------------------------------------------------------------
 # Django REST Framework
