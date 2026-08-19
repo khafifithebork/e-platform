@@ -128,12 +128,24 @@ def problem_details_exception_handler(exc: Exception, context: dict) -> Response
         # Field errors carry the specifics; this is the summary above them.
         detail = getattr(exc, "default_detail", None) or HTTPStatus(status_code).phrase
 
-    response.data = {
+    document = {
         "type": problem_type,
         "title": title,
         "status": status_code,
         "detail": str(detail),
         "errors": errors,
     }
+
+    # RFC 9457 §3.2 extension members. An exception may add its own, which is
+    # how an entitlement denial carries `reason` and `cta` without the handler
+    # knowing anything about entitlements — core must not import a product app.
+    #
+    # Standard members win on collision, deliberately: an exception that could
+    # overwrite `status` or `type` could make a 403 describe itself as a 200,
+    # and clients branch on those (ADR-004).
+    for key, value in getattr(exc, "extensions", {}).items():
+        document.setdefault(key, value)
+
+    response.data = document
     response.content_type = PROBLEM_CONTENT_TYPE
     return response
