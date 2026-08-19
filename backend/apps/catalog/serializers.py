@@ -198,3 +198,35 @@ class PublicCourseDetailSerializer(PublicCourseSerializer):
 
     class Meta(PublicCourseSerializer.Meta):
         fields: ClassVar[list[str]] = [*PublicCourseSerializer.Meta.fields, "sections"]
+
+
+class GatedLessonSerializer(serializers.ModelSerializer):
+    """A lesson in full, including its content.
+
+    The counterpart to ``PublicLessonSerializer``, which omits ``body``
+    entirely. Two serializers rather than one with a conditional field, as
+    ADR-008 §6 anticipated: the public one *cannot* render paid content
+    because it has no such field, and this one is only reachable behind
+    ``IsEntitledToLesson``. A single serializer branching on a flag would put
+    the access decision inside the I/O layer, which invariant 2 forbids and
+    which is one wrong branch away from serving everything.
+    """
+
+    course_slug = serializers.SlugField(source="course.slug", read_only=True)
+
+    class Meta:
+        model = Lesson
+        fields: ClassVar[list[str]] = [
+            "id",
+            "course_slug",
+            "section",
+            "slug",
+            "title",
+            "body",
+            "lesson_type",
+            "position",
+            "is_preview",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields: ClassVar[list[str]] = fields

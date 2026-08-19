@@ -579,6 +579,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lessons/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a lesson
+         * @description One lesson, in full, if you may see it.
+         *
+         *     ``AllowAny`` is deliberate and is what makes preview lessons work for
+         *     people with no account: the resolver's first branch allows a preview
+         *     before it ever asks who is calling, and a blanket ``IsAuthenticated`` here
+         *     would refuse them before that branch ran. Authentication is not the gate —
+         *     entitlement is, and it decides for anonymous callers too.
+         *
+         *     ``RetrieveModelMixin`` alone, **not** ``ReadOnlyModelViewSet``. That is a
+         *     security control, not a style choice, and it was written the wrong way
+         *     first: ``ReadOnlyModelViewSet`` also provides ``list``, and
+         *     ``has_object_permission`` is never called for a list — so ``GET
+         *     /lessons/`` returned every visible lesson, bodies included, to anonymous
+         *     callers. The docstring claimed "retrieve only" while the class shipped the
+         *     opposite.
+         *
+         *     Object-level permissions cannot gate a collection. Anything that returns
+         *     many lessons must either run the resolver per row or filter by a second
+         *     access rule, and a second rule is the one that drifts (invariant 3). So
+         *     there is no such route: curriculum comes from the public catalogue, which
+         *     shows structure without content.
+         */
+        get: operations["lessons_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -685,6 +725,35 @@ export interface components {
         EmailOnlyRequest: {
             /** Format: email */
             email: string;
+        };
+        /**
+         * @description A lesson in full, including its content.
+         *
+         *     The counterpart to ``PublicLessonSerializer``, which omits ``body``
+         *     entirely. Two serializers rather than one with a conditional field, as
+         *     ADR-008 §6 anticipated: the public one *cannot* render paid content
+         *     because it has no such field, and this one is only reachable behind
+         *     ``IsEntitledToLesson``. A single serializer branching on a flag would put
+         *     the access decision inside the I/O layer, which invariant 2 forbids and
+         *     which is one wrong branch away from serving everything.
+         */
+        GatedLesson: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly course_slug: string;
+            /** Format: uuid */
+            readonly section: string;
+            readonly slug: string;
+            readonly title: string;
+            readonly body: string;
+            readonly lesson_type: components["schemas"]["LessonTypeEnum"];
+            readonly position: number;
+            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
+            readonly is_preview: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
         };
         Language: {
             /** @description ISO 639 code, e.g. 'es'. The natural key. */
@@ -2023,6 +2092,42 @@ export interface operations {
             };
             /** @description Not in a state that can be submitted. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    lessons_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this lesson. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatedLesson"];
+                };
+            };
+            /** @description Entitlement denied. Problem Details with a stable `reason` and `cta` — see /problems/entitlement-denied. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lesson, or not published. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

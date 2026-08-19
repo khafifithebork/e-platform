@@ -17,6 +17,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # The only unauthenticated product surface. Separate prefix so the
     # public/private boundary is actionable at the edge.
     path("api/v1/catalogue/", include("apps.catalog.public_urls")),
+    # Paid content. Every route here passes the entitlement resolver.
+    path("api/v1/", include("apps.catalog.learning_urls")),
     # Infrastructure, not product: outside /api/v1/ on purpose, so it is not
     # versioned, not in the OpenAPI schema, and not proxied as an API route.
     path("healthz", healthz, name="healthz"),
