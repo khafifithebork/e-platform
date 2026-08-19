@@ -1,7 +1,8 @@
 # M4 — Entitlements
 
-**Status:** Decisions settled, awaiting approval of the task plan.
-**No code written.**
+**Status:** Delivered, 2026-08-19. Branch `feat/m4-entitlements`.
+Outcomes recorded in `docs/adr/010-m4-entitlement-decisions.md`.
+**§3.2 remains open and blocks a self-serve trial in M9.**
 CLAUDE.md §5 gates the entitlement model on explicit approval, and §9 names
 this the most expensive place in the codebase to guess.
 

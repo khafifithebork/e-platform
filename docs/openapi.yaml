@@ -4,6 +4,42 @@ info:
   version: 1.0.0
   description: Curated language-learning subscription platform.
 paths:
+  /api/v1/admin-api/users/{id}/diagnostics/:
+    get:
+      operationId: admin_api_users_diagnostics_retrieve
+      description: |-
+        Everything known about one person's entitlement.
+
+        Administrators only — ``role == ADMIN``, not ``is_staff`` (M3's
+        distinction). This reads another person's billing history, which is the
+        most sensitive read in the product outside the admin site itself.
+
+        Deliberately read-only. Support diagnosing a problem should not be able to
+        fix it by editing rows here; changing access means granting an override,
+        which is recorded with a grantor and a reason.
+      summary: Diagnose a user's entitlement
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - admin
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDiagnostics'
+          description: ''
+        '403':
+          description: Not an administrator.
+        '404':
+          description: No such user.
   /api/v1/auth/login/:
     post:
       operationId: auth_login_create
@@ -1178,8 +1214,131 @@ paths:
           description: No such course of yours.
         '409':
           description: Not in a state that can be submitted.
+  /api/v1/lessons/{id}/:
+    get:
+      operationId: lessons_retrieve
+      description: |-
+        One lesson, in full, if you may see it.
+
+        ``AllowAny`` is deliberate and is what makes preview lessons work for
+        people with no account: the resolver's first branch allows a preview
+        before it ever asks who is calling, and a blanket ``IsAuthenticated`` here
+        would refuse them before that branch ran. Authentication is not the gate —
+        entitlement is, and it decides for anonymous callers too.
+
+        ``RetrieveModelMixin`` alone, **not** ``ReadOnlyModelViewSet``. That is a
+        security control, not a style choice, and it was written the wrong way
+        first: ``ReadOnlyModelViewSet`` also provides ``list``, and
+        ``has_object_permission`` is never called for a list — so ``GET
+        /lessons/`` returned every visible lesson, bodies included, to anonymous
+        callers. The docstring claimed "retrieve only" while the class shipped the
+        opposite.
+
+        Object-level permissions cannot gate a collection. Anything that returns
+        many lessons must either run the resolver per row or filter by a second
+        access rule, and a second rule is the one that drifts (invariant 3). So
+        there is no such route: curriculum comes from the public catalogue, which
+        shows structure without content.
+      summary: Read a lesson
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lesson.
+        required: true
+      tags:
+      - learning
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatedLesson'
+          description: ''
+        '403':
+          description: Entitlement denied. Problem Details with a stable `reason`
+            and `cta` — see /problems/entitlement-denied.
+        '404':
+          description: No such lesson, or not published.
 components:
   schemas:
+    Access:
+      type: object
+      description: |-
+        The entitlement decision, as the frontend receives it.
+
+        Declared as a serializer purely so the OpenAPI schema describes the shape
+        and invariant 16's generated types are real rather than `unknown`. Nothing
+        constructs it — the resolver produces the values.
+      properties:
+        allowed:
+          type: boolean
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        cta:
+          type: string
+          readOnly: true
+          nullable: true
+      required:
+      - allowed
+      - cta
+      - reason
+    AccessDecision:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        cta:
+          type: string
+          readOnly: true
+          nullable: true
+      required:
+      - allowed
+      - cta
+      - reason
+    AccessOverride:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        reason:
+          type: string
+          description: Why this was granted. Required — an unexplained grant is the
+            boolean again.
+        granted_by_email:
+          type: string
+          format: email
+          readOnly: true
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - ends_at
+      - granted_by_email
+      - id
+      - reason
+      - starts_at
     ActionEnum:
       enum:
       - SUBMITTED
@@ -1229,7 +1388,7 @@ components:
           description: Free-form tags, e.g. ['listening', 'grammar'].
         status:
           allOf:
-          - $ref: '#/components/schemas/StatusEnum'
+          - $ref: '#/components/schemas/CourseStatusEnum'
           readOnly: true
           description: |-
             Never writable from a request body. Changed only by services.transition.
@@ -1350,6 +1509,36 @@ components:
       - created_at
       - id
       - notes
+    CourseStatusEnum:
+      enum:
+      - DRAFT
+      - IN_REVIEW
+      - PUBLISHED
+      - ARCHIVED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `IN_REVIEW` - In review
+        * `PUBLISHED` - Published
+        * `ARCHIVED` - Archived
+    DiagnosticUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        role:
+          type: string
+          readOnly: true
+      required:
+      - email
+      - id
+      - role
     EmailOnlyRequest:
       type: object
       description: For resending a verification email.
@@ -1361,6 +1550,91 @@ components:
           maxLength: 254
       required:
       - email
+    EventTypeEnum:
+      enum:
+      - TRIAL_STARTED
+      - ACTIVATED
+      - RENEWED
+      - PAYMENT_FAILED
+      - CANCELLATION_REQUESTED
+      - CANCELED
+      - EXPIRED
+      type: string
+      description: |-
+        * `TRIAL_STARTED` - Trial started
+        * `ACTIVATED` - Activated
+        * `RENEWED` - Renewed
+        * `PAYMENT_FAILED` - Payment failed
+        * `CANCELLATION_REQUESTED` - Cancellation requested
+        * `CANCELED` - Canceled
+        * `EXPIRED` - Expired
+    GatedLesson:
+      type: object
+      description: |-
+        A lesson in full, including its content.
+
+        The counterpart to ``PublicLessonSerializer``, which omits ``body``
+        entirely. Two serializers rather than one with a conditional field, as
+        ADR-008 §6 anticipated: the public one *cannot* render paid content
+        because it has no such field, and this one is only reachable behind
+        ``IsEntitledToLesson``. A single serializer branching on a flag would put
+        the access decision inside the I/O layer, which invariant 2 forbids and
+        which is one wrong branch away from serving everything.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course_slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        section:
+          type: string
+          format: uuid
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        title:
+          type: string
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        lesson_type:
+          allOf:
+          - $ref: '#/components/schemas/LessonTypeEnum'
+          readOnly: true
+        position:
+          type: integer
+          readOnly: true
+        is_preview:
+          type: boolean
+          readOnly: true
+          description: Watchable without a subscription. The entitlement resolver
+            reads this in M4; it grants nothing on its own.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - course_slug
+      - created_at
+      - id
+      - is_preview
+      - lesson_type
+      - position
+      - section
+      - slug
+      - title
+      - updated_at
     Language:
       type: object
       properties:
@@ -1388,6 +1662,17 @@ components:
         turns another course's section id into a 400 rather than a cross-course
         write, a constraint the database cannot express because both rows are
         individually valid.
+
+        ``is_preview`` is **read-only**, and that is a revenue control rather than
+        a nicety. A preview lesson is free to everyone: it is the resolver's first
+        branch, allowed before the caller is even identified. An instructor who
+        could set the flag could mark every lesson in their course a preview and
+        hand the whole thing away — not only their own work, because the
+        subscription that pays for it is shared across the catalogue.
+
+        Previews are therefore chosen by an admin, in the same review that decides
+        publication (ADR-007 §2). This was writable when the field was inert, and
+        only became a giveaway once M4 gave it meaning.
       properties:
         id:
           type: string
@@ -1417,6 +1702,7 @@ components:
           minimum: 0
         is_preview:
           type: boolean
+          readOnly: true
           description: Watchable without a subscription. The entitlement resolver
             reads this in M4; it grants nothing on its own.
         created_at:
@@ -1431,6 +1717,7 @@ components:
       - course
       - created_at
       - id
+      - is_preview
       - position
       - section
       - slug
@@ -1459,6 +1746,17 @@ components:
         turns another course's section id into a 400 rather than a cross-course
         write, a constraint the database cannot express because both rows are
         individually valid.
+
+        ``is_preview`` is **read-only**, and that is a revenue control rather than
+        a nicety. A preview lesson is free to everyone: it is the resolver's first
+        branch, allowed before the caller is even identified. An instructor who
+        could set the flag could mark every lesson in their course a preview and
+        hand the whole thing away — not only their own work, because the
+        subscription that pays for it is shared across the catalogue.
+
+        Previews are therefore chosen by an admin, in the same review that decides
+        publication (ADR-007 §2). This was writable when the field was inert, and
+        only became a giveaway once M4 gave it meaning.
       properties:
         section:
           type: string
@@ -1480,10 +1778,6 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
-        is_preview:
-          type: boolean
-          description: Watchable without a subscription. The entitlement resolver
-            reads this in M4; it grants nothing on its own.
       required:
       - position
       - section
@@ -1553,9 +1847,16 @@ components:
         absent: they are internal authorisation detail, and the frontend branches
         on `role`.
 
-        No `access` object until M4 (architecture.md section 6.2). Adding an
-        optional object later is backward compatible; shipping a fake one now would
-        invite the frontend to depend on a shape with no logic behind it.
+        `access` carries the entitlement decision, as architecture.md section 6.2
+        requires, "so the frontend never re-derives access rules". It is the same
+        resolver the gated endpoints use — `resolve_account_access` is the
+        lesson-independent half of `resolve_access`, not a second copy, because two
+        implementations of these rules disagree the day one of them changes
+        (invariant 3).
+
+        A reason and a call to action, never a bare boolean: the interface has to
+        tell "start a trial" from "your card failed", and a boolean would put that
+        inference in the frontend.
       properties:
         id:
           type: string
@@ -1575,7 +1876,12 @@ components:
           allOf:
           - $ref: '#/components/schemas/StudentProfile'
           readOnly: true
+        access:
+          allOf:
+          - $ref: '#/components/schemas/Access'
+          readOnly: true
       required:
+      - access
       - email
       - id
       - is_email_verified
@@ -1754,6 +2060,17 @@ components:
         turns another course's section id into a 400 rather than a cross-course
         write, a constraint the database cannot express because both rows are
         individually valid.
+
+        ``is_preview`` is **read-only**, and that is a revenue control rather than
+        a nicety. A preview lesson is free to everyone: it is the resolver's first
+        branch, allowed before the caller is even identified. An instructor who
+        could set the flag could mark every lesson in their course a preview and
+        hand the whole thing away — not only their own work, because the
+        subscription that pays for it is shared across the catalogue.
+
+        Previews are therefore chosen by an admin, in the same review that decides
+        publication (ADR-007 §2). This was writable when the field was inert, and
+        only became a giveaway once M4 gave it meaning.
       properties:
         section:
           type: string
@@ -1775,10 +2092,6 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
-        is_preview:
-          type: boolean
-          description: Watchable without a subscription. The entitlement resolver
-            reads this in M4; it grants nothing on its own.
     PatchedSectionRequest:
       type: object
       description: |-
@@ -2043,18 +2356,6 @@ components:
       required:
       - position
       - title
-    StatusEnum:
-      enum:
-      - DRAFT
-      - IN_REVIEW
-      - PUBLISHED
-      - ARCHIVED
-      type: string
-      description: |-
-        * `DRAFT` - Draft
-        * `IN_REVIEW` - In review
-        * `PUBLISHED` - Published
-        * `ARCHIVED` - Archived
     StudentProfile:
       type: object
       description: Output only.
@@ -2063,6 +2364,120 @@ components:
           type: string
       required:
       - display_name
+    SubscriptionDiagnostic:
+      type: object
+      description: |-
+        Includes `provider_subscription_id`, deliberately.
+
+        It is the handle support needs to find the same subscription in the
+        provider's own dashboard, and this endpoint is administrators only. It
+        appears nowhere a subscriber can reach.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/SubscriptionDiagnosticStatusEnum'
+        current_period_end:
+          type: string
+          format: date-time
+        trial_end:
+          type: string
+          format: date-time
+          nullable: true
+        cancel_at_period_end:
+          type: boolean
+          description: Cancellation requested; access continues until current_period_end.
+        provider:
+          type: string
+          description: Which system told us about this. 'fake' until M8.
+          maxLength: 32
+        provider_subscription_id:
+          type: string
+          nullable: true
+          description: The provider's opaque id. Null until a real provider exists.
+          maxLength: 128
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - current_period_end
+      - id
+      - provider
+      - status
+    SubscriptionDiagnosticStatusEnum:
+      enum:
+      - TRIALING
+      - ACTIVE
+      - PAST_DUE
+      - CANCELED
+      - EXPIRED
+      type: string
+      description: |-
+        * `TRIALING` - Trialing
+        * `ACTIVE` - Active
+        * `PAST_DUE` - Past due
+        * `CANCELED` - Canceled
+        * `EXPIRED` - Expired
+    SubscriptionEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        event_type:
+          $ref: '#/components/schemas/EventTypeEnum'
+        from_status:
+          type: string
+          maxLength: 16
+        to_status:
+          type: string
+          maxLength: 16
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - event_type
+      - id
+    UserDiagnostics:
+      type: object
+      description: The answer to "why is this person's access wrong".
+      properties:
+        user:
+          allOf:
+          - $ref: '#/components/schemas/DiagnosticUser'
+          readOnly: true
+        access:
+          allOf:
+          - $ref: '#/components/schemas/AccessDecision'
+          readOnly: true
+        subscriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionDiagnostic'
+          readOnly: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionEvent'
+          readOnly: true
+        overrides:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessOverride'
+          readOnly: true
+      required:
+      - access
+      - events
+      - overrides
+      - subscriptions
+      - user
     VerifyEmailRequest:
       type: object
       description: For consuming a verification token.

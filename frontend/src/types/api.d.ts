@@ -4,6 +4,34 @@
  */
 
 export interface paths {
+    "/api/v1/admin-api/users/{id}/diagnostics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Diagnose a user's entitlement
+         * @description Everything known about one person's entitlement.
+         *
+         *     Administrators only — ``role == ADMIN``, not ``is_staff`` (M3's
+         *     distinction). This reads another person's billing history, which is the
+         *     most sensitive read in the product outside the admin site itself.
+         *
+         *     Deliberately read-only. Support diagnosing a problem should not be able to
+         *     fix it by editing rows here; changing access means granting an override,
+         *     which is recorded with a grantor and a reason.
+         */
+        get: operations["admin_api_users_diagnostics_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login/": {
         parameters: {
             query?: never;
@@ -579,10 +607,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lessons/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a lesson
+         * @description One lesson, in full, if you may see it.
+         *
+         *     ``AllowAny`` is deliberate and is what makes preview lessons work for
+         *     people with no account: the resolver's first branch allows a preview
+         *     before it ever asks who is calling, and a blanket ``IsAuthenticated`` here
+         *     would refuse them before that branch ran. Authentication is not the gate —
+         *     entitlement is, and it decides for anonymous callers too.
+         *
+         *     ``RetrieveModelMixin`` alone, **not** ``ReadOnlyModelViewSet``. That is a
+         *     security control, not a style choice, and it was written the wrong way
+         *     first: ``ReadOnlyModelViewSet`` also provides ``list``, and
+         *     ``has_object_permission`` is never called for a list — so ``GET
+         *     /lessons/`` returned every visible lesson, bodies included, to anonymous
+         *     callers. The docstring claimed "retrieve only" while the class shipped the
+         *     opposite.
+         *
+         *     Object-level permissions cannot gate a collection. Anything that returns
+         *     many lessons must either run the resolver per row or filter by a second
+         *     access rule, and a second rule is the one that drifts (invariant 3). So
+         *     there is no such route: curriculum comes from the public catalogue, which
+         *     shows structure without content.
+         */
+        get: operations["lessons_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description The entitlement decision, as the frontend receives it.
+         *
+         *     Declared as a serializer purely so the OpenAPI schema describes the shape
+         *     and invariant 16's generated types are real rather than `unknown`. Nothing
+         *     constructs it — the resolver produces the values.
+         */
+        Access: {
+            readonly allowed: boolean;
+            readonly reason: string;
+            readonly cta: string | null;
+        };
+        AccessDecision: {
+            readonly allowed: boolean;
+            readonly reason: string;
+            readonly cta: string | null;
+        };
+        AccessOverride: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description Why this was granted. Required — an unexplained grant is the boolean again. */
+            reason: string;
+            /** Format: email */
+            readonly granted_by_email: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         /**
          * @description * `SUBMITTED` - Submitted for review
          *     * `APPROVED` - Approved
@@ -623,7 +722,7 @@ export interface components {
              *     * `PUBLISHED` - Published
              *     * `ARCHIVED` - Archived
              */
-            readonly status: components["schemas"]["StatusEnum"];
+            readonly status: components["schemas"]["CourseStatusEnum"];
             /**
              * Format: date-time
              * @description Set when an admin approves. Null means it has never been live.
@@ -681,10 +780,65 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description * `DRAFT` - Draft
+         *     * `IN_REVIEW` - In review
+         *     * `PUBLISHED` - Published
+         *     * `ARCHIVED` - Archived
+         * @enum {string}
+         */
+        CourseStatusEnum: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED";
+        DiagnosticUser: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: string;
+        };
         /** @description For resending a verification email. */
         EmailOnlyRequest: {
             /** Format: email */
             email: string;
+        };
+        /**
+         * @description * `TRIAL_STARTED` - Trial started
+         *     * `ACTIVATED` - Activated
+         *     * `RENEWED` - Renewed
+         *     * `PAYMENT_FAILED` - Payment failed
+         *     * `CANCELLATION_REQUESTED` - Cancellation requested
+         *     * `CANCELED` - Canceled
+         *     * `EXPIRED` - Expired
+         * @enum {string}
+         */
+        EventTypeEnum: "TRIAL_STARTED" | "ACTIVATED" | "RENEWED" | "PAYMENT_FAILED" | "CANCELLATION_REQUESTED" | "CANCELED" | "EXPIRED";
+        /**
+         * @description A lesson in full, including its content.
+         *
+         *     The counterpart to ``PublicLessonSerializer``, which omits ``body``
+         *     entirely. Two serializers rather than one with a conditional field, as
+         *     ADR-008 §6 anticipated: the public one *cannot* render paid content
+         *     because it has no such field, and this one is only reachable behind
+         *     ``IsEntitledToLesson``. A single serializer branching on a flag would put
+         *     the access decision inside the I/O layer, which invariant 2 forbids and
+         *     which is one wrong branch away from serving everything.
+         */
+        GatedLesson: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly course_slug: string;
+            /** Format: uuid */
+            readonly section: string;
+            readonly slug: string;
+            readonly title: string;
+            readonly body: string;
+            readonly lesson_type: components["schemas"]["LessonTypeEnum"];
+            readonly position: number;
+            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
+            readonly is_preview: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
         };
         Language: {
             /** @description ISO 639 code, e.g. 'es'. The natural key. */
@@ -700,6 +854,17 @@ export interface components {
          *     turns another course's section id into a 400 rather than a cross-course
          *     write, a constraint the database cannot express because both rows are
          *     individually valid.
+         *
+         *     ``is_preview`` is **read-only**, and that is a revenue control rather than
+         *     a nicety. A preview lesson is free to everyone: it is the resolver's first
+         *     branch, allowed before the caller is even identified. An instructor who
+         *     could set the flag could mark every lesson in their course a preview and
+         *     hand the whole thing away — not only their own work, because the
+         *     subscription that pays for it is shared across the catalogue.
+         *
+         *     Previews are therefore chosen by an admin, in the same review that decides
+         *     publication (ADR-007 §2). This was writable when the field was inert, and
+         *     only became a giveaway once M4 gave it meaning.
          */
         Lesson: {
             /** Format: uuid */
@@ -714,7 +879,7 @@ export interface components {
             lesson_type?: components["schemas"]["LessonTypeEnum"];
             position: number;
             /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
-            is_preview?: boolean;
+            readonly is_preview: boolean;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -732,6 +897,17 @@ export interface components {
          *     turns another course's section id into a 400 rather than a cross-course
          *     write, a constraint the database cannot express because both rows are
          *     individually valid.
+         *
+         *     ``is_preview`` is **read-only**, and that is a revenue control rather than
+         *     a nicety. A preview lesson is free to everyone: it is the resolver's first
+         *     branch, allowed before the caller is even identified. An instructor who
+         *     could set the flag could mark every lesson in their course a preview and
+         *     hand the whole thing away — not only their own work, because the
+         *     subscription that pays for it is shared across the catalogue.
+         *
+         *     Previews are therefore chosen by an admin, in the same review that decides
+         *     publication (ADR-007 §2). This was writable when the field was inert, and
+         *     only became a giveaway once M4 gave it meaning.
          */
         LessonRequest: {
             /** Format: uuid */
@@ -741,8 +917,6 @@ export interface components {
             body?: string;
             lesson_type?: components["schemas"]["LessonTypeEnum"];
             position: number;
-            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
-            is_preview?: boolean;
         };
         /**
          * @description * `VIDEO` - Video
@@ -786,9 +960,16 @@ export interface components {
          *     absent: they are internal authorisation detail, and the frontend branches
          *     on `role`.
          *
-         *     No `access` object until M4 (architecture.md section 6.2). Adding an
-         *     optional object later is backward compatible; shipping a fake one now would
-         *     invite the frontend to depend on a shape with no logic behind it.
+         *     `access` carries the entitlement decision, as architecture.md section 6.2
+         *     requires, "so the frontend never re-derives access rules". It is the same
+         *     resolver the gated endpoints use — `resolve_account_access` is the
+         *     lesson-independent half of `resolve_access`, not a second copy, because two
+         *     implementations of these rules disagree the day one of them changes
+         *     (invariant 3).
+         *
+         *     A reason and a call to action, never a bare boolean: the interface has to
+         *     tell "start a trial" from "your card failed", and a boolean would put that
+         *     inference in the frontend.
          */
         Me: {
             /** Format: uuid */
@@ -798,6 +979,7 @@ export interface components {
             readonly role: string;
             readonly is_email_verified: boolean;
             readonly profile: components["schemas"]["StudentProfile"];
+            readonly access: components["schemas"]["Access"];
         };
         PaginatedCourseList: {
             /**
@@ -908,6 +1090,17 @@ export interface components {
          *     turns another course's section id into a 400 rather than a cross-course
          *     write, a constraint the database cannot express because both rows are
          *     individually valid.
+         *
+         *     ``is_preview`` is **read-only**, and that is a revenue control rather than
+         *     a nicety. A preview lesson is free to everyone: it is the resolver's first
+         *     branch, allowed before the caller is even identified. An instructor who
+         *     could set the flag could mark every lesson in their course a preview and
+         *     hand the whole thing away — not only their own work, because the
+         *     subscription that pays for it is shared across the catalogue.
+         *
+         *     Previews are therefore chosen by an admin, in the same review that decides
+         *     publication (ADR-007 §2). This was writable when the field was inert, and
+         *     only became a giveaway once M4 gave it meaning.
          */
         PatchedLessonRequest: {
             /** Format: uuid */
@@ -917,8 +1110,6 @@ export interface components {
             body?: string;
             lesson_type?: components["schemas"]["LessonTypeEnum"];
             position?: number;
-            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
-            is_preview?: boolean;
         };
         /**
          * @description ``course`` is read-only: it comes from the URL, never the body.
@@ -1050,17 +1241,59 @@ export interface components {
             title: string;
             position: number;
         };
-        /**
-         * @description * `DRAFT` - Draft
-         *     * `IN_REVIEW` - In review
-         *     * `PUBLISHED` - Published
-         *     * `ARCHIVED` - Archived
-         * @enum {string}
-         */
-        StatusEnum: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED";
         /** @description Output only. */
         StudentProfile: {
             display_name: string;
+        };
+        /**
+         * @description Includes `provider_subscription_id`, deliberately.
+         *
+         *     It is the handle support needs to find the same subscription in the
+         *     provider's own dashboard, and this endpoint is administrators only. It
+         *     appears nowhere a subscriber can reach.
+         */
+        SubscriptionDiagnostic: {
+            /** Format: uuid */
+            readonly id: string;
+            status: components["schemas"]["SubscriptionDiagnosticStatusEnum"];
+            /** Format: date-time */
+            current_period_end: string;
+            /** Format: date-time */
+            trial_end?: string | null;
+            /** @description Cancellation requested; access continues until current_period_end. */
+            cancel_at_period_end?: boolean;
+            /** @description Which system told us about this. 'fake' until M8. */
+            provider: string;
+            /** @description The provider's opaque id. Null until a real provider exists. */
+            provider_subscription_id?: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `TRIALING` - Trialing
+         *     * `ACTIVE` - Active
+         *     * `PAST_DUE` - Past due
+         *     * `CANCELED` - Canceled
+         *     * `EXPIRED` - Expired
+         * @enum {string}
+         */
+        SubscriptionDiagnosticStatusEnum: "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED";
+        SubscriptionEvent: {
+            /** Format: uuid */
+            readonly id: string;
+            event_type: components["schemas"]["EventTypeEnum"];
+            from_status?: string;
+            to_status?: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description The answer to "why is this person's access wrong". */
+        UserDiagnostics: {
+            readonly user: components["schemas"]["DiagnosticUser"];
+            readonly access: components["schemas"]["AccessDecision"];
+            readonly subscriptions: components["schemas"]["SubscriptionDiagnostic"][];
+            readonly events: components["schemas"]["SubscriptionEvent"][];
+            readonly overrides: components["schemas"]["AccessOverride"][];
         };
         /** @description For consuming a verification token. */
         VerifyEmailRequest: {
@@ -1075,6 +1308,41 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_api_users_diagnostics_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDiagnostics"];
+                };
+            };
+            /** @description Not an administrator. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     auth_login_create: {
         parameters: {
             query?: never;
@@ -2023,6 +2291,42 @@ export interface operations {
             };
             /** @description Not in a state that can be submitted. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    lessons_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this lesson. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatedLesson"];
+                };
+            };
+            /** @description Entitlement denied. Problem Details with a stable `reason` and `cta` — see /problems/entitlement-denied. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lesson, or not published. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,13 +1,90 @@
 # STATUS
 
-**Last updated:** 2026-08-18
-**Updated by:** agent session (M3 complete)
+**Last updated:** 2026-08-19
+**Updated by:** agent session (M4 complete)
 
 ---
 
 ## Current milestone
 
-**M3 — Catalogue domain. Complete — 10 of 10.**
+**M4 — Entitlements. Complete — 10 of 10.**
+Branch: `feat/m4-entitlements`.
+
+Spec: `docs/specs/m4-entitlements.md`
+Decisions: `docs/adr/010-m4-entitlement-decisions.md`,
+`docs/adr/011-a-field-gains-meaning-re-audit-who-writes-it.md` (standing rule)
+
+| Task | State |
+|---|---|
+| T1 spec + four decisions put to the owner | **done** — `b0d3b20` |
+| T2 `Subscription`, `SubscriptionEvent`, `AccessOverride` | **done** — `a7147fc` |
+| T3 fake billing provider behind an adapter | **done** — `8102fc0` |
+| T4 `resolve_access`, 100% branch | **done** — `f7f9755` |
+| T5 Problem Details denial + permission class | **done** — `f841d5f` |
+| T6 gated lesson endpoint | **done** — `bc8f8c9` |
+| T7 `/auth/me/` carries the decision | **done** — `a11c740` |
+| T8 admin diagnostics + override grant surface | **done** — `9a4b009` |
+| T9 remaining abuse cases; `is_preview` fix | **done** — `9db0899` |
+| T10 ADRs, schema, types | **done** |
+
+**489 tests pass**, ruff clean, tsc clean, `check --deploy` clean. Schema and
+types regenerate to no diff.
+
+### The resolver has 100% branch coverage, enforced
+
+CI fails the build if `apps.entitlements.resolver` drops below it. The gate was
+provoked before being trusted — run against one test class it reports 46% and
+errors — because a gate nobody has seen fail is ADR-006's inert control wearing
+a new hat.
+
+### All ten abuse cases have a test, and two found real bugs
+
+**Abuse case 8 was live.** `is_preview` was writable on the instructor lesson
+API from M3 T5. Nothing read the field then, so nothing looked wrong. M4 made
+it the resolver's *first branch* — allowed before the caller is identified — so
+an instructor could mark every lesson a preview and hand a whole course to the
+internet, against a subscription shared across the catalogue. **ADR-011** is
+the standing rule that came out of it: when a field starts being read by an
+access decision, re-audit every path that can write it, in the same change.
+
+**A complete bypass was introduced and caught inside T6.** The gated lesson
+view was a `ReadOnlyModelViewSet`, which provides `list` as well as `retrieve`.
+Object-level permissions are never consulted for a list, so `GET /lessons/`
+answered 200 with every lesson body to anonymous callers, behind a docstring
+that said "retrieve only". Object-level permissions cannot gate a collection —
+that is now written down in ADR-010 §9.
+
+### Abuse case 10 is the suite's only structural test
+
+It parses every module outside `entitlements/` and fails if one imports the
+subscription status enum or compares a status literal. A second implementation
+of the access rules is invisible to behavioural tests; it shows up as a
+disagreement in production, later. The detector is itself checked against the
+pattern it exists to find.
+
+### Two guards fired on schedule
+
+M2's `test_the_access_object_is_absent_until_m4` was written to fail exactly
+once, so nobody shipped a placeholder the frontend could depend on. It fired.
+That is three milestone-order guards that have now gone off correctly across
+M0–M4.
+
+### Open, and blocking M9
+
+**The trial scoping rule (spec §3.2) is undecided.** A trial was settled to be
+*scoped* rather than equal to a paid subscription, but not what scopes it.
+`trial_covers` currently grants what an active subscription grants, isolated in
+one function.
+
+That is safe today for one reason only: **there is no self-serve trial** — a
+subscription can only be started by the `billing` management command. **M9 must
+not ship a self-serve trial before this is answered**, or the permissive
+default becomes a way to get the catalogue free. ADR-010 §2.
+
+---
+
+## M3 — Catalogue domain. Complete — 10 of 10.
+
 Branch: `feat/m3-catalogue`.
 
 Spec: `docs/specs/m3-catalogue.md`
@@ -396,31 +473,33 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ---
 
-## Next milestone: M4 — Entitlements
+## Next milestone: M5 — Media Pipeline
 
-**The most consequential milestone in the build, and the one where guessing is
-most expensive** (CLAUDE.md §9). One resolver,
-`entitlements.services.resolve_access(user, content) -> AccessDecision`,
-returning a *reason* and never a bare boolean. Never duplicated, never inlined,
-never a stored `has_access` column.
+R2 presigned uploads; `MediaAsset` state machine; a Mux adapter behind a
+provider interface; Celery tasks with retry and a dead-letter queue; the
+webhook receiver; the playback-token endpoint.
 
-Carried in from M3:
+Carried in from M4:
 
-- **ADR-006 and ADR-009 both apply, and M4 is where they were aimed.** An inert
-  entitlement check gives the product away; a fan-out in the resolver is a
-  fan-out on the hottest path in the product. Provoke the control, and count
-  the queries rather than reasoning about them.
-- **The public catalogue serializer has no `body` field** (ADR-008 §6). Entitled
-  playback is a new serializer selected by the resolver's decision, not a
-  conditional field added to the public one.
-- **M4 is built against a fake billing provider.** CLAUDE.md §10 is explicit
-  that entitlements are fully tested before a real payment provider exists, and
-  that access rules inside a webhook handler mean something has gone wrong.
+- **The playback token is minted *after* the resolver allows it, in one
+  service function, in that order** (`architecture.md` §7). A token minted
+  without the check is a valid token for content nobody paid for. `§10 M5`
+  also asks for the test that the provider adapter was **never called** on a
+  denial — absence of a side effect, not just absence of a token.
+- **ADR-011 applies immediately.** `MediaAsset` status will start deciding
+  whether a token is minted. Everything an instructor can write that feeds
+  that decision needs the write-path audit, in the same change.
+- **Write the provider interface before the Mux code** (§10 M5). M4's fake
+  billing provider is the pattern: the adapter returns plain data and never
+  touches the ORM, which is what made the service layer independent of it.
+- **Invariants 6 and 7**: media never passes through Django, and a playback
+  URL is never stored — `provider` plus `provider_asset_id` only.
 
-**Still blocking, unchanged: the payment provider decision** gates M4's *schema*
-and M8 entirely. Standing rule until resolved — **do not model billing.** M4 can
-proceed on subscription *state* behind a fake provider; it cannot model prices,
-invoices or a payment processor's objects.
+**Still blocking M8 entirely: the payment provider decision** (CLAUDE.md §11
+#1). M4 was built against a fake provider precisely so this could stay open.
+
+**Still blocking M9: the trial scoping rule** (spec §3.2, ADR-010 §2). A
+self-serve trial must not ship before it is answered.
 
 ### Branch tidy-up, outstanding since M0
 

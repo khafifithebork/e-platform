@@ -74,6 +74,17 @@ class LessonSerializer(serializers.ModelSerializer):
     turns another course's section id into a 400 rather than a cross-course
     write, a constraint the database cannot express because both rows are
     individually valid.
+
+    ``is_preview`` is **read-only**, and that is a revenue control rather than
+    a nicety. A preview lesson is free to everyone: it is the resolver's first
+    branch, allowed before the caller is even identified. An instructor who
+    could set the flag could mark every lesson in their course a preview and
+    hand the whole thing away — not only their own work, because the
+    subscription that pays for it is shared across the catalogue.
+
+    Previews are therefore chosen by an admin, in the same review that decides
+    publication (ADR-007 §2). This was writable when the field was inert, and
+    only became a giveaway once M4 gave it meaning.
     """
 
     class Meta:
@@ -91,7 +102,13 @@ class LessonSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields: ClassVar[list[str]] = ["id", "course", "created_at", "updated_at"]
+        read_only_fields: ClassVar[list[str]] = [
+            "id",
+            "course",
+            "is_preview",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class ReorderSerializer(serializers.Serializer):
@@ -198,3 +215,35 @@ class PublicCourseDetailSerializer(PublicCourseSerializer):
 
     class Meta(PublicCourseSerializer.Meta):
         fields: ClassVar[list[str]] = [*PublicCourseSerializer.Meta.fields, "sections"]
+
+
+class GatedLessonSerializer(serializers.ModelSerializer):
+    """A lesson in full, including its content.
+
+    The counterpart to ``PublicLessonSerializer``, which omits ``body``
+    entirely. Two serializers rather than one with a conditional field, as
+    ADR-008 §6 anticipated: the public one *cannot* render paid content
+    because it has no such field, and this one is only reachable behind
+    ``IsEntitledToLesson``. A single serializer branching on a flag would put
+    the access decision inside the I/O layer, which invariant 2 forbids and
+    which is one wrong branch away from serving everything.
+    """
+
+    course_slug = serializers.SlugField(source="course.slug", read_only=True)
+
+    class Meta:
+        model = Lesson
+        fields: ClassVar[list[str]] = [
+            "id",
+            "course_slug",
+            "section",
+            "slug",
+            "title",
+            "body",
+            "lesson_type",
+            "position",
+            "is_preview",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields: ClassVar[list[str]] = fields

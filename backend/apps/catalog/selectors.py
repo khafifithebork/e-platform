@@ -1,8 +1,8 @@
 """Catalogue reads."""
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
-from apps.accounts.models import User
+from apps.accounts.models import Role, User
 from apps.catalog.models import (
     Course,
     CourseReviewEvent,
@@ -115,3 +115,33 @@ def languages_with_published_courses():
     return (
         Language.objects.filter(courses__status=CourseStatus.PUBLISHED).distinct().order_by("name")
     )
+
+
+def lessons_visible_to(*, user):
+    """Lessons a caller may attempt to read at all.
+
+    Visibility, not entitlement — two different questions, answered in two
+    places on purpose. This one asks "does this content exist for you"; the
+    resolver then asks "may you see its contents". Merging them would put
+    catalogue rules inside ``resolve_access`` and course status into a
+    function that is only about subscriptions.
+
+    The distinction matters concretely: without this filter a paying
+    subscriber passes the resolver's SUBSCRIPTION_ACTIVE branch on a lesson in
+    an unpublished course, and reads a draft the instructor has not submitted.
+    The resolver is not wrong to allow it — it was never asked about
+    publication.
+
+    Instructors keep their own drafts, because writing a course means reading
+    it back. Admins see everything, as they do everywhere else.
+    """
+    published = Q(course__status=CourseStatus.PUBLISHED)
+
+    if user is None or not getattr(user, "is_authenticated", False):
+        visible = published
+    elif getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
+        visible = Q()
+    else:
+        visible = published | Q(course__instructor=user)
+
+    return Lesson.objects.filter(visible).select_related("course").distinct()
