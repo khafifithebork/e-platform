@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from rest_framework.permissions import BasePermission
 
+from apps.accounts.models import Role
 from apps.entitlements.exceptions import EntitlementDenied
 from apps.entitlements.resolver import resolve_access
 
@@ -37,3 +38,22 @@ class IsEntitledToLesson(BasePermission):
             raise EntitlementDenied(decision)
 
         return True
+
+
+class IsAdministrator(BasePermission):
+    """Only this product's administrators.
+
+    ``role == ADMIN``, not ``is_staff``. M3 established that these are
+    different facts: staff is Django's flag for reaching the admin site, and
+    the day someone is given it to fix a typo must not be the day they can
+    read every subscriber's billing history.
+
+    ``is_superuser`` is accepted alongside it, because a superuser can grant
+    itself the role anyway and pretending otherwise is theatre.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not getattr(user, "is_authenticated", False):
+            return False
+        return getattr(user, "role", None) == Role.ADMIN or user.is_superuser

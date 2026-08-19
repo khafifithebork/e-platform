@@ -4,6 +4,34 @@
  */
 
 export interface paths {
+    "/api/v1/admin-api/users/{id}/diagnostics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Diagnose a user's entitlement
+         * @description Everything known about one person's entitlement.
+         *
+         *     Administrators only — ``role == ADMIN``, not ``is_staff`` (M3's
+         *     distinction). This reads another person's billing history, which is the
+         *     most sensitive read in the product outside the admin site itself.
+         *
+         *     Deliberately read-only. Support diagnosing a problem should not be able to
+         *     fix it by editing rows here; changing access means granting an override,
+         *     which is recorded with a grantor and a reason.
+         */
+        get: operations["admin_api_users_diagnostics_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login/": {
         parameters: {
             query?: never;
@@ -635,6 +663,25 @@ export interface components {
             readonly reason: string;
             readonly cta: string | null;
         };
+        AccessDecision: {
+            readonly allowed: boolean;
+            readonly reason: string;
+            readonly cta: string | null;
+        };
+        AccessOverride: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description Why this was granted. Required — an unexplained grant is the boolean again. */
+            reason: string;
+            /** Format: email */
+            readonly granted_by_email: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         /**
          * @description * `SUBMITTED` - Submitted for review
          *     * `APPROVED` - Approved
@@ -675,7 +722,7 @@ export interface components {
              *     * `PUBLISHED` - Published
              *     * `ARCHIVED` - Archived
              */
-            readonly status: components["schemas"]["StatusEnum"];
+            readonly status: components["schemas"]["CourseStatusEnum"];
             /**
              * Format: date-time
              * @description Set when an admin approves. Null means it has never been live.
@@ -733,11 +780,37 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description * `DRAFT` - Draft
+         *     * `IN_REVIEW` - In review
+         *     * `PUBLISHED` - Published
+         *     * `ARCHIVED` - Archived
+         * @enum {string}
+         */
+        CourseStatusEnum: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED";
+        DiagnosticUser: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: email */
+            readonly email: string;
+            readonly role: string;
+        };
         /** @description For resending a verification email. */
         EmailOnlyRequest: {
             /** Format: email */
             email: string;
         };
+        /**
+         * @description * `TRIAL_STARTED` - Trial started
+         *     * `ACTIVATED` - Activated
+         *     * `RENEWED` - Renewed
+         *     * `PAYMENT_FAILED` - Payment failed
+         *     * `CANCELLATION_REQUESTED` - Cancellation requested
+         *     * `CANCELED` - Canceled
+         *     * `EXPIRED` - Expired
+         * @enum {string}
+         */
+        EventTypeEnum: "TRIAL_STARTED" | "ACTIVATED" | "RENEWED" | "PAYMENT_FAILED" | "CANCELLATION_REQUESTED" | "CANCELED" | "EXPIRED";
         /**
          * @description A lesson in full, including its content.
          *
@@ -1139,17 +1212,59 @@ export interface components {
             title: string;
             position: number;
         };
-        /**
-         * @description * `DRAFT` - Draft
-         *     * `IN_REVIEW` - In review
-         *     * `PUBLISHED` - Published
-         *     * `ARCHIVED` - Archived
-         * @enum {string}
-         */
-        StatusEnum: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED";
         /** @description Output only. */
         StudentProfile: {
             display_name: string;
+        };
+        /**
+         * @description Includes `provider_subscription_id`, deliberately.
+         *
+         *     It is the handle support needs to find the same subscription in the
+         *     provider's own dashboard, and this endpoint is administrators only. It
+         *     appears nowhere a subscriber can reach.
+         */
+        SubscriptionDiagnostic: {
+            /** Format: uuid */
+            readonly id: string;
+            status: components["schemas"]["SubscriptionDiagnosticStatusEnum"];
+            /** Format: date-time */
+            current_period_end: string;
+            /** Format: date-time */
+            trial_end?: string | null;
+            /** @description Cancellation requested; access continues until current_period_end. */
+            cancel_at_period_end?: boolean;
+            /** @description Which system told us about this. 'fake' until M8. */
+            provider: string;
+            /** @description The provider's opaque id. Null until a real provider exists. */
+            provider_subscription_id?: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `TRIALING` - Trialing
+         *     * `ACTIVE` - Active
+         *     * `PAST_DUE` - Past due
+         *     * `CANCELED` - Canceled
+         *     * `EXPIRED` - Expired
+         * @enum {string}
+         */
+        SubscriptionDiagnosticStatusEnum: "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED";
+        SubscriptionEvent: {
+            /** Format: uuid */
+            readonly id: string;
+            event_type: components["schemas"]["EventTypeEnum"];
+            from_status?: string;
+            to_status?: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description The answer to "why is this person's access wrong". */
+        UserDiagnostics: {
+            readonly user: components["schemas"]["DiagnosticUser"];
+            readonly access: components["schemas"]["AccessDecision"];
+            readonly subscriptions: components["schemas"]["SubscriptionDiagnostic"][];
+            readonly events: components["schemas"]["SubscriptionEvent"][];
+            readonly overrides: components["schemas"]["AccessOverride"][];
         };
         /** @description For consuming a verification token. */
         VerifyEmailRequest: {
@@ -1164,6 +1279,41 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_api_users_diagnostics_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDiagnostics"];
+                };
+            };
+            /** @description Not an administrator. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     auth_login_create: {
         parameters: {
             query?: never;

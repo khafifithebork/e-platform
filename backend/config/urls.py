@@ -19,6 +19,9 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/catalogue/", include("apps.catalog.public_urls")),
     # Paid content. Every route here passes the entitlement resolver.
     path("api/v1/", include("apps.catalog.learning_urls")),
+    # Administrators only, every route. Not the Django admin site, which M10
+    # routes separately after hardening.
+    path("api/v1/admin-api/", include("apps.entitlements.admin_urls")),
     # Infrastructure, not product: outside /api/v1/ on purpose, so it is not
     # versioned, not in the OpenAPI schema, and not proxied as an API route.
     path("healthz", healthz, name="healthz"),

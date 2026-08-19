@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.entitlements.models import AccessOverride, Subscription
+from apps.entitlements.models import AccessOverride, Subscription, SubscriptionEvent
 
 
 def subscriptions_bearing_on_access(*, user: User):
@@ -43,3 +43,26 @@ def active_override_exists(*, user: User) -> bool:
     return AccessOverride.objects.filter(
         Q(user=user) & Q(starts_at__lte=now) & Q(ends_at__gt=now)
     ).exists()
+
+
+def diagnostics_for(*, user: User):
+    """Everything bearing on one person's entitlement, for support.
+
+    Three queries returned together rather than a view assembling them, so
+    that "what do we show when access is wrong" is answered in one place and
+    the ordering is deliberate: subscriptions and events newest first, because
+    a support question is almost always about what happened most recently.
+
+    Overrides are joined on their grantor: the whole argument for a table over
+    a boolean (§5.2) is that a grant says who made it, and rendering that
+    without the join is one query per row.
+    """
+    return (
+        Subscription.objects.filter(user=user).order_by("-created_at"),
+        SubscriptionEvent.objects.filter(subscription__user=user)
+        .select_related("subscription")
+        .order_by("-created_at"),
+        AccessOverride.objects.filter(user=user)
+        .select_related("granted_by")
+        .order_by("-starts_at"),
+    )
