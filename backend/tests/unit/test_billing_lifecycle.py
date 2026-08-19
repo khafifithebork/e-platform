@@ -289,3 +289,52 @@ class TestTheProviderNeverWritesRows:
         names = {f.name for f in dataclasses.fields(ProviderSubscription)}
 
         assert not names & {"amount", "currency", "price", "price_id", "interval", "invoice"}
+
+
+class TestExpiry:
+    """The state time produces. No provider call: a period ending is something
+    we observe, not something a provider tells us."""
+
+    def test_a_cancelled_subscription_expires(self, student) -> None:
+        _billing("start", student.email)
+        _billing("cancel", student.email)
+
+        from apps.entitlements.models import Subscription
+        from apps.entitlements.services import expire
+
+        cancelled = Subscription.objects.get(user=student.pk)
+        expire(subscription=cancelled)
+
+        cancelled.refresh_from_db()
+        assert cancelled.status == "EXPIRED"
+
+    def test_expiring_records_the_transition(self, student) -> None:
+        from apps.entitlements.models import Subscription, SubscriptionEvent
+        from apps.entitlements.services import expire
+
+        _billing("start", student.email)
+        expire(subscription=Subscription.objects.get(user=student.pk))
+
+        event = SubscriptionEvent.objects.filter(event_type="EXPIRED").get()
+        assert event.from_status == "ACTIVE"
+        assert event.to_status == "EXPIRED"
+
+    def test_an_already_expired_subscription_cannot_expire_again(self, student) -> None:
+        """Not in the transition table. A second EXPIRED event would put a
+        transition on the record that never happened."""
+        from apps.entitlements import services
+        from apps.entitlements.models import Subscription
+
+        _billing("start", student.email)
+        _billing("cancel", student.email, immediately=True)
+        expired = Subscription.objects.get(user=student.pk)
+
+        with pytest.raises(services.SubscriptionTransitionError, match="EXPIRED -> EXPIRED"):
+            services.expire(subscription=expired)
+
+    def test_the_expire_command_works_end_to_end(self, student) -> None:
+        _billing("start", student.email)
+
+        _billing("expire", student.email)
+
+        assert _subscription_of(student).status == "EXPIRED"

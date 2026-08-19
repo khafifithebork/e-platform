@@ -73,6 +73,20 @@ jobs:
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
         run: pytest
 
+      # CLAUDE.md section 8 requires 100% branch coverage on the entitlement
+      # resolver, and a target that is only reported is a target nothing
+      # enforces. This fails the build rather than printing a number: a bug
+      # here either gives the product away or locks out paying customers.
+      - name: Entitlement resolver coverage
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+        run: >
+          pytest tests/unit/test_resolve_access.py
+          --cov=apps.entitlements.resolver
+          --cov-branch
+          --cov-fail-under=100
+          --cov-report=term-missing
+
       - name: Deployment check
         env:
           DJANGO_SETTINGS_MODULE: config.settings.production
