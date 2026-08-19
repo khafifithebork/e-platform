@@ -624,6 +624,18 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * @description The entitlement decision, as the frontend receives it.
+         *
+         *     Declared as a serializer purely so the OpenAPI schema describes the shape
+         *     and invariant 16's generated types are real rather than `unknown`. Nothing
+         *     constructs it — the resolver produces the values.
+         */
+        Access: {
+            readonly allowed: boolean;
+            readonly reason: string;
+            readonly cta: string | null;
+        };
+        /**
          * @description * `SUBMITTED` - Submitted for review
          *     * `APPROVED` - Approved
          *     * `REJECTED` - Rejected
@@ -855,9 +867,16 @@ export interface components {
          *     absent: they are internal authorisation detail, and the frontend branches
          *     on `role`.
          *
-         *     No `access` object until M4 (architecture.md section 6.2). Adding an
-         *     optional object later is backward compatible; shipping a fake one now would
-         *     invite the frontend to depend on a shape with no logic behind it.
+         *     `access` carries the entitlement decision, as architecture.md section 6.2
+         *     requires, "so the frontend never re-derives access rules". It is the same
+         *     resolver the gated endpoints use — `resolve_account_access` is the
+         *     lesson-independent half of `resolve_access`, not a second copy, because two
+         *     implementations of these rules disagree the day one of them changes
+         *     (invariant 3).
+         *
+         *     A reason and a call to action, never a bare boolean: the interface has to
+         *     tell "start a trial" from "your card failed", and a boolean would put that
+         *     inference in the frontend.
          */
         Me: {
             /** Format: uuid */
@@ -867,6 +886,7 @@ export interface components {
             readonly role: string;
             readonly is_email_verified: boolean;
             readonly profile: components["schemas"]["StudentProfile"];
+            readonly access: components["schemas"]["Access"];
         };
         PaginatedCourseList: {
             /**

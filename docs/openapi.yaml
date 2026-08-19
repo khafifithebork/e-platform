@@ -1231,6 +1231,29 @@ paths:
           description: No such lesson, or not published.
 components:
   schemas:
+    Access:
+      type: object
+      description: |-
+        The entitlement decision, as the frontend receives it.
+
+        Declared as a serializer purely so the OpenAPI schema describes the shape
+        and invariant 16's generated types are real rather than `unknown`. Nothing
+        constructs it — the resolver produces the values.
+      properties:
+        allowed:
+          type: boolean
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        cta:
+          type: string
+          readOnly: true
+          nullable: true
+      required:
+      - allowed
+      - cta
+      - reason
     ActionEnum:
       enum:
       - SUBMITTED
@@ -1671,9 +1694,16 @@ components:
         absent: they are internal authorisation detail, and the frontend branches
         on `role`.
 
-        No `access` object until M4 (architecture.md section 6.2). Adding an
-        optional object later is backward compatible; shipping a fake one now would
-        invite the frontend to depend on a shape with no logic behind it.
+        `access` carries the entitlement decision, as architecture.md section 6.2
+        requires, "so the frontend never re-derives access rules". It is the same
+        resolver the gated endpoints use — `resolve_account_access` is the
+        lesson-independent half of `resolve_access`, not a second copy, because two
+        implementations of these rules disagree the day one of them changes
+        (invariant 3).
+
+        A reason and a call to action, never a bare boolean: the interface has to
+        tell "start a trial" from "your card failed", and a boolean would put that
+        inference in the frontend.
       properties:
         id:
           type: string
@@ -1693,7 +1723,12 @@ components:
           allOf:
           - $ref: '#/components/schemas/StudentProfile'
           readOnly: true
+        access:
+          allOf:
+          - $ref: '#/components/schemas/Access'
+          readOnly: true
       required:
+      - access
       - email
       - id
       - is_email_verified

@@ -90,12 +90,36 @@ class TestReturnsTheSignedInUser:
 
         assert "profile" in client.get(ME).json()
 
-    def test_the_access_object_is_absent_until_m4(self, client, account) -> None:
-        """Shipping a placeholder would invite the frontend to depend on a
-        shape with no entitlement logic behind it."""
+    def test_includes_the_entitlement_decision(self, client, account) -> None:
+        """Replaces a guard that asserted this was *absent* until M4, written
+        to fail exactly once so nobody shipped a placeholder the frontend could
+        depend on. M4 arrived and it fired, which is what it was for.
+
+        architecture.md §6.2: /auth/me/ returns the decision "so the frontend
+        never re-derives access rules".
+        """
         _sign_in(client, account)
 
-        assert "access" not in client.get(ME).json()
+        access = client.get(ME).json()["access"]
+
+        assert access["allowed"] is False
+        assert access["reason"] == "NO_SUBSCRIPTION"
+        assert access["cta"] == "subscribe"
+
+    def test_the_decision_follows_the_subscription(self, client, account) -> None:
+        """Provoked in both directions. A hardcoded denial would pass the test
+        above and be indistinguishable from a working resolver."""
+        from apps.entitlements.providers.fake import FakeBillingProvider
+        from apps.entitlements.services import start_subscription
+
+        start_subscription(user=account, provider=FakeBillingProvider())
+        _sign_in(client, account)
+
+        access = client.get(ME).json()["access"]
+
+        assert access["allowed"] is True
+        assert access["reason"] == "SUBSCRIPTION_ACTIVE"
+        assert access["cta"] is None
 
 
 @pytest.mark.django_db
@@ -148,11 +172,17 @@ class TestQueryCount:
         """The most-called authenticated endpoint in the product: the frontend
         hits it on load and after every auth transition.
 
-        Three queries, and three is the floor:
+        Five queries:
 
         1. the session,
         2. the user, loaded by Django's authentication middleware,
-        3. the user again with the profile joined.
+        3. the user again with the profile joined,
+        4. the access-override check,
+        5. the subscriptions.
+
+        Four and five are the entitlement decision, added in M4. They are the
+        cost of the frontend not re-deriving access rules, and they are the
+        first thing M8's cache will remove.
 
         The third looks wasteful and is not avoidable by dropping the selector:
         reading ``request.user.student_profile`` lazily costs exactly the same
@@ -160,9 +190,9 @@ class TestQueryCount:
         because the join stays one query as more relations are added — not on
         saving one today.
 
-        The number is pinned so that a fourth query has to be argued for.
+        The number is pinned so that a sixth query has to be argued for.
         """
         _sign_in(client, account)
 
-        with django_assert_num_queries(3):
+        with django_assert_num_queries(5):
             client.get(ME)

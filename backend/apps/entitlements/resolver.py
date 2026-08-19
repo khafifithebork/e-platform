@@ -121,7 +121,7 @@ _DENIAL_RANK: dict[str, int] = {
 }
 
 
-def trial_covers(*, subscription: Subscription, lesson: Lesson) -> bool:
+def trial_covers(*, subscription: Subscription, lesson: Lesson | None) -> bool:
     """Whether this trial includes this lesson.
 
     **The scoping rule is undecided** (spec §3.2). It was settled that a trial
@@ -143,7 +143,7 @@ def trial_covers(*, subscription: Subscription, lesson: Lesson) -> bool:
     return True
 
 
-def _decide_for(subscription: Subscription, lesson: Lesson, now) -> AccessDecision:
+def _decide_for(subscription: Subscription, lesson: Lesson | None, now) -> AccessDecision:
     """One subscription's answer, ignoring every other input."""
     status = subscription.status
 
@@ -180,44 +180,37 @@ def _decide_for(subscription: Subscription, lesson: Lesson, now) -> AccessDecisi
     return _DENY_EXPIRED
 
 
-def resolve_access(*, user, lesson: Lesson) -> AccessDecision:
-    """Decide whether ``user`` may see ``lesson``, and say why.
+def resolve_account_access(*, user, lesson: Lesson | None = None) -> AccessDecision:
+    """Whether this account is entitled to gated content in general.
 
-    ``user`` may be ``AnonymousUser`` or ``None``: preview lessons are readable
-    by people who have not signed in, so the check has to run before
-    authentication is established rather than behind it.
+    The subscription rules, with no particular lesson in mind. ``/auth/me/``
+    needs exactly this — the frontend has to know whether to show a paywall
+    before any lesson is chosen — and it must not be a second implementation,
+    because two copies of the entitlement rules disagree the day one of them
+    changes (invariant 3). ``resolve_access`` therefore calls this rather than
+    repeating it, and everything below is reached by both.
 
-    Callers should pass a lesson with ``course`` and ``course.instructor``
-    already selected. Without that the ownership check costs an extra query on
-    the hottest path in the product — pinned by a query-count test (ADR-009).
+    ``lesson`` is passed through only so the trial-scope rule can see it once
+    §3.2 is settled. It is ``None`` for an account-level question, which that
+    rule must treat as "is anything covered", not as an error.
     """
     now = timezone.now()
 
-    # 1. Preview, before anything else. A free lesson is free to everyone, and
-    #    putting this first is what keeps the marketing pages working for
-    #    people with no account.
-    if lesson.is_preview:
-        return _ALLOW_PREVIEW
-
-    # 2. Anonymous. Distinguished from "not entitled" because the interface
-    #    must offer signing in rather than subscribing.
+    # Anonymous. Distinguished from "not entitled" because the interface must
+    # offer signing in rather than subscribing.
     if user is None or not getattr(user, "is_authenticated", False):
         return _DENY_LOGIN
 
-    # 3. Staff and the course's own instructor. An instructor locked out of
-    #    the course they are writing cannot check their own work.
     if getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
         return _ALLOW_STAFF
-    if lesson.course.instructor_id == user.pk:
-        return _ALLOW_OWNER
 
-    # 4. Manual grants, before subscriptions: an override exists precisely to
-    #    grant access to somebody whose subscription does not.
+    # Manual grants, before subscriptions: an override exists precisely to
+    # grant access to somebody whose subscription does not.
     if active_override_exists(user=user):
         return _ALLOW_OVERRIDE
 
-    # 5. Subscriptions — all of them. See the selector: a user may hold a
-    #    cancelled row still inside its paid period alongside a fresh one.
+    # Subscriptions — all of them. See the selector: a user may hold a
+    # cancelled row still inside its paid period alongside a fresh one.
     decisions = [
         _decide_for(subscription, lesson, now)
         for subscription in subscriptions_bearing_on_access(user=user)
@@ -233,3 +226,38 @@ def resolve_access(*, user, lesson: Lesson) -> AccessDecision:
     # Nothing granted access. Surface the most informative refusal rather than
     # whichever row happened to come back first.
     return max(decisions, key=lambda decision: _DENIAL_RANK[decision.reason])
+
+
+def resolve_access(*, user, lesson: Lesson) -> AccessDecision:
+    """Decide whether ``user`` may see ``lesson``, and say why.
+
+    ``user`` may be ``AnonymousUser`` or ``None``: preview lessons are readable
+    by people who have not signed in, so the check has to run before
+    authentication is established rather than behind it.
+
+    Only the two lesson-specific rules live here — everything about
+    subscriptions is in ``resolve_account_access``, which ``/auth/me/`` calls
+    too. One implementation, two entry points.
+
+    Callers should pass a lesson with ``course`` and ``course.instructor``
+    already selected. Without that the ownership check costs an extra query on
+    the hottest path in the product — pinned by a query-count test (ADR-009).
+    """
+    # 1. Preview, before anything else. A free lesson is free to everyone, and
+    #    putting this first is what keeps the marketing pages working for
+    #    people with no account.
+    if lesson.is_preview:
+        return _ALLOW_PREVIEW
+
+    # 2. The course's own instructor. Before the subscription rules because it
+    #    needs no query — the course is already loaded — and because an
+    #    instructor locked out of the course they are writing cannot check
+    #    their own work.
+    if (
+        user is not None
+        and getattr(user, "is_authenticated", False)
+        and lesson.course.instructor_id == user.pk
+    ):
+        return _ALLOW_OWNER
+
+    return resolve_account_access(user=user, lesson=lesson)
