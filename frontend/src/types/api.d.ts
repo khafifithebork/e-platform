@@ -854,6 +854,17 @@ export interface components {
          *     turns another course's section id into a 400 rather than a cross-course
          *     write, a constraint the database cannot express because both rows are
          *     individually valid.
+         *
+         *     ``is_preview`` is **read-only**, and that is a revenue control rather than
+         *     a nicety. A preview lesson is free to everyone: it is the resolver's first
+         *     branch, allowed before the caller is even identified. An instructor who
+         *     could set the flag could mark every lesson in their course a preview and
+         *     hand the whole thing away — not only their own work, because the
+         *     subscription that pays for it is shared across the catalogue.
+         *
+         *     Previews are therefore chosen by an admin, in the same review that decides
+         *     publication (ADR-007 §2). This was writable when the field was inert, and
+         *     only became a giveaway once M4 gave it meaning.
          */
         Lesson: {
             /** Format: uuid */
@@ -868,7 +879,7 @@ export interface components {
             lesson_type?: components["schemas"]["LessonTypeEnum"];
             position: number;
             /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
-            is_preview?: boolean;
+            readonly is_preview: boolean;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -886,6 +897,17 @@ export interface components {
          *     turns another course's section id into a 400 rather than a cross-course
          *     write, a constraint the database cannot express because both rows are
          *     individually valid.
+         *
+         *     ``is_preview`` is **read-only**, and that is a revenue control rather than
+         *     a nicety. A preview lesson is free to everyone: it is the resolver's first
+         *     branch, allowed before the caller is even identified. An instructor who
+         *     could set the flag could mark every lesson in their course a preview and
+         *     hand the whole thing away — not only their own work, because the
+         *     subscription that pays for it is shared across the catalogue.
+         *
+         *     Previews are therefore chosen by an admin, in the same review that decides
+         *     publication (ADR-007 §2). This was writable when the field was inert, and
+         *     only became a giveaway once M4 gave it meaning.
          */
         LessonRequest: {
             /** Format: uuid */
@@ -895,8 +917,6 @@ export interface components {
             body?: string;
             lesson_type?: components["schemas"]["LessonTypeEnum"];
             position: number;
-            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
-            is_preview?: boolean;
         };
         /**
          * @description * `VIDEO` - Video
@@ -1070,6 +1090,17 @@ export interface components {
          *     turns another course's section id into a 400 rather than a cross-course
          *     write, a constraint the database cannot express because both rows are
          *     individually valid.
+         *
+         *     ``is_preview`` is **read-only**, and that is a revenue control rather than
+         *     a nicety. A preview lesson is free to everyone: it is the resolver's first
+         *     branch, allowed before the caller is even identified. An instructor who
+         *     could set the flag could mark every lesson in their course a preview and
+         *     hand the whole thing away — not only their own work, because the
+         *     subscription that pays for it is shared across the catalogue.
+         *
+         *     Previews are therefore chosen by an admin, in the same review that decides
+         *     publication (ADR-007 §2). This was writable when the field was inert, and
+         *     only became a giveaway once M4 gave it meaning.
          */
         PatchedLessonRequest: {
             /** Format: uuid */
@@ -1079,8 +1110,6 @@ export interface components {
             body?: string;
             lesson_type?: components["schemas"]["LessonTypeEnum"];
             position?: number;
-            /** @description Watchable without a subscription. The entitlement resolver reads this in M4; it grants nothing on its own. */
-            is_preview?: boolean;
         };
         /**
          * @description ``course`` is read-only: it comes from the URL, never the body.
