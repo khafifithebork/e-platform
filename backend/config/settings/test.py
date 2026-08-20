@@ -28,6 +28,15 @@ environ.Env.read_env(Path(__file__).resolve().parents[2] / ".env")
 os.environ.setdefault("DJANGO_SECRET_KEY", secrets.token_urlsafe(50))
 os.environ.setdefault("DJANGO_ALLOWED_HOSTS", "testserver")
 os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/test")
+
+# The MinIO container's documented defaults, not secrets: they are the same
+# values printed in MinIO's own quickstart, they reach a local container only,
+# and compose and CI both supply their own. Present so `pytest` on a bare
+# machine still imports — the storage tests skip when nothing answers.
+os.environ.setdefault("MEDIA_STORAGE_ENDPOINT", "http://localhost:9000")
+os.environ.setdefault("MEDIA_STORAGE_BUCKET", "media-test")
+os.environ.setdefault("MEDIA_STORAGE_ACCESS_KEY", "minioadmin")
+os.environ.setdefault("MEDIA_STORAGE_SECRET_KEY", "minioadmin")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("REDIS_CACHE_URL", "redis://localhost:6379/1")
 
