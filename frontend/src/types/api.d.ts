@@ -671,6 +671,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lessons/{id}/playback-token/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a playback token
+         * @description Permission to play one lesson, if the resolver allows it.
+         *
+         *     ``AllowAny``, deliberately, and it is the same reasoning as the gated
+         *     lesson endpoint: a preview lesson is playable by someone with no account,
+         *     and a blanket ``IsAuthenticated`` here would refuse them before the
+         *     resolver's first branch ran. **Entitlement is the gate, not
+         *     authentication** — and it decides for anonymous callers too.
+         *
+         *     Two gates, as everywhere in this codebase: ``lessons_visible_to`` answers
+         *     whether the lesson exists for you (404 if not), then the resolver answers
+         *     whether you may see it (403 with a reason). The resolver knows about
+         *     subscriptions, not publication, so without the first a subscriber could
+         *     play an unpublished draft.
+         */
+        post: operations["lessons_playback_token_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media-assets/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Processing status of an upload
+         * @description Where an instructor sees what happened to their upload.
+         *
+         *     The visible half of the M5 deliverable. Without it, processing is a
+         *     black box: an instructor uploads a file and either it works or nothing
+         *     ever says otherwise, which is how a failed asset is discovered on
+         *     publication day.
+         *
+         *     Carries ``status``, ``error_message`` and ``retry_count`` — the same three
+         *     fields the dead-letter queue is read from, because the person who can act
+         *     on a failure is usually the one who uploaded it.
+         */
+        get: operations["media_assets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/media-assets/{id}/complete/": {
         parameters: {
             query?: never;
@@ -685,6 +746,31 @@ export interface paths {
          * @description Confirm an upload landed, and verify it before believing it.
          */
         post: operations["media_assets_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media-assets/{id}/retry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed upload
+         * @description Put a failed asset back through the pipeline.
+         *
+         *     The real failure path §10 M5 asks for. The master is already in our
+         *     storage (invariant 7), so a provider outage costs a click rather than
+         *     asking an instructor to upload two gigabytes again — and that is the whole
+         *     practical argument for storing the master ourselves.
+         */
+        post: operations["media_assets_retry_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1239,6 +1325,25 @@ export interface components {
         PatchedSectionRequest: {
             title?: string;
             position?: number;
+        };
+        /**
+         * @description What a player needs, and nothing that outlives the session.
+         *
+         *     ``playback_id`` appears here and only here — abuse case 10. It is the
+         *     handle that plays the video, so it goes to a caller the resolver has just
+         *     allowed, and to nobody else: it is absent from the instructor's own asset
+         *     view and from every catalogue response.
+         *
+         *     No URL (invariant 7, abuse case 11). The player composes one from the
+         *     handle, so changing provider changes nothing we ever stored or sent.
+         *     ``expires_at`` is included so a player can refresh before playback dies
+         *     mid-lesson rather than discovering the expiry by failing.
+         */
+        PlaybackToken: {
+            readonly token: string;
+            readonly playback_id: string;
+            /** Format: date-time */
+            readonly expires_at: string;
         };
         /** @description What the browser needs, and nothing reusable beyond this one upload. */
         PresignedUpload: {
@@ -2527,6 +2632,76 @@ export interface operations {
             };
         };
     };
+    lessons_playback_token_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybackToken"];
+                };
+            };
+            /** @description Entitlement denied, with a reason and a cta. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lesson. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The media is not ready to play yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    media_assets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+            /** @description No such asset of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     media_assets_complete_create: {
         parameters: {
             query?: never;
@@ -2562,6 +2737,41 @@ export interface operations {
             };
             /** @description Nothing uploaded, too large, or not the declared type. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    media_assets_retry_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+            /** @description No such asset of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not in a failed state. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

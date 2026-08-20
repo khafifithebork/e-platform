@@ -8,7 +8,13 @@ service layer, not by where the path sits.
 
 from django.urls import path
 
-from apps.media_assets.views import LessonUploadUrlView, MediaAssetCompleteView
+from apps.media_assets.views import (
+    LessonPlaybackTokenView,
+    LessonUploadUrlView,
+    MediaAssetCompleteView,
+    MediaAssetDetailView,
+    MediaAssetRetryView,
+)
 from apps.media_assets.webhooks import VideoWebhookView
 
 app_name = "media"
@@ -23,6 +29,13 @@ urlpatterns = [
         "media-assets/<uuid:pk>/complete/",
         MediaAssetCompleteView.as_view(),
         name="complete",
+    ),
+    path("media-assets/<uuid:pk>/", MediaAssetDetailView.as_view(), name="asset-detail"),
+    path("media-assets/<uuid:pk>/retry/", MediaAssetRetryView.as_view(), name="asset-retry"),
+    path(
+        "lessons/<uuid:pk>/playback-token/",
+        LessonPlaybackTokenView.as_view(),
+        name="playback-token",
     ),
     # Called by the provider, not a browser. Unauthenticated: the signature
     # is the authentication (invariant 8).

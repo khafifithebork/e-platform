@@ -14,12 +14,17 @@ later — is how an instructor discovers on publication day that nothing worked.
 
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.db import transaction
 
 from apps.accounts.models import Role, User
 from apps.catalog.models import Lesson
+from apps.entitlements.exceptions import EntitlementDenied
+from apps.entitlements.resolver import resolve_access
 from apps.media_assets.models import MediaAsset, MediaAssetStatus
+from apps.media_assets.providers.fake_video import video_provider
 from apps.media_assets.providers.storage import (
     ObjectStorage,
     PresignedUpload,
@@ -27,7 +32,10 @@ from apps.media_assets.providers.storage import (
     build_object_key,
     looks_like,
 )
+from apps.media_assets.providers.video import PlaybackToken
 from apps.media_assets.tasks import process_media_asset
+
+logger = logging.getLogger(__name__)
 
 # States an upload may replace. TRANSCODING is excluded because the provider is
 # mid-job on the current master, and READY because replacing live media is a
@@ -57,7 +65,7 @@ class UploadVerificationFailed(Exception):
     """What landed is not what was authorised."""
 
 
-def _may_manage(lesson: Lesson, user: User) -> bool:
+def may_manage(*, lesson: Lesson, user: User) -> bool:
     """Who may put media on a lesson.
 
     Its own function so the answer is in one place, and deliberately *not* the
@@ -85,7 +93,7 @@ def request_upload(
     person who started and gave up, which is a fact worth having rather than
     silence.
     """
-    if not _may_manage(lesson, by):
+    if not may_manage(lesson=lesson, user=by):
         raise NotYours
 
     asset = MediaAsset.objects.select_for_update().filter(lesson=lesson).first()
@@ -153,7 +161,7 @@ def complete_upload(*, asset: MediaAsset, by: User, storage: ObjectStorage) -> M
        ``Content-Type`` the store recorded — the store only knows what the
        uploader declared.
     """
-    if not _may_manage(asset.lesson, by):
+    if not may_manage(lesson=asset.lesson, user=by):
         raise NotYours
     if asset.status != MediaAssetStatus.PENDING:
         raise UploadNotAllowed(f"An asset in {asset.status} is not awaiting an upload.")
@@ -214,11 +222,66 @@ def retry_processing(*, asset: MediaAsset) -> MediaAsset:
 
 __all__ = [
     "REPLACEABLE",
+    "NotPlayable",
     "NotYours",
     "UnsupportedContentType",
     "UploadNotAllowed",
     "UploadVerificationFailed",
     "complete_upload",
+    "issue_playback_token",
+    "may_manage",
     "request_upload",
     "retry_processing",
 ]
+
+
+class NotPlayable(Exception):
+    """There is nothing to play yet."""
+
+
+def issue_playback_token(*, user, lesson: Lesson, provider=None) -> PlaybackToken:
+    """Decide, then mint — in that order, in one function.
+
+    architecture.md §7 is unusually direct: "Signed playback tokens are not
+    access control on their own. They're the *enforcement*; the *decision* is
+    the entitlement resolver. A token minted without checking entitlement is a
+    valid token for content the user hasn't paid for. The check and the mint
+    live in one service function, in that order, always."
+
+    So they do. The two steps are not separable by a caller, there is no way to
+    reach the mint without passing the resolver, and the test asserts the
+    **provider adapter was never called** on a denial — a response containing
+    no token is a weaker claim than a token never having existed.
+
+    The resolver is called, not reimplemented: nothing here knows what a
+    subscription is (invariant 3).
+    """
+    decision = resolve_access(user=user, lesson=lesson)
+    if not decision.allowed:
+        raise EntitlementDenied(decision)
+
+    asset = MediaAsset.objects.filter(lesson=lesson).first()
+    if asset is None or asset.status != MediaAssetStatus.READY:
+        # Distinct from a denial: they may watch, there is simply nothing
+        # transcoded yet. Reporting this as an entitlement problem would send a
+        # paying subscriber to the upgrade page.
+        raise NotPlayable(asset.status if asset else "no media")
+
+    token = (provider or video_provider()).get_playback_token(
+        playback_id=asset.provider_playback_id,
+        ttl_seconds=settings.MEDIA_PLAYBACK_TOKEN_TTL_SECONDS,
+    )
+
+    # §10 M5 asks for an audit log of issuance. AuditLog is M10 (ADR-005 §3),
+    # so this is a structured log line for now — correlatable by request id,
+    # and the thing M10 turns into a durable row. Logged here rather than in
+    # the view so every caller is recorded, not only the HTTP one.
+    logger.info(
+        "playback_token_issued",
+        extra={
+            "lesson_id": str(lesson.pk),
+            "user_id": str(getattr(user, "pk", "")),
+            "reason": str(decision.reason),
+        },
+    )
+    return token

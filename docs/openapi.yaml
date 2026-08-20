@@ -1311,6 +1311,84 @@ paths:
           description: No such lesson of yours.
         '409':
           description: The current asset cannot be replaced.
+  /api/v1/lessons/{id}/playback-token/:
+    post:
+      operationId: lessons_playback_token_create
+      description: |-
+        Permission to play one lesson, if the resolver allows it.
+
+        ``AllowAny``, deliberately, and it is the same reasoning as the gated
+        lesson endpoint: a preview lesson is playable by someone with no account,
+        and a blanket ``IsAuthenticated`` here would refuse them before the
+        resolver's first branch ran. **Entitlement is the gate, not
+        authentication** — and it decides for anonymous callers too.
+
+        Two gates, as everywhere in this codebase: ``lessons_visible_to`` answers
+        whether the lesson exists for you (404 if not), then the resolver answers
+        whether you may see it (403 with a reason). The resolver knows about
+        subscriptions, not publication, so without the first a subscriber could
+        play an unpublished draft.
+      summary: Mint a playback token
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackToken'
+          description: ''
+        '403':
+          description: Entitlement denied, with a reason and a cta.
+        '404':
+          description: No such lesson.
+        '409':
+          description: The media is not ready to play yet.
+  /api/v1/media-assets/{id}/:
+    get:
+      operationId: media_assets_retrieve
+      description: |-
+        Where an instructor sees what happened to their upload.
+
+        The visible half of the M5 deliverable. Without it, processing is a
+        black box: an instructor uploads a file and either it works or nothing
+        ever says otherwise, which is how a failed asset is discovered on
+        publication day.
+
+        Carries ``status``, ``error_message`` and ``retry_count`` — the same three
+        fields the dead-letter queue is read from, because the person who can act
+        on a failure is usually the one who uploaded it.
+      summary: Processing status of an upload
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+        '404':
+          description: No such asset of yours.
   /api/v1/media-assets/{id}/complete/:
     post:
       operationId: media_assets_complete_create
@@ -1340,6 +1418,39 @@ paths:
           description: Not awaiting an upload.
         '422':
           description: Nothing uploaded, too large, or not the declared type.
+  /api/v1/media-assets/{id}/retry/:
+    post:
+      operationId: media_assets_retry_create
+      description: |-
+        Put a failed asset back through the pipeline.
+
+        The real failure path §10 M5 asks for. The master is already in our
+        storage (invariant 7), so a provider outage costs a click rather than
+        asking an instructor to upload two gigabytes again — and that is the whole
+        practical argument for storing the master ourselves.
+      summary: Retry a failed upload
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+        '404':
+          description: No such asset of yours.
+        '409':
+          description: Not in a failed state.
   /api/v1/webhooks/video/:
     post:
       operationId: webhooks_video_create
@@ -2295,6 +2406,35 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
+    PlaybackToken:
+      type: object
+      description: |-
+        What a player needs, and nothing that outlives the session.
+
+        ``playback_id`` appears here and only here — abuse case 10. It is the
+        handle that plays the video, so it goes to a caller the resolver has just
+        allowed, and to nobody else: it is absent from the instructor's own asset
+        view and from every catalogue response.
+
+        No URL (invariant 7, abuse case 11). The player composes one from the
+        handle, so changing provider changes nothing we ever stored or sent.
+        ``expires_at`` is included so a player can refresh before playback dies
+        mid-lesson rather than discovering the expiry by failing.
+      properties:
+        token:
+          type: string
+          readOnly: true
+        playback_id:
+          type: string
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - expires_at
+      - playback_id
+      - token
     PresignedUpload:
       type: object
       description: What the browser needs, and nothing reusable beyond this one upload.

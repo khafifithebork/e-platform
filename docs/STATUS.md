@@ -1,13 +1,80 @@
 # STATUS
 
-**Last updated:** 2026-08-19
-**Updated by:** agent session (M4 complete)
+**Last updated:** 2026-08-20
+**Updated by:** agent session (M5 complete)
 
 ---
 
 ## Current milestone
 
-**M4 — Entitlements. Complete — 10 of 10.**
+**M5 — Media Pipeline. Complete — 10 of 10.**
+Branch: `feat/m5-media-pipeline`.
+
+Spec: `docs/specs/m5-media-pipeline.md`
+Decisions: `docs/adr/012-m5-media-decisions.md` (before code),
+`docs/adr/013-m5-media-implementation.md` (what implementation settled)
+
+| Task | State |
+|---|---|
+| T1 spec + four decisions | **done** — `5aea854` |
+| T2 `MediaAsset`, `WebhookEvent` + constraints | **done** |
+| T3 storage adapter + MinIO | **done** |
+| T4 presigned upload and completion | **done** — `fe82068` |
+| T5 video provider interface + fake | **done** — `9879cf9` |
+| T6 processing task, retries, DLQ | **done** — `8b7cd93` |
+| T7 webhook receiver | **done** — `d782847` |
+| T8 playback token behind the resolver | **done** — `edd5891` |
+| T9 processing status + retry path | **done** — `cc81496` |
+| T10 abuse cases, query counts, ADRs | **done** |
+
+**653 tests pass**, ruff clean, tsc clean, `check --deploy` clean. The
+entitlement resolver still holds 100% branch coverage.
+
+### M5 costs nothing, and that was the point
+
+Real S3 code against MinIO, a fake video provider behind the documented
+interface (ADR-012 §1). The storage path is genuinely exercised — MinIO
+refuses a substituted content type with a 403 — so what ships is the code that
+will run in production with different environment variables.
+
+**The Mux integration is unproven.** What is proven is that everything around
+it is correct and the swap is one file. Same trade M4 made with billing.
+
+### The bug that would have emptied the dead-letter queue
+
+`complete_upload` was wrapped in `transaction.atomic`, so the failure path
+wrote FAILED and then raised — and the raise rolled the record back. Every
+rejected upload would have stayed PENDING with no message, and the queue §10
+M5 calls *the* deliverable would have been permanently empty while appearing
+to work.
+
+### The test that only works because it asserts a side effect
+
+Abuse case 6 asserts the provider adapter was **never called** on an
+entitlement denial, not that the response lacked a token. Provoked by swapping
+the order to mint first: three tests failed **and the endpoint still answered
+403**. A test asserting only the status code would have passed while valid,
+signed, working tokens were minted for people who may not watch.
+
+### Two testing facts worth carrying forward
+
+Celery's eager mode runs retries **inline**, so a test watching for a `Retry`
+reports "did not raise" against code that retries correctly. And
+`transaction.on_commit` **never fires under pytest-django** — the same
+invisibility as ADR-009 §5's deferred constraints, in a new disguise.
+
+### Carried into M8, unresolved
+
+**The webhook signature has no timestamp.** Our scheme accepts a valid old
+signature indefinitely. The idempotency table stops a duplicate being
+*processed* twice but does not stop a captured payload being replayed months
+later. Real providers bound this with a timestamp, and M8's adapter must add
+it (ADR-013 §6).
+
+---
+
+## M4 — Entitlements. Complete — 10 of 10.
+
 Branch: `feat/m4-entitlements`.
 
 Spec: `docs/specs/m4-entitlements.md`
@@ -473,33 +540,28 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ---
 
-## Next milestone: M5 — Media Pipeline
+## Next milestone: M6 — Transcription
 
-R2 presigned uploads; `MediaAsset` state machine; a Mux adapter behind a
-provider interface; Celery tasks with retry and a dead-letter queue; the
-webhook receiver; the playback-token endpoint.
+Deepgram behind a provider adapter; `Transcript` and `TranscriptSegment`;
+VTT as a rendered projection.
 
-Carried in from M4:
+Carried in from M5:
 
-- **The playback token is minted *after* the resolver allows it, in one
-  service function, in that order** (`architecture.md` §7). A token minted
-  without the check is a valid token for content nobody paid for. `§10 M5`
-  also asks for the test that the provider adapter was **never called** on a
-  denial — absence of a side effect, not just absence of a token.
-- **ADR-011 applies immediately.** `MediaAsset` status will start deciding
-  whether a token is minted. Everything an instructor can write that feeds
-  that decision needs the write-path audit, in the same change.
-- **Write the provider interface before the Mux code** (§10 M5). M4's fake
-  billing provider is the pattern: the adapter returns plain data and never
-  touches the ORM, which is what made the service layer independent of it.
-- **Invariants 6 and 7**: media never passes through Django, and a playback
-  URL is never stored — `provider` plus `provider_asset_id` only.
+- **Invariant 13**: transcripts are structured rows. VTT is a rendered,
+  cached projection and never the stored form.
+- **The adapter pattern is settled** and twice proven — billing in M4, video
+  in M5. Deepgram gets an interface and a fake, and the real integration is
+  gated on approving the bill, exactly as ADR-012 §1 did here.
+- **The pipeline hands off by webhook.** M5's receiver is the shape: verify,
+  insert, enqueue, 200, no business logic. The shared `WebhookEvent` table is
+  already there.
+- **ADR-011 applies** the moment transcript state starts deciding anything.
 
-**Still blocking M8 entirely: the payment provider decision** (CLAUDE.md §11
-#1). M4 was built against a fake provider precisely so this could stay open.
+**Still blocking M8: the payment provider decision** (CLAUDE.md §11 #1), plus
+the webhook timestamp gap above.
 
-**Still blocking M9: the trial scoping rule** (spec §3.2, ADR-010 §2). A
-self-serve trial must not ship before it is answered.
+**Still blocking a self-serve trial in M9: the trial scoping rule**
+(ADR-010 §2).
 
 ### Branch tidy-up, outstanding since M0
 

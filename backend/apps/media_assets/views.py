@@ -10,23 +10,30 @@ from dataclasses import asdict
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import Lesson
+from apps.catalog.selectors import lessons_visible_to
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.providers.storage import UnsupportedContentType, object_storage
 from apps.media_assets.serializers import (
     MediaAssetSerializer,
+    PlaybackTokenSerializer,
     UploadRequestSerializer,
     UploadTicketSerializer,
 )
 from apps.media_assets.services import (
+    NotPlayable,
     NotYours,
     UploadNotAllowed,
     UploadVerificationFailed,
     complete_upload,
+    issue_playback_token,
+    may_manage,
     request_upload,
+    retry_processing,
 )
 
 
@@ -111,5 +118,127 @@ class MediaAssetCompleteView(APIView):
             # 422, not 400: the request is well formed and the *object* is
             # what is wrong, which is §6.3's "semantically invalid".
             return Response({"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        return Response(MediaAssetSerializer(asset).data)
+
+
+@extend_schema(tags=["media"])
+class LessonPlaybackTokenView(APIView):
+    """Permission to play one lesson, if the resolver allows it.
+
+    ``AllowAny``, deliberately, and it is the same reasoning as the gated
+    lesson endpoint: a preview lesson is playable by someone with no account,
+    and a blanket ``IsAuthenticated`` here would refuse them before the
+    resolver's first branch ran. **Entitlement is the gate, not
+    authentication** — and it decides for anonymous callers too.
+
+    Two gates, as everywhere in this codebase: ``lessons_visible_to`` answers
+    whether the lesson exists for you (404 if not), then the resolver answers
+    whether you may see it (403 with a reason). The resolver knows about
+    subscriptions, not publication, so without the first a subscriber could
+    play an unpublished draft.
+    """
+
+    permission_classes = (AllowAny,)
+    throttle_scope = "playback_token"
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: PlaybackTokenSerializer,
+            403: OpenApiResponse(description="Entitlement denied, with a reason and a cta."),
+            404: OpenApiResponse(description="No such lesson."),
+            409: OpenApiResponse(description="The media is not ready to play yet."),
+        },
+        summary="Mint a playback token",
+    )
+    def post(self, request, pk):
+        lesson = get_object_or_404(lessons_visible_to(user=request.user), pk=pk)
+
+        try:
+            token = issue_playback_token(user=request.user, lesson=lesson)
+        except NotPlayable as exc:
+            # 409, not 403: they may watch it, there is simply nothing
+            # transcoded yet. A 403 would send a paying subscriber to the
+            # upgrade page for a problem that is ours.
+            return Response(
+                {"detail": f"Media is not ready ({exc}).", "status": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # EntitlementDenied is deliberately not caught: it is an APIException
+        # carrying its own status, type, reason and cta, and the Problem
+        # Details handler renders it (ADR-004). Catching it here to rebuild a
+        # response by hand is how the reason gets lost.
+        return Response(PlaybackTokenSerializer(token).data)
+
+
+@extend_schema(tags=["media"])
+class MediaAssetDetailView(APIView):
+    """Where an instructor sees what happened to their upload.
+
+    The visible half of the M5 deliverable. Without it, processing is a
+    black box: an instructor uploads a file and either it works or nothing
+    ever says otherwise, which is how a failed asset is discovered on
+    publication day.
+
+    Carries ``status``, ``error_message`` and ``retry_count`` — the same three
+    fields the dead-letter queue is read from, because the person who can act
+    on a failure is usually the one who uploaded it.
+    """
+
+    throttle_scope = "user"
+
+    @extend_schema(
+        responses={
+            200: MediaAssetSerializer,
+            404: OpenApiResponse(description="No such asset of yours."),
+        },
+        summary="Processing status of an upload",
+    )
+    def get(self, request, pk):
+        asset = get_object_or_404(MediaAsset.objects.select_related("lesson__course"), pk=pk)
+
+        if not may_manage(lesson=asset.lesson, user=request.user):
+            # 404, not 403 (§6.3). Ownership is checked here rather than in a
+            # queryset filter because the asset is addressed by its own id.
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(MediaAssetSerializer(asset).data)
+
+
+@extend_schema(tags=["media"])
+class MediaAssetRetryView(APIView):
+    """Put a failed asset back through the pipeline.
+
+    The real failure path §10 M5 asks for. The master is already in our
+    storage (invariant 7), so a provider outage costs a click rather than
+    asking an instructor to upload two gigabytes again — and that is the whole
+    practical argument for storing the master ourselves.
+    """
+
+    throttle_scope = "media_upload"
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: MediaAssetSerializer,
+            404: OpenApiResponse(description="No such asset of yours."),
+            409: OpenApiResponse(description="Not in a failed state."),
+        },
+        summary="Retry a failed upload",
+    )
+    def post(self, request, pk):
+        asset = get_object_or_404(MediaAsset.objects.select_related("lesson__course"), pk=pk)
+
+        if not may_manage(lesson=asset.lesson, user=request.user):
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            retry_processing(asset=asset)
+        except UploadNotAllowed as exc:
+            # 409: retrying something mid-flight would race the task already
+            # running it.
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
         return Response(MediaAssetSerializer(asset).data)
