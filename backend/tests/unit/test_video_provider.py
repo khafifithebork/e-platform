@@ -230,3 +230,46 @@ class TestParsingWebhooks:
         )
 
         assert provider.parse_webhook(payload=payload).status == ProviderAssetStatus.ERRORED
+
+
+class TestTokenEncodingIsNotChancy:
+    """A regression test for a bug that only appeared about one run in eight.
+
+    The token was `base64(payload + b"." + signature)` and verification split
+    the decoded bytes on the last b".". An HMAC digest is 32 arbitrary bytes,
+    any of which can be 0x2E — an ASCII dot — so roughly 12% of tokens split
+    in the wrong place and failed to verify. With `pytest-randomly` reseeding
+    each run it looked like a test-ordering problem, which is the wrong thing
+    to go looking for.
+
+    A single round-trip test passes 7 times in 8, so it is not enough. These
+    two make the property deterministic instead: many tokens, and one built
+    from a digest that certainly contains the separator.
+    """
+
+    def test_many_tokens_all_verify(self, provider) -> None:
+        """Enough round trips that a 1-in-8 failure is a certainty, not a
+        coin toss. Every playback id differs so no two tokens share a
+        signature."""
+        for index in range(200):
+            playback_id = f"fakeplay_{index}"
+            token = provider.get_playback_token(playback_id=playback_id, ttl_seconds=60)
+
+            assert provider.verify_playback_token(token=token.token, playback_id=playback_id), (
+                f"token {index} failed to verify: {token.token}"
+            )
+
+    def test_the_separator_cannot_occur_in_either_half(self, provider) -> None:
+        """The actual property, asserted directly rather than sampled.
+
+        Each half is base64url-encoded before joining, and "." is not in that
+        alphabet — so the separator is impossible in what it separates, which
+        is the only version of this that is not a probability.
+        """
+        token = provider.get_playback_token(playback_id="fakeplay_abc", ttl_seconds=60).token
+
+        head, _, tail = token.partition(".")
+
+        assert token.count(".") == 1
+        assert "." not in head
+        assert "." not in tail

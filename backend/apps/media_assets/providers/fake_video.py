@@ -25,6 +25,7 @@ make T7's signature test vacuous — which is ADR-006's inert control exactly.
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -40,6 +41,15 @@ from apps.media_assets.providers.video import (
     ProviderWebhookEvent,
     WebhookSignatureInvalid,
 )
+
+
+def _b64(raw: bytes) -> str:
+    """URL-safe base64 with padding stripped, so a token is one path-safe word."""
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _unb64(encoded: str) -> bytes:
+    return base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
 
 
 def _secret() -> bytes:
@@ -115,7 +125,13 @@ class FakeVideoProvider:
         payload = f"{playback_id}:{expiry}".encode()
         signature = hmac.new(_secret(), payload, hashlib.sha256).digest()
 
-        token = base64.urlsafe_b64encode(payload + b"." + signature).decode()
+        # Each half is base64-encoded *before* joining, and the separator is a
+        # character the base64url alphabet does not contain. Joining the raw
+        # bytes and splitting on b"." was wrong in a way that only showed up
+        # about one run in eight: an HMAC digest is 32 arbitrary bytes, any of
+        # which can be 0x2E — an ASCII dot — and the split then landed inside
+        # the signature. A separator has to be impossible in what it separates.
+        token = f"{_b64(payload)}.{_b64(signature)}"
         return PlaybackToken(token=token, playback_id=playback_id, expires_at=expires_at)
 
     def verify_playback_token(self, *, token: str, playback_id: str) -> bool:
@@ -127,10 +143,11 @@ class FakeVideoProvider:
         it, "a token was returned" would be the whole assertion.
         """
         try:
-            decoded = base64.urlsafe_b64decode(token.encode())
-            payload, signature = decoded.rsplit(b".", 1)
+            encoded_payload, encoded_signature = token.split(".")
+            payload = _unb64(encoded_payload)
+            signature = _unb64(encoded_signature)
             signed_id, expiry = payload.decode().rsplit(":", 1)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, binascii.Error):
             return False
 
         expected = hmac.new(_secret(), payload, hashlib.sha256).digest()
