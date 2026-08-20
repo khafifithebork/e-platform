@@ -104,6 +104,14 @@ class Transcript(UUIDPrimaryKeyModel, TimestampedModel):
     )
     approved_at = models.DateTimeField(null=True, blank=True)
 
+    # The dead-letter queue, same shape as MediaAsset's. §10 M5 named
+    # "failures vanish silently" as a mistake to avoid, and a FAILED
+    # transcript with no reason is that mistake wearing a different status:
+    # nobody can list what broke, count it for an alert, or decide whether
+    # retrying is worth it.
+    error_message = models.TextField(blank=True)
+    retry_count = models.PositiveIntegerField(default=0)
+
     class Meta:
         ordering: ClassVar[list[str]] = ["-created_at"]
         indexes: ClassVar[list] = [

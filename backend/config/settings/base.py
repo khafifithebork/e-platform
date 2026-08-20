@@ -198,6 +198,14 @@ MEDIA_SOURCE_URL_TTL_SECONDS = env.int("MEDIA_SOURCE_URL_TTL_SECONDS", default=6
 MEDIA_PROCESSING_MAX_RETRIES = env.int("MEDIA_PROCESSING_MAX_RETRIES", default=3)
 
 # ---------------------------------------------------------------------------
+# Transcription
+# ---------------------------------------------------------------------------
+# How many times a submission is retried before the transcript lands in the
+# dead-letter queue. Bounded for the same reason as media processing:
+# retrying forever turns one permanently broken asset into permanent load.
+TRANSCRIPTION_MAX_RETRIES = env.int("TRANSCRIPTION_MAX_RETRIES", default=3)
+
+# ---------------------------------------------------------------------------
 # Django REST Framework
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {
