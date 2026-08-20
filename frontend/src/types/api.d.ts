@@ -777,6 +777,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transcript-segments/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a transcript segment
+         * @description Correct one cue.
+         */
+        patch: operations["transcript_segments_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/transcripts/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a transcript for review
+         * @description The review screen's data: a transcript and every cue in it.
+         */
+        get: operations["transcripts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/transcription/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcription provider callback
+         * @description Receive one completed (or failed) transcription job.
+         */
+        post: operations["webhooks_transcription_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/video/": {
         parameters: {
             query?: never;
@@ -1009,6 +1069,12 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        /**
+         * @description * `TARGET` - In the language being taught
+         *     * `TRANSLATION` - Translated for the learner
+         * @enum {string}
+         */
+        KindEnum: "TARGET" | "TRANSLATION";
         Language: {
             /** @description ISO 639 code, e.g. 'es'. The natural key. */
             code: string;
@@ -1327,6 +1393,18 @@ export interface components {
             position?: number;
         };
         /**
+         * @description What a reviewer may change about a cue.
+         *
+         *     All optional: a reviewer fixing only the text should not have to resend
+         *     timings they did not touch, and requiring them invites a client to echo
+         *     stale values back over somebody else's concurrent edit.
+         */
+        PatchedSegmentEditRequest: {
+            text?: string;
+            start_ms?: number;
+            end_ms?: number;
+        };
+        /**
          * @description What a player needs, and nothing that outlives the session.
          *
          *     ``playback_id`` appears here and only here — abuse case 10. It is the
@@ -1476,6 +1554,16 @@ export interface components {
             title: string;
             position: number;
         };
+        Segment: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly position: number;
+            readonly start_ms: number;
+            readonly end_ms: number;
+            readonly text: string;
+            /** @description A human changed this. Set on edit and never cleared. */
+            readonly is_edited: boolean;
+        };
         /** @description Output only. */
         StudentProfile: {
             display_name: string;
@@ -1522,6 +1610,44 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description A transcript as its reviewer sees it, segments included.
+         *
+         *     Nested rather than a separate call: a review screen needs every cue at
+         *     once, and paginating them would make "read the lesson end to end" — the
+         *     actual task — into a loop.
+         */
+        Transcript: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly lesson: string;
+            readonly language_code: string;
+            readonly kind: components["schemas"]["KindEnum"];
+            readonly status: components["schemas"]["TranscriptStatusEnum"];
+            /**
+             * Format: decimal
+             * @description Provider's own score, 0 to 1. Null until it has run.
+             */
+            readonly confidence: string | null;
+            /** Format: date-time */
+            readonly approved_at: string | null;
+            readonly error_message: string;
+            readonly segments: components["schemas"]["Segment"][];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `PENDING` - Not yet transcribed
+         *     * `MACHINE` - Machine output, unreviewed
+         *     * `IN_REVIEW` - Being reviewed
+         *     * `APPROVED` - Reviewed and approved
+         *     * `FAILED` - Transcription failed
+         * @enum {string}
+         */
+        TranscriptStatusEnum: "PENDING" | "MACHINE" | "IN_REVIEW" | "APPROVED" | "FAILED";
         /**
          * @description The only thing a client may choose about an upload.
          *
@@ -2772,6 +2898,114 @@ export interface operations {
             };
             /** @description Not in a failed state. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    transcript_segments_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSegmentEditRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedSegmentEditRequest"];
+                "multipart/form-data": components["schemas"]["PatchedSegmentEditRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Segment"];
+                };
+            };
+            /** @description Nothing to change, or an invalid span. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such segment of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The transcript cannot be edited yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    transcripts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Transcript"];
+                };
+            };
+            /** @description No such transcript of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    webhooks_transcription_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted, or already seen. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Signature missing or invalid. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

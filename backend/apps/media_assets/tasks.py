@@ -189,6 +189,19 @@ def apply_media_webhook(self, webhook_event_id: str) -> str:
             duration_seconds=event.duration_seconds,
             error_message="",
         )
+
+        # Hand off to transcription. Imported inside the function on purpose:
+        # apps.transcripts imports this app's models, so a module-level import
+        # here would close the cycle. A deferred import is the smaller price
+        # than either app knowing less about the other than it needs to.
+        #
+        # Queued after commit for the same reason every other enqueue is: a
+        # worker is a separate process and can read the row before an
+        # uncommitted transaction is visible to it, then decline because the
+        # asset is not READY yet.
+        from apps.transcripts.tasks import request_transcription
+
+        transaction.on_commit(lambda: request_transcription.delay(str(asset.pk)))
         outcome = "ready"
     elif event.status == ProviderAssetStatus.ERRORED:
         _record_failure(asset.pk, "The provider failed to process this file.", asset.retry_count)

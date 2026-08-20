@@ -1451,6 +1451,87 @@ paths:
           description: No such asset of yours.
         '409':
           description: Not in a failed state.
+  /api/v1/transcript-segments/{id}/:
+    patch:
+      operationId: transcript_segments_partial_update
+      description: Correct one cue.
+      summary: Edit a transcript segment
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - transcripts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSegmentEditRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSegmentEditRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSegmentEditRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Segment'
+          description: ''
+        '400':
+          description: Nothing to change, or an invalid span.
+        '404':
+          description: No such segment of yours.
+        '409':
+          description: The transcript cannot be edited yet.
+  /api/v1/transcripts/{id}/:
+    get:
+      operationId: transcripts_retrieve
+      description: 'The review screen''s data: a transcript and every cue in it.'
+      summary: Read a transcript for review
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - transcripts
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcript'
+          description: ''
+        '404':
+          description: No such transcript of yours.
+  /api/v1/webhooks/transcription/:
+    post:
+      operationId: webhooks_transcription_create
+      description: Receive one completed (or failed) transcription job.
+      summary: Transcription provider callback
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: Accepted, or already seen.
+        '400':
+          description: Malformed payload.
+        '401':
+          description: Signature missing or invalid.
   /api/v1/webhooks/video/:
     post:
       operationId: webhooks_video_create
@@ -1863,6 +1944,14 @@ components:
       - slug
       - title
       - updated_at
+    KindEnum:
+      enum:
+      - TARGET
+      - TRANSLATION
+      type: string
+      description: |-
+        * `TARGET` - In the language being taught
+        * `TRANSLATION` - Translated for the learner
     Language:
       type: object
       properties:
@@ -2406,6 +2495,24 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
+    PatchedSegmentEditRequest:
+      type: object
+      description: |-
+        What a reviewer may change about a cue.
+
+        All optional: a reviewer fixing only the text should not have to resend
+        timings they did not touch, and requiring them invites a client to echo
+        stale values back over somebody else's concurrent edit.
+      properties:
+        text:
+          type: string
+          minLength: 1
+        start_ms:
+          type: integer
+          minimum: 0
+        end_ms:
+          type: integer
+          minimum: 1
     PlaybackToken:
       type: object
       description: |-
@@ -2711,6 +2818,36 @@ components:
       required:
       - position
       - title
+    Segment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        position:
+          type: integer
+          readOnly: true
+        start_ms:
+          type: integer
+          readOnly: true
+        end_ms:
+          type: integer
+          readOnly: true
+        text:
+          type: string
+          readOnly: true
+        is_edited:
+          type: boolean
+          readOnly: true
+          description: A human changed this. Set on edit and never cleared.
+      required:
+      - end_ms
+      - id
+      - is_edited
+      - position
+      - start_ms
+      - text
     StudentProfile:
       type: object
       description: Output only.
@@ -2800,6 +2937,88 @@ components:
       - created_at
       - event_type
       - id
+    Transcript:
+      type: object
+      description: |-
+        A transcript as its reviewer sees it, segments included.
+
+        Nested rather than a separate call: a review screen needs every cue at
+        once, and paginating them would make "read the lesson end to end" — the
+        actual task — into a loop.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        lesson:
+          type: string
+          format: uuid
+          readOnly: true
+        language_code:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/KindEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TranscriptStatusEnum'
+          readOnly: true
+        confidence:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,3})?$
+          readOnly: true
+          nullable: true
+          description: Provider's own score, 0 to 1. Null until it has run.
+        approved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        error_message:
+          type: string
+          readOnly: true
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Segment'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - approved_at
+      - confidence
+      - created_at
+      - error_message
+      - id
+      - kind
+      - language_code
+      - lesson
+      - segments
+      - status
+      - updated_at
+    TranscriptStatusEnum:
+      enum:
+      - PENDING
+      - MACHINE
+      - IN_REVIEW
+      - APPROVED
+      - FAILED
+      type: string
+      description: |-
+        * `PENDING` - Not yet transcribed
+        * `MACHINE` - Machine output, unreviewed
+        * `IN_REVIEW` - Being reviewed
+        * `APPROVED` - Reviewed and approved
+        * `FAILED` - Transcription failed
     UploadRequestRequest:
       type: object
       description: |-

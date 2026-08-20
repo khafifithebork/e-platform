@@ -1,0 +1,88 @@
+"""Transcript review endpoints. HTTP concerns only (invariant 2).
+
+Someone else's transcript is a **404**, never a 403: a 403 confirms it exists,
+which §6.3 forbids. Ownership is checked in the view rather than by a queryset
+filter because a transcript and a segment are each addressed by their own id —
+architecture.md §4.4 calls exactly that the commonest IDOR in DRF codebases.
+"""
+
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status
+from rest_framework.generics import get_object_or_404
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.transcripts.models import TranscriptSegment
+from apps.transcripts.selectors import transcript_for_review
+from apps.transcripts.serializers import (
+    SegmentEditSerializer,
+    SegmentSerializer,
+    TranscriptSerializer,
+)
+from apps.transcripts.services import (
+    InvalidSpan,
+    NotEditable,
+    NotYours,
+    edit_segment,
+    may_review,
+)
+
+
+@extend_schema(tags=["transcripts"])
+class TranscriptDetailView(APIView):
+    """The review screen's data: a transcript and every cue in it."""
+
+    throttle_scope = "user"
+
+    @extend_schema(
+        responses={
+            200: TranscriptSerializer,
+            404: OpenApiResponse(description="No such transcript of yours."),
+        },
+        summary="Read a transcript for review",
+    )
+    def get(self, request, pk):
+        transcript = transcript_for_review(pk=pk)
+        if transcript is None or not may_review(transcript=transcript, user=request.user):
+            # One branch for both, deliberately: "does not exist" and "not
+            # yours" must be indistinguishable from outside.
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(TranscriptSerializer(transcript).data)
+
+
+@extend_schema(tags=["transcripts"])
+class SegmentEditView(APIView):
+    """Correct one cue."""
+
+    throttle_scope = "user"
+
+    @extend_schema(
+        request=SegmentEditSerializer,
+        responses={
+            200: SegmentSerializer,
+            400: OpenApiResponse(description="Nothing to change, or an invalid span."),
+            404: OpenApiResponse(description="No such segment of yours."),
+            409: OpenApiResponse(description="The transcript cannot be edited yet."),
+        },
+        summary="Edit a transcript segment",
+    )
+    def patch(self, request, pk):
+        payload = SegmentEditSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        segment = get_object_or_404(
+            TranscriptSegment.objects.select_related("transcript__media_asset__lesson__course"),
+            pk=pk,
+        )
+
+        try:
+            edit_segment(segment=segment, by=request.user, **payload.validated_data)
+        except NotYours:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        except NotEditable as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        except InvalidSpan as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(SegmentSerializer(segment).data)
