@@ -180,6 +180,12 @@ MEDIA_UPLOAD_URL_TTL_SECONDS = env.int("MEDIA_UPLOAD_URL_TTL_SECONDS", default=3
 # Checked after upload, before the asset advances.
 MEDIA_MAX_UPLOAD_BYTES = env.int("MEDIA_MAX_UPLOAD_BYTES", default=5 * 1024 * 1024 * 1024)
 
+# How long a minted playback token is good for. architecture.md section 7:
+# short, because a token that does not expire is a permanent share link for
+# paid content, and the entitlement check that produced it becomes a one-off
+# rather than a gate. Long enough that a lesson does not die mid-play.
+MEDIA_PLAYBACK_TOKEN_TTL_SECONDS = env.int("MEDIA_PLAYBACK_TOKEN_TTL_SECONDS", default=4 * 60 * 60)
+
 # ---------------------------------------------------------------------------
 # Django REST Framework
 # ---------------------------------------------------------------------------
