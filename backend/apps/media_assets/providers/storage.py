@@ -108,6 +108,8 @@ class ObjectStorage(Protocol):
 
     def read_prefix(self, *, object_key: str, length: int = MAGIC_PREFIX_BYTES) -> bytes: ...
 
+    def presigned_download(self, *, object_key: str, expires_in: int) -> str: ...
+
     def delete(self, *, object_key: str) -> None: ...
 
 
@@ -232,6 +234,23 @@ class S3ObjectStorage:
             Bucket=self.bucket, Key=object_key, Range=f"bytes=0-{length - 1}"
         )
         return response["Body"].read()
+
+    def presigned_download(self, *, object_key: str, expires_in: int) -> str:
+        """A short-lived read URL for the video provider to fetch the master.
+
+        The provider pulls the file itself (architecture.md §3.5) — the bytes
+        never pass through Django in either direction (invariant 6).
+
+        Short-lived and read-only, and never stored. It is handed to the
+        provider at ingest and is useless afterwards; persisting it would be a
+        standing read grant on a master, and the closest thing to the playback
+        URL invariant 7 forbids.
+        """
+        return self._client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self.bucket, "Key": object_key},
+            ExpiresIn=expires_in,
+        )
 
     def delete(self, *, object_key: str) -> None:
         self._client.delete_object(Bucket=self.bucket, Key=object_key)

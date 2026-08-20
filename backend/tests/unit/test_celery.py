@@ -53,11 +53,28 @@ class TestBeatIsDeferred:
 
         assert "django_celery_beat" not in settings.INSTALLED_APPS
 
-    def test_no_tasks_are_registered_yet(self) -> None:
-        """M0 ships no tasks. Celery registers a handful of its own built-ins,
-        which all live under the celery. prefix."""
+    def test_the_first_task_is_discovered_without_wiring(self) -> None:
+        """Replaces a guard asserting M0 had *no* tasks, written to fail once
+        the first one arrived — which is what it just did.
+
+        The point it was protecting still holds and is what this now checks:
+        ``autodiscover_tasks`` was called in M0 precisely so the first
+        ``tasks.py`` needed no change to ``config/celery.py``, and it did not.
+        """
         from config import celery_app
 
+        # Autodiscovery is lazy — the registry is empty until a worker starts
+        # or something forces it. Forcing it here is the actual assertion:
+        # Celery finds apps/media_assets/tasks.py from INSTALLED_APPS alone.
+        celery_app.loader.import_default_modules()
         project_tasks = [name for name in celery_app.tasks if not name.startswith("celery.")]
 
-        assert project_tasks == []
+        assert "apps.media_assets.tasks.process_media_asset" in project_tasks
+
+    def test_beat_is_still_not_running(self) -> None:
+        """A task is not a *periodic* task. ADR-001 §2.2 defers Beat until the
+        first scheduled job, and processing is enqueued by a request rather
+        than a clock — so nothing here brings Beat forward."""
+        from config import celery_app
+
+        assert not celery_app.conf.beat_schedule

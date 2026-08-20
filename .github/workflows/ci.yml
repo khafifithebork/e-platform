@@ -43,27 +43,6 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-      minio:
-        # The storage tests upload real bytes to a signed URL and ask the
-        # store what it received (ADR-012 section 1). Without this service they
-        # skip, and a broken presigned-upload path would merge unnoticed.
-        image: minio/minio:RELEASE.2025-09-07T16-13-09Z
-        env:
-          # Ephemeral, reachable only from this runner, destroyed with the job
-          # — the same reasoning as the Postgres credentials above.
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "mc ready local"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
@@ -85,6 +64,26 @@ jobs:
 
       - name: Format
         run: ruff format --check . ../scripts
+
+      # Not a `services:` container: Actions gives service containers no
+      # command, so `minio` ran with no arguments, printed its usage and
+      # exited — the job failed before a single test. `docker run` is the only
+      # form that can pass `server /data`.
+      - name: Start object storage
+        run: |
+          # Ephemeral, reachable only from this runner, destroyed with the
+          # job — the same reasoning as the Postgres credentials above.
+          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          # Poll rather than sleep: a fixed wait is either flaky or wasted.
+          # /minio/health/live is MinIO's own probe, confirmed against the
+          # running image rather than taken from documentation.
+          for attempt in $(seq 30); do
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+              echo "object storage ready after ${attempt}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "object storage did not become ready"; docker logs minio; exit 1
 
       - name: Tests
         env:

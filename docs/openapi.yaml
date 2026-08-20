@@ -1265,6 +1265,107 @@ paths:
             and `cta` — see /problems/entitlement-denied.
         '404':
           description: No such lesson, or not published.
+  /api/v1/lessons/{id}/media/upload-url/:
+    post:
+      operationId: lessons_media_upload_url_create
+      description: |-
+        Authorise one upload for one lesson.
+
+        Throttled on its own scope: each call signs a URL that can write to our
+        bucket, so an unthrottled version is a way to mint write grants without
+        ever uploading through us.
+      summary: Request a presigned upload URL
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadRequestRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadTicket'
+          description: ''
+        '400':
+          description: Unsupported content type.
+        '404':
+          description: No such lesson of yours.
+        '409':
+          description: The current asset cannot be replaced.
+  /api/v1/media-assets/{id}/complete/:
+    post:
+      operationId: media_assets_complete_create
+      description: Confirm an upload landed, and verify it before believing it.
+      summary: Confirm an upload
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+        '404':
+          description: No such asset of yours.
+        '409':
+          description: Not awaiting an upload.
+        '422':
+          description: Nothing uploaded, too large, or not the declared type.
+  /api/v1/webhooks/video/:
+    post:
+      operationId: webhooks_video_create
+      description: |-
+        Receive one event from the video provider.
+
+        Unauthenticated by design — the provider has no session and no CSRF token.
+        **The signature is the authentication**, which is why it is checked first
+        and why the fake verifies for real rather than accepting anything.
+
+        Throttled, and safe to throttle: a provider retries on any non-2xx, so a
+        429 delays an event rather than losing it. Unthrottled, this is an
+        unauthenticated endpoint anyone can post to, and the HMAC check is the
+        only thing standing between them and our worker.
+      summary: Video provider webhook
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: Accepted, or already seen.
+        '400':
+          description: Malformed payload.
+        '401':
+          description: Signature missing or invalid.
 components:
   schemas:
     Access:
@@ -1351,6 +1452,22 @@ components:
         * `APPROVED` - Approved
         * `REJECTED` - Rejected
         * `CHANGES_REQUESTED` - Changes requested
+    ContentTypeEnum:
+      enum:
+      - audio/mp4
+      - audio/mpeg
+      - audio/webm
+      - video/mp4
+      - video/quicktime
+      - video/webm
+      type: string
+      description: |-
+        * `audio/mp4` - audio/mp4
+        * `audio/mpeg` - audio/mpeg
+        * `audio/webm` - audio/webm
+        * `video/mp4` - video/mp4
+        * `video/quicktime` - video/quicktime
+        * `video/webm` - video/webm
     Course:
       type: object
       description: |-
@@ -1887,6 +2004,75 @@ components:
       - is_email_verified
       - profile
       - role
+    MediaAsset:
+      type: object
+      description: |-
+        The instructor's view of their own asset.
+
+        ``provider_playback_id`` is absent, deliberately — abuse case 10. It is
+        the handle that plays the video, it belongs only inside a minted token,
+        and an upload screen has no use for it. A field that appears where it is
+        not needed is a field that leaks somewhere it is not checked.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        lesson:
+          type: string
+          format: uuid
+          readOnly: true
+          description: One asset per lesson. Two would be two answers to what plays
+            here.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MediaAssetStatusEnum'
+          readOnly: true
+        source_bytes:
+          type: integer
+          readOnly: true
+        duration_seconds:
+          type: integer
+          readOnly: true
+          nullable: true
+        error_message:
+          type: string
+          readOnly: true
+        retry_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - duration_seconds
+      - error_message
+      - id
+      - lesson
+      - retry_count
+      - source_bytes
+      - status
+      - updated_at
+    MediaAssetStatusEnum:
+      enum:
+      - PENDING
+      - UPLOADED
+      - TRANSCODING
+      - READY
+      - FAILED
+      type: string
+      description: |-
+        * `PENDING` - Awaiting upload
+        * `UPLOADED` - Uploaded, not yet processed
+        * `TRANSCODING` - Being processed by the provider
+        * `READY` - Playable
+        * `FAILED` - Failed
     PaginatedCourseList:
       type: object
       required:
@@ -2109,6 +2295,35 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
+    PresignedUpload:
+      type: object
+      description: What the browser needs, and nothing reusable beyond this one upload.
+      properties:
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        method:
+          type: string
+          readOnly: true
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          readOnly: true
+        object_key:
+          type: string
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - expires_at
+      - headers
+      - method
+      - object_key
+      - url
     PublicCourse:
       type: object
       description: |-
@@ -2445,6 +2660,35 @@ components:
       - created_at
       - event_type
       - id
+    UploadRequestRequest:
+      type: object
+      description: |-
+        The only thing a client may choose about an upload.
+
+        A closed accept-list rather than free text: an unlisted type has no magic
+        signature to check it against, so accepting one would mean accepting bytes
+        nothing can verify.
+      properties:
+        content_type:
+          $ref: '#/components/schemas/ContentTypeEnum'
+      required:
+      - content_type
+    UploadTicket:
+      type: object
+      description: 'The pair a caller needs: where to upload, and what it belongs
+        to.'
+      properties:
+        asset:
+          allOf:
+          - $ref: '#/components/schemas/MediaAsset'
+          readOnly: true
+        upload:
+          allOf:
+          - $ref: '#/components/schemas/PresignedUpload'
+          readOnly: true
+      required:
+      - asset
+      - upload
     UserDiagnostics:
       type: object
       description: The answer to "why is this person's access wrong".

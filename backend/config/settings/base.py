@@ -180,6 +180,22 @@ MEDIA_UPLOAD_URL_TTL_SECONDS = env.int("MEDIA_UPLOAD_URL_TTL_SECONDS", default=3
 # Checked after upload, before the asset advances.
 MEDIA_MAX_UPLOAD_BYTES = env.int("MEDIA_MAX_UPLOAD_BYTES", default=5 * 1024 * 1024 * 1024)
 
+# How long a minted playback token is good for. architecture.md section 7:
+# short, because a token that does not expire is a permanent share link for
+# paid content, and the entitlement check that produced it becomes a one-off
+# rather than a gate. Long enough that a lesson does not die mid-play.
+MEDIA_PLAYBACK_TOKEN_TTL_SECONDS = env.int("MEDIA_PLAYBACK_TOKEN_TTL_SECONDS", default=4 * 60 * 60)
+
+# How long the video provider has to fetch a master from our storage. Hours,
+# not minutes: the provider queues the pull, and a URL expiring while the job
+# is still queued fails an asset for no reason anyone can see.
+MEDIA_SOURCE_URL_TTL_SECONDS = env.int("MEDIA_SOURCE_URL_TTL_SECONDS", default=6 * 60 * 60)
+
+# How many times processing is retried before an asset lands in the
+# dead-letter queue (the FAILED rows). Bounded: retrying forever turns a
+# permanently broken asset into permanent load on the worker.
+MEDIA_PROCESSING_MAX_RETRIES = env.int("MEDIA_PROCESSING_MAX_RETRIES", default=3)
+
 # ---------------------------------------------------------------------------
 # Django REST Framework
 # ---------------------------------------------------------------------------
@@ -229,6 +245,13 @@ REST_FRAMEWORK = {
         # anonymous limit would throttle ordinary use. A starting figure, not
         # a measured one: revisit when there is traffic to measure.
         "catalogue": "120/min",
+        # Each call signs a URL that can write to our bucket, so an
+        # unthrottled version mints write grants without uploading through us.
+        "media_upload": "30/hour",
+        # Generous, and safe to have: a provider retries on any non-2xx, so a
+        # 429 delays an event rather than losing it. Unthrottled, this is an
+        # endpoint anyone on the internet can post to.
+        "webhook": "600/min",
         # Trial abuse (§7.1) starts with cheap account creation.
         "register": "5/hour",
         # Credential stuffing. django-axes locks a single account; this limits
