@@ -9,6 +9,7 @@ service layer, not by where the path sits.
 from django.urls import path
 
 from apps.media_assets.views import LessonUploadUrlView, MediaAssetCompleteView
+from apps.media_assets.webhooks import VideoWebhookView
 
 app_name = "media"
 
@@ -23,4 +24,7 @@ urlpatterns = [
         MediaAssetCompleteView.as_view(),
         name="complete",
     ),
+    # Called by the provider, not a browser. Unauthenticated: the signature
+    # is the authentication (invariant 8).
+    path("webhooks/video/", VideoWebhookView.as_view(), name="video-webhook"),
 ]

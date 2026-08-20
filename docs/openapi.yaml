@@ -1340,6 +1340,32 @@ paths:
           description: Not awaiting an upload.
         '422':
           description: Nothing uploaded, too large, or not the declared type.
+  /api/v1/webhooks/video/:
+    post:
+      operationId: webhooks_video_create
+      description: |-
+        Receive one event from the video provider.
+
+        Unauthenticated by design — the provider has no session and no CSRF token.
+        **The signature is the authentication**, which is why it is checked first
+        and why the fake verifies for real rather than accepting anything.
+
+        Throttled, and safe to throttle: a provider retries on any non-2xx, so a
+        429 delays an event rather than losing it. Unthrottled, this is an
+        unauthenticated endpoint anyone can post to, and the HMAC check is the
+        only thing standing between them and our worker.
+      summary: Video provider webhook
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: Accepted, or already seen.
+        '400':
+          description: Malformed payload.
+        '401':
+          description: Signature missing or invalid.
 components:
   schemas:
     Access:

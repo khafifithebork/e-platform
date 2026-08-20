@@ -18,11 +18,13 @@ does is ask whether this asset already has a provider copy.
 
 from __future__ import annotations
 
+import json
 import logging
 
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from apps.media_assets.models import MediaAsset, MediaAssetStatus
 from apps.media_assets.providers.fake_video import video_provider
@@ -138,3 +140,65 @@ def process_media_asset(self, asset_id: str) -> str:
     # and marking it playable here would mint tokens for an asset that is not
     # yet transcoded.
     return "handed-to-provider"
+
+
+@shared_task(bind=True, max_retries=3, acks_late=True)
+def apply_media_webhook(self, webhook_event_id: str) -> str:
+    """Act on a verified webhook.
+
+    Everything the receiver deliberately does not do. Separated because a
+    provider retries on any non-2xx: work done in the request is work that can
+    turn a slow database into a retry storm, and a bug here would look to the
+    provider like a delivery failure.
+
+    Idempotent by construction. ``processed_at`` is set at the end, so a task
+    redelivered after a worker died re-applies the same state to the same
+    asset — which is a no-op — rather than being skipped on the assumption it
+    finished.
+    """
+    from apps.core.models import WebhookEvent
+
+    record = WebhookEvent.objects.filter(pk=webhook_event_id).first()
+    if record is None:
+        return "gone"
+
+    provider = video_provider()
+    event = provider.parse_webhook(payload=json.dumps(record.payload).encode())
+
+    asset = MediaAsset.objects.filter(
+        provider=provider.name, provider_asset_id=event.asset_id
+    ).first()
+    if asset is None:
+        # Abuse case 9. A webhook naming an asset we do not have is either a
+        # stale event for something deleted, or an event for somebody else's
+        # account — and neither is a reason to create a row. Marked processed
+        # so it does not sit in the unprocessed queue forever looking urgent.
+        WebhookEvent.objects.filter(pk=record.pk).update(processed_at=timezone.now())
+        logger.warning(
+            "webhook_for_unknown_asset",
+            extra={"provider": provider.name, "asset_id": event.asset_id},
+        )
+        return "unknown-asset"
+
+    if event.status == ProviderAssetStatus.READY:
+        # READY is what the playback endpoint checks before minting a token,
+        # so this is the moment an asset becomes playable. The database
+        # refuses READY without both provider ids, which T6 set.
+        MediaAsset.objects.filter(pk=asset.pk).update(
+            status=MediaAssetStatus.READY,
+            duration_seconds=event.duration_seconds,
+            error_message="",
+        )
+        outcome = "ready"
+    elif event.status == ProviderAssetStatus.ERRORED:
+        _record_failure(asset.pk, "The provider failed to process this file.", asset.retry_count)
+        outcome = "failed"
+    else:
+        # A status we do not model. Recorded and ignored rather than guessed
+        # at — mapping an unknown state onto READY would publish something
+        # nobody can play.
+        logger.info("webhook_status_ignored", extra={"status": event.status})
+        outcome = f"ignored:{event.status}"
+
+    WebhookEvent.objects.filter(pk=record.pk).update(processed_at=timezone.now())
+    return outcome

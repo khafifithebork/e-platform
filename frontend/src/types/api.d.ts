@@ -691,6 +691,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks/video/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Video provider webhook
+         * @description Receive one event from the video provider.
+         *
+         *     Unauthenticated by design — the provider has no session and no CSRF token.
+         *     **The signature is the authentication**, which is why it is checked first
+         *     and why the fake verifies for real rather than accepting anything.
+         *
+         *     Throttled, and safe to throttle: a provider retries on any non-2xx, so a
+         *     429 delays an event rather than losing it. Unthrottled, this is an
+         *     unauthenticated endpoint anyone can post to, and the HMAC check is the
+         *     only thing standing between them and our worker.
+         */
+        post: operations["webhooks_video_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2533,6 +2562,38 @@ export interface operations {
             };
             /** @description Nothing uploaded, too large, or not the declared type. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    webhooks_video_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted, or already seen. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Signature missing or invalid. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

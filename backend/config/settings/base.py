@@ -248,6 +248,10 @@ REST_FRAMEWORK = {
         # Each call signs a URL that can write to our bucket, so an
         # unthrottled version mints write grants without uploading through us.
         "media_upload": "30/hour",
+        # Generous, and safe to have: a provider retries on any non-2xx, so a
+        # 429 delays an event rather than losing it. Unthrottled, this is an
+        # endpoint anyone on the internet can post to.
+        "webhook": "600/min",
         # Trial abuse (§7.1) starts with cheap account creation.
         "register": "5/hour",
         # Credential stuffing. django-axes locks a single account; this limits
