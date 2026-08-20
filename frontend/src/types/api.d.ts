@@ -647,6 +647,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lessons/{id}/media/upload-url/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a presigned upload URL
+         * @description Authorise one upload for one lesson.
+         *
+         *     Throttled on its own scope: each call signs a URL that can write to our
+         *     bucket, so an unthrottled version is a way to mint write grants without
+         *     ever uploading through us.
+         */
+        post: operations["lessons_media_upload_url_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media-assets/{id}/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm an upload
+         * @description Confirm an upload landed, and verify it before believing it.
+         */
+        post: operations["media_assets_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -690,6 +734,16 @@ export interface components {
          * @enum {string}
          */
         ActionEnum: "SUBMITTED" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
+        /**
+         * @description * `audio/mp4` - audio/mp4
+         *     * `audio/mpeg` - audio/mpeg
+         *     * `audio/webm` - audio/webm
+         *     * `video/mp4` - video/mp4
+         *     * `video/quicktime` - video/quicktime
+         *     * `video/webm` - video/webm
+         * @enum {string}
+         */
+        ContentTypeEnum: "audio/mp4" | "audio/mpeg" | "audio/webm" | "video/mp4" | "video/quicktime" | "video/webm";
         /**
          * @description An instructor's view of their own course.
          *
@@ -981,6 +1035,41 @@ export interface components {
             readonly profile: components["schemas"]["StudentProfile"];
             readonly access: components["schemas"]["Access"];
         };
+        /**
+         * @description The instructor's view of their own asset.
+         *
+         *     ``provider_playback_id`` is absent, deliberately — abuse case 10. It is
+         *     the handle that plays the video, it belongs only inside a minted token,
+         *     and an upload screen has no use for it. A field that appears where it is
+         *     not needed is a field that leaks somewhere it is not checked.
+         */
+        MediaAsset: {
+            /** Format: uuid */
+            readonly id: string;
+            /**
+             * Format: uuid
+             * @description One asset per lesson. Two would be two answers to what plays here.
+             */
+            readonly lesson: string;
+            readonly status: components["schemas"]["MediaAssetStatusEnum"];
+            readonly source_bytes: number;
+            readonly duration_seconds: number | null;
+            readonly error_message: string;
+            readonly retry_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `PENDING` - Awaiting upload
+         *     * `UPLOADED` - Uploaded, not yet processed
+         *     * `TRANSCODING` - Being processed by the provider
+         *     * `READY` - Playable
+         *     * `FAILED` - Failed
+         * @enum {string}
+         */
+        MediaAssetStatusEnum: "PENDING" | "UPLOADED" | "TRANSCODING" | "READY" | "FAILED";
         PaginatedCourseList: {
             /**
              * Format: uri
@@ -1121,6 +1210,18 @@ export interface components {
         PatchedSectionRequest: {
             title?: string;
             position?: number;
+        };
+        /** @description What the browser needs, and nothing reusable beyond this one upload. */
+        PresignedUpload: {
+            /** Format: uri */
+            readonly url: string;
+            readonly method: string;
+            readonly headers: {
+                [key: string]: string;
+            };
+            readonly object_key: string;
+            /** Format: date-time */
+            readonly expires_at: string;
         };
         /**
          * @description A catalogue card.
@@ -1286,6 +1387,21 @@ export interface components {
             to_status?: string;
             /** Format: date-time */
             readonly created_at: string;
+        };
+        /**
+         * @description The only thing a client may choose about an upload.
+         *
+         *     A closed accept-list rather than free text: an unlisted type has no magic
+         *     signature to check it against, so accepting one would mean accepting bytes
+         *     nothing can verify.
+         */
+        UploadRequestRequest: {
+            content_type: components["schemas"]["ContentTypeEnum"];
+        };
+        /** @description The pair a caller needs: where to upload, and what it belongs to. */
+        UploadTicket: {
+            readonly asset: components["schemas"]["MediaAsset"];
+            readonly upload: components["schemas"]["PresignedUpload"];
         };
         /** @description The answer to "why is this person's access wrong". */
         UserDiagnostics: {
@@ -2327,6 +2443,96 @@ export interface operations {
             };
             /** @description No such lesson, or not published. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    lessons_media_upload_url_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["UploadRequestRequest"];
+                "multipart/form-data": components["schemas"]["UploadRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadTicket"];
+                };
+            };
+            /** @description Unsupported content type. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lesson of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The current asset cannot be replaced. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    media_assets_complete_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+            /** @description No such asset of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not awaiting an upload. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nothing uploaded, too large, or not the declared type. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

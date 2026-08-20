@@ -41,6 +41,7 @@ class TestConfiguredRates:
         assert rates["register"] == "5/hour"
         assert rates["password_reset"] == "5/hour"
         assert rates["resend_verification"] == "3/hour"
+        assert rates["media_upload"] == "30/hour"
 
     def test_auth_endpoints_are_tighter_than_the_anonymous_baseline(self, settings) -> None:
         """Each of these either creates state, sends an email, or is worth
@@ -159,3 +160,50 @@ class TestThrottledResponseShape:
 
         assert response["Content-Type"] == "application/problem+json"
         assert response.json()["status"] == 429
+
+
+class TestUploadUrlsAreRationed:
+    """Each call to the upload endpoint signs a URL that can write to our
+    bucket, so an unthrottled version is a way to mint write grants without
+    ever uploading through us.
+
+    This lives here rather than beside the upload tests for a concrete reason.
+    DRF binds ``SimpleRateThrottle.THROTTLE_RATES`` as a *class attribute* when
+    ``rest_framework.throttling`` is first imported, so whichever rates were
+    active at that moment are frozen in. In a module whose fixtures raise every
+    rate to 10000/hour, a per-test override never takes effect — the test
+    reports success after the limit and reads exactly like an inert throttle.
+    That is what this module's docstring means by using the real rates.
+    """
+
+    def _instructor_with_a_lesson(self):
+        from apps.accounts.models import Role
+        from apps.accounts.services import create_account
+        from apps.catalog.models import Course, Language, Lesson, Section
+
+        user = create_account(email="teacher@example.test", password=PASSWORD)
+        user.role = Role.INSTRUCTOR
+        user.save(update_fields=["role"])
+
+        language = Language.objects.create(code="es", name="Spanish", native_name="Espanol")
+        course = Course.objects.create(
+            slug="spanish", title="Spanish", language=language, level="A1", instructor=user
+        )
+        section = Section.objects.create(course=course, title="Greetings", position=1)
+        return Lesson.objects.create(
+            course=course, section=section, slug="intro", title="Intro", position=1
+        )
+
+    @pytest.mark.django_db
+    def test_upload_urls_stop_after_their_limit(self, client, settings) -> None:
+        lesson = self._instructor_with_a_lesson()
+        limit = int(settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["media_upload"].split("/")[0])
+        _post(client, LOGIN, {"email": "teacher@example.test", "password": PASSWORD})
+
+        path = f"/api/v1/lessons/{lesson.id}/media/upload-url/"
+        statuses = [
+            _post(client, path, {"content_type": "video/mp4"}).status_code for _ in range(limit + 1)
+        ]
+
+        assert statuses[-1] == 429
+        assert statuses[:limit] == [201] * limit

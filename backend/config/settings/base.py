@@ -229,6 +229,9 @@ REST_FRAMEWORK = {
         # anonymous limit would throttle ordinary use. A starting figure, not
         # a measured one: revisit when there is traffic to measure.
         "catalogue": "120/min",
+        # Each call signs a URL that can write to our bucket, so an
+        # unthrottled version mints write grants without uploading through us.
+        "media_upload": "30/hour",
         # Trial abuse (§7.1) starts with cheap account creation.
         "register": "5/hour",
         # Credential stuffing. django-axes locks a single account; this limits
