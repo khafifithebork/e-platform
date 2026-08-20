@@ -1516,6 +1516,48 @@ paths:
           description: ''
         '404':
           description: No such transcript of yours.
+  /api/v1/transcripts/{id}/{action}/:
+    post:
+      operationId: transcripts_create
+      description: |-
+        The review transitions: open, approve, reopen.
+
+        One view with an action in the path rather than a writable ``status``
+        field. A writable status would be a second route to APPROVED that records
+        no reviewer and no time — the same argument ADR-007 §2 makes for course
+        publication, and here it also decides whether a learner is served
+        subtitles at all.
+      summary: Move a transcript through review
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+          pattern: ^start-review|approve|reopen$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-f-]{36}$
+        required: true
+      tags:
+      - transcripts
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcript'
+          description: ''
+        '404':
+          description: No such transcript of yours.
+        '409':
+          description: Not a move this transcript can make.
+        '422':
+          description: Nothing to approve.
   /api/v1/webhooks/transcription/:
     post:
       operationId: webhooks_transcription_create

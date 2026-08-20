@@ -817,6 +817,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transcripts/{id}/{action}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a transcript through review
+         * @description The review transitions: open, approve, reopen.
+         *
+         *     One view with an action in the path rather than a writable ``status``
+         *     field. A writable status would be a second route to APPROVED that records
+         *     no reviewer and no time — the same argument ADR-007 §2 makes for course
+         *     publication, and here it also decides whether a learner is served
+         *     subtitles at all.
+         */
+        post: operations["transcripts_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/transcription/": {
         parameters: {
             query?: never;
@@ -2974,6 +3000,49 @@ export interface operations {
             };
             /** @description No such transcript of yours. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    transcripts_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Transcript"];
+                };
+            };
+            /** @description No such transcript of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a move this transcript can make. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nothing to approve. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
