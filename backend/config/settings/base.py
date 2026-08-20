@@ -205,6 +205,11 @@ MEDIA_PROCESSING_MAX_RETRIES = env.int("MEDIA_PROCESSING_MAX_RETRIES", default=3
 # retrying forever turns one permanently broken asset into permanent load.
 TRANSCRIPTION_MAX_RETRIES = env.int("TRANSCRIPTION_MAX_RETRIES", default=3)
 
+# How long a rendered VTT stays in the cache. The key carries the transcript's
+# updated_at, so an edit produces a different key and this is a size bound
+# rather than a correctness one — a stale entry is unreachable, not wrong.
+TRANSCRIPT_VTT_CACHE_SECONDS = env.int("TRANSCRIPT_VTT_CACHE_SECONDS", default=60 * 60 * 24)
+
 # ---------------------------------------------------------------------------
 # Django REST Framework
 # ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ the signature is the authentication (invariant 8).
 from django.urls import path, re_path
 
 from apps.transcripts.views import (
+    LessonTranscriptView,
     SegmentEditView,
     TranscriptDetailView,
     TranscriptReviewView,
@@ -16,6 +17,11 @@ from apps.transcripts.webhooks import TranscriptionWebhookView
 app_name = "transcripts"
 
 urlpatterns = [
+    path(
+        "lessons/<uuid:pk>/transcript.vtt",
+        LessonTranscriptView.as_view(),
+        name="lesson-vtt",
+    ),
     path("transcripts/<uuid:pk>/", TranscriptDetailView.as_view(), name="detail"),
     path("transcript-segments/<uuid:pk>/", SegmentEditView.as_view(), name="segment-edit"),
     # The actions are enumerated in the pattern, so an unknown one is a 404
