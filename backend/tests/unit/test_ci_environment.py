@@ -37,8 +37,12 @@ def _required_by_settings() -> set[str]:
     return set(_REQUIRED_READ.findall(BASE_SETTINGS.read_text(encoding="utf-8")))
 
 
+def _workflow() -> dict:
+    return yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
+
+
 def _deployment_check_step() -> dict:
-    workflow = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
+    workflow = _workflow()
 
     for job in workflow["jobs"].values():
         for step in job.get("steps", []):
@@ -75,3 +79,43 @@ class TestCiSuppliesTheRequiredEnvironment:
 
         assert "DJANGO_SECRET_KEY" not in step.get("env", {})
         assert "DJANGO_SECRET_KEY" in _SHELL_EXPORT.findall(step.get("run", ""))
+
+
+class TestTheBackendJobRunsInTheBackend:
+    """Every `run` in the backend job must execute in `backend/`.
+
+    This is a config assertion and it earns its place: removing the
+    `defaults.run.working-directory` key does not fail one step loudly, it
+    silently relocates all of them. It was removed by accident in a commit
+    that only meant to change how MinIO starts, and the visible symptom was
+    `pip install ".[dev]"` reporting "Neither 'setup.py' nor 'pyproject.toml'
+    found" — a message that points at packaging rather than at the directory.
+
+    Asserted here rather than trusted because CI failing is the *only* other
+    way to find out, and by then the build is red for a reason unrelated to
+    the change that caused it.
+    """
+
+    def _backend_job(self) -> dict:
+        return _workflow()["jobs"]["backend"]
+
+    def test_the_working_directory_is_declared(self) -> None:
+        working_directory = (
+            self._backend_job().get("defaults", {}).get("run", {}).get("working-directory")
+        )
+
+        assert working_directory == "backend", (
+            "the backend job must run in backend/, where pyproject.toml, "
+            "manage.py and the tests live"
+        )
+
+    def test_the_steps_do_not_each_set_their_own(self) -> None:
+        """One declaration, not one per step. A per-step setting is a thing to
+        forget on the next step added."""
+        overrides = [
+            step.get("name")
+            for step in self._backend_job()["steps"]
+            if step.get("working-directory")
+        ]
+
+        assert not overrides, f"{overrides} override the job default; put it in defaults instead"

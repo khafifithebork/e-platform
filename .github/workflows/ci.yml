@@ -43,6 +43,14 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+    # Every `run` in this job executes in backend/, where pyproject.toml,
+    # manage.py and the test suite live. Removing this does not fail loudly at
+    # one step — it silently relocates all of them, which is how the install
+    # step ended up reporting "Neither 'setup.py' nor 'pyproject.toml' found".
+    defaults:
+      run:
+        working-directory: backend
+
     steps:
       - uses: actions/checkout@v4
 
