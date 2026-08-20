@@ -51,6 +51,30 @@ services:
     # Redis is disposable by design (architecture.md 3.4): it holds the queue
     # and cache and never the only copy of anything, so there is no volume.
 
+  minio:
+    # An S3-compatible store so presigned uploads are exercised for real
+    # without a bill (ADR-012 section 1). Production is Cloudflare R2; the
+    # difference is the endpoint and the credentials, not the code.
+    #
+    # Pinned to the version reported by `minio --version` inside this exact
+    # image, not to a tag read from registry metadata — that is how the M0
+    # mailpit pin ended up wrong.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MEDIA_STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MEDIA_STORAGE_SECRET_KEY:-minioadmin}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # No volume: development uploads are disposable, and a persisted bucket
+    # would quietly accumulate test videos.
+
   mailpit:
     # Pinned to a version confirmed by running the image and reading back
     # `mailpit version`, then pulling this exact tag.
@@ -76,6 +100,13 @@ services:
       REDIS_CACHE_URL: redis://redis:6379/1
       EMAIL_HOST: mailpit
       EMAIL_PORT: "1025"
+      # Reached over the compose network, so the container name rather than
+      # localhost. The presigned URLs it generates carry this host, which is
+      # why a browser on the host machine needs MINIO_PUBLIC_ENDPOINT below.
+      MEDIA_STORAGE_ENDPOINT: http://minio:9000
+      MEDIA_STORAGE_BUCKET: ${MEDIA_STORAGE_BUCKET:-media}
+      MEDIA_STORAGE_ACCESS_KEY: ${MEDIA_STORAGE_ACCESS_KEY:-minioadmin}
+      MEDIA_STORAGE_SECRET_KEY: ${MEDIA_STORAGE_SECRET_KEY:-minioadmin}
     volumes:
       # Source is mounted so --reload works. /opt/venv lives outside /app, so
       # the mount cannot shadow the installed dependencies.
@@ -86,6 +117,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       # A real request to /healthz, not the TCP probe this used to be. An open
@@ -126,6 +159,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   web:

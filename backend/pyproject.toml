@@ -21,6 +21,9 @@ dependencies = [
     "argon2-cffi==25.1.0",
     # Brute-force lockout on login.
     "django-axes==8.3.1",
+    # Presigned uploads against any S3-compatible store: MinIO in
+    # development, Cloudflare R2 in production (ADR-012 §2).
+    "boto3==1.43.74",
     "psycopg[binary]==3.3.4",
     "gunicorn==26.0.0",
     "uvicorn==0.52.3",

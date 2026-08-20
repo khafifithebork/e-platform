@@ -32,6 +32,12 @@ def _production_setting(name: str) -> str:
         "DATABASE_URL": "postgres://localhost:5432/app",
         "REDIS_URL": "redis://localhost:6379/0",
         "REDIS_CACHE_URL": "redis://localhost:6379/1",
+        # Required by base.py with no default from M5. Nothing connects; this
+        # probe only reads a setting back.
+        "MEDIA_STORAGE_ENDPOINT": "https://storage.example.test",
+        "MEDIA_STORAGE_BUCKET": "media",
+        "MEDIA_STORAGE_ACCESS_KEY": secrets.token_urlsafe(16),
+        "MEDIA_STORAGE_SECRET_KEY": secrets.token_urlsafe(32),
     }
     result = subprocess.run(  # noqa: S603
         [sys.executable, "-c", _PROBE, "config.settings.production", name],

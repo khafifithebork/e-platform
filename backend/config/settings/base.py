@@ -52,6 +52,7 @@ LOCAL_APPS = [
     "apps.accounts",
     "apps.catalog",
     "apps.entitlements",
+    "apps.media_assets",
 ]
 
 INSTALLED_APPS = [*DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]
@@ -152,6 +153,32 @@ CACHES = {
 # A setting rather than a literal so the boundary is a tested value and
 # changing it is configuration, not a code change.
 ENTITLEMENT_GRACE_PERIOD_DAYS = env.int("ENTITLEMENT_GRACE_PERIOD_DAYS", default=7)
+
+# ---------------------------------------------------------------------------
+# Media storage
+#
+# Any S3-compatible store. MinIO in development and CI, Cloudflare R2 in
+# production (ADR-012 section 1) — the difference is the endpoint and the
+# credentials, not the code.
+#
+# Invariant 6: the browser uploads here directly with a presigned URL. Django
+# never receives the bytes.
+# ---------------------------------------------------------------------------
+MEDIA_STORAGE_ENDPOINT = env("MEDIA_STORAGE_ENDPOINT")
+MEDIA_STORAGE_BUCKET = env("MEDIA_STORAGE_BUCKET")
+MEDIA_STORAGE_ACCESS_KEY = env("MEDIA_STORAGE_ACCESS_KEY")
+MEDIA_STORAGE_SECRET_KEY = env("MEDIA_STORAGE_SECRET_KEY")
+# R2 ignores the region but SigV4 requires one to sign with; "auto" is what
+# R2's own documentation uses.
+MEDIA_STORAGE_REGION = env("MEDIA_STORAGE_REGION", default="auto")
+
+# How long an upload URL stays valid. Long enough for a large file on a poor
+# connection, short enough that a leaked URL is not a standing write grant.
+MEDIA_UPLOAD_URL_TTL_SECONDS = env.int("MEDIA_UPLOAD_URL_TTL_SECONDS", default=3600)
+
+# The cap the store cannot enforce on a presigned PUT (see providers/storage.py).
+# Checked after upload, before the asset advances.
+MEDIA_MAX_UPLOAD_BYTES = env.int("MEDIA_MAX_UPLOAD_BYTES", default=5 * 1024 * 1024 * 1024)
 
 # ---------------------------------------------------------------------------
 # Django REST Framework

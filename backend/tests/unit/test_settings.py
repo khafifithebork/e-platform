@@ -41,6 +41,14 @@ def _valid_environment() -> dict[str, str]:
         # Database 1: the cache must not share a Redis database with the
         # Celery broker, or a cache flush drops queued tasks.
         "REDIS_CACHE_URL": "redis://localhost:6379/1",
+        # Media storage. Required in production — base.py reads all four with
+        # no default, so their absence must stop the process at import rather
+        # than surface on the first upload. Nothing here connects anywhere;
+        # these tests only read settings back.
+        "MEDIA_STORAGE_ENDPOINT": "https://storage.example.test",
+        "MEDIA_STORAGE_BUCKET": "media",
+        "MEDIA_STORAGE_ACCESS_KEY": secrets.token_urlsafe(16),
+        "MEDIA_STORAGE_SECRET_KEY": secrets.token_urlsafe(32),
     }
 
 
