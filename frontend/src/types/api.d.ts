@@ -671,6 +671,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lessons/{id}/playback-token/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a playback token
+         * @description Permission to play one lesson, if the resolver allows it.
+         *
+         *     ``AllowAny``, deliberately, and it is the same reasoning as the gated
+         *     lesson endpoint: a preview lesson is playable by someone with no account,
+         *     and a blanket ``IsAuthenticated`` here would refuse them before the
+         *     resolver's first branch ran. **Entitlement is the gate, not
+         *     authentication** — and it decides for anonymous callers too.
+         *
+         *     Two gates, as everywhere in this codebase: ``lessons_visible_to`` answers
+         *     whether the lesson exists for you (404 if not), then the resolver answers
+         *     whether you may see it (403 with a reason). The resolver knows about
+         *     subscriptions, not publication, so without the first a subscriber could
+         *     play an unpublished draft.
+         */
+        post: operations["lessons_playback_token_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/media-assets/{id}/complete/": {
         parameters: {
             query?: never;
@@ -1239,6 +1271,25 @@ export interface components {
         PatchedSectionRequest: {
             title?: string;
             position?: number;
+        };
+        /**
+         * @description What a player needs, and nothing that outlives the session.
+         *
+         *     ``playback_id`` appears here and only here — abuse case 10. It is the
+         *     handle that plays the video, so it goes to a caller the resolver has just
+         *     allowed, and to nobody else: it is absent from the instructor's own asset
+         *     view and from every catalogue response.
+         *
+         *     No URL (invariant 7, abuse case 11). The player composes one from the
+         *     handle, so changing provider changes nothing we ever stored or sent.
+         *     ``expires_at`` is included so a player can refresh before playback dies
+         *     mid-lesson rather than discovering the expiry by failing.
+         */
+        PlaybackToken: {
+            readonly token: string;
+            readonly playback_id: string;
+            /** Format: date-time */
+            readonly expires_at: string;
         };
         /** @description What the browser needs, and nothing reusable beyond this one upload. */
         PresignedUpload: {
@@ -2519,6 +2570,48 @@ export interface operations {
                 content?: never;
             };
             /** @description The current asset cannot be replaced. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    lessons_playback_token_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybackToken"];
+                };
+            };
+            /** @description Entitlement denied, with a reason and a cta. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lesson. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The media is not ready to play yet. */
             409: {
                 headers: {
                     [name: string]: unknown;

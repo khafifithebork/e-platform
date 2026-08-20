@@ -252,6 +252,11 @@ REST_FRAMEWORK = {
         # 429 delays an event rather than losing it. Unthrottled, this is an
         # endpoint anyone on the internet can post to.
         "webhook": "600/min",
+        # architecture.md §6.4 names a PlaybackTokenThrottle. Each call mints
+        # signed permission to play paid content, so bulk harvesting is the
+        # abuse to bound; a learner moving through a course needs only a few
+        # per minute. A starting figure, not a measured one.
+        "playback_token": "60/min",
         # Trial abuse (§7.1) starts with cheap account creation.
         "register": "5/hour",
         # Credential stuffing. django-axes locks a single account; this limits

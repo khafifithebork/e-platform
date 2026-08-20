@@ -72,3 +72,22 @@ class UploadTicketSerializer(serializers.Serializer):
 
     asset = MediaAssetSerializer(read_only=True)
     upload = PresignedUploadSerializer(read_only=True)
+
+
+class PlaybackTokenSerializer(serializers.Serializer):
+    """What a player needs, and nothing that outlives the session.
+
+    ``playback_id`` appears here and only here — abuse case 10. It is the
+    handle that plays the video, so it goes to a caller the resolver has just
+    allowed, and to nobody else: it is absent from the instructor's own asset
+    view and from every catalogue response.
+
+    No URL (invariant 7, abuse case 11). The player composes one from the
+    handle, so changing provider changes nothing we ever stored or sent.
+    ``expires_at`` is included so a player can refresh before playback dies
+    mid-lesson rather than discovering the expiry by failing.
+    """
+
+    token = serializers.CharField(read_only=True)
+    playback_id = serializers.CharField(read_only=True)
+    expires_at = serializers.DateTimeField(read_only=True)
