@@ -777,6 +777,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks/transcription/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcription provider callback
+         * @description Receive one completed (or failed) transcription job.
+         */
+        post: operations["webhooks_transcription_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/video/": {
         parameters: {
             query?: never;
@@ -2772,6 +2792,38 @@ export interface operations {
             };
             /** @description Not in a failed state. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    webhooks_transcription_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted, or already seen. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Signature missing or invalid. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

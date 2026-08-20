@@ -1451,6 +1451,22 @@ paths:
           description: No such asset of yours.
         '409':
           description: Not in a failed state.
+  /api/v1/webhooks/transcription/:
+    post:
+      operationId: webhooks_transcription_create
+      description: Receive one completed (or failed) transcription job.
+      summary: Transcription provider callback
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: Accepted, or already seen.
+        '400':
+          description: Malformed payload.
+        '401':
+          description: Signature missing or invalid.
   /api/v1/webhooks/video/:
     post:
       operationId: webhooks_video_create

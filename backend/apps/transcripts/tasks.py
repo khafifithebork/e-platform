@@ -13,15 +13,22 @@ inline and never exposes the countdown (ADR-013 §4).
 
 from __future__ import annotations
 
+import json
 import logging
 
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from apps.media_assets.models import MediaAsset, MediaAssetStatus
 from apps.media_assets.providers.storage import object_storage
-from apps.transcripts.models import Transcript, TranscriptKind, TranscriptStatus
+from apps.transcripts.models import (
+    Transcript,
+    TranscriptKind,
+    TranscriptSegment,
+    TranscriptStatus,
+)
 from apps.transcripts.providers.base import TranscriptionStatus
 from apps.transcripts.providers.fake import transcription_provider
 
@@ -135,3 +142,77 @@ def request_transcription(self, media_asset_id: str) -> str:
     # reason there is no SUBMITTED status to keep in step with a provider's.
     # MACHINE arrives with the callback (T5).
     return "submitted"
+
+
+@shared_task(bind=True, max_retries=3, acks_late=True)
+def apply_transcription_callback(self, webhook_event_id: str) -> str:
+    """Turn a verified callback into segments.
+
+    Everything the receiver deliberately does not do, for the reason invariant
+    8 gives: a provider retries on any non-2xx, so work in the request turns a
+    slow database into a retry storm.
+
+    **It refuses to touch reviewed work.** A callback arriving against a
+    transcript somebody has already corrected would replace their words with
+    the machine's — the single failure that makes the whole review workflow
+    pointless. Late and duplicate callbacks both land here, so that is an
+    ordering to expect rather than a hypothetical.
+    """
+    from apps.core.models import WebhookEvent
+
+    record = WebhookEvent.objects.filter(pk=webhook_event_id).first()
+    if record is None:
+        return "gone"
+
+    provider = transcription_provider()
+    result = provider.parse_webhook(payload=json.dumps(record.payload).encode())
+
+    transcript = Transcript.objects.filter(
+        provider=provider.name, provider_job_id=result.job_id
+    ).first()
+    if transcript is None:
+        # A job we have no transcript for: stale, or somebody else's account.
+        # Marked processed so it does not sit in the unprocessed queue looking
+        # urgent forever.
+        WebhookEvent.objects.filter(pk=record.pk).update(processed_at=timezone.now())
+        logger.warning("transcription_callback_unknown_job", extra={"job_id": result.job_id})
+        return "unknown-job"
+
+    if transcript.status in (TranscriptStatus.IN_REVIEW, TranscriptStatus.APPROVED):
+        # Human corrections exist. Marked processed rather than retried,
+        # because no amount of retrying makes this the right thing to do.
+        WebhookEvent.objects.filter(pk=record.pk).update(processed_at=timezone.now())
+        logger.warning(
+            "transcription_callback_ignored_reviewed",
+            extra={"transcript_id": str(transcript.pk), "status": transcript.status},
+        )
+        return f"refused-reviewed:{transcript.status}"
+
+    if result.status == TranscriptionStatus.FAILED:
+        _record_failure(transcript.pk, "The provider failed to transcribe this audio.", 0)
+        outcome = "failed"
+    else:
+        with transaction.atomic():
+            # Replaced rather than appended, which is what makes a redelivered
+            # callback idempotent: a second run writes the same segments over
+            # the same positions instead of doubling them.
+            TranscriptSegment.objects.filter(transcript=transcript).delete()
+            TranscriptSegment.objects.bulk_create(
+                TranscriptSegment(
+                    transcript=transcript,
+                    position=segment.position,
+                    start_ms=segment.start_ms,
+                    end_ms=segment.end_ms,
+                    text=segment.text,
+                )
+                for segment in result.segments
+            )
+            Transcript.objects.filter(pk=transcript.pk).update(
+                status=TranscriptStatus.MACHINE,
+                confidence=result.confidence,
+                error_message="",
+            )
+        outcome = "transcribed"
+
+    WebhookEvent.objects.filter(pk=record.pk).update(processed_at=timezone.now())
+    return outcome

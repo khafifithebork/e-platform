@@ -44,6 +44,19 @@ logger = logging.getLogger(__name__)
 SIGNATURE_HEADER = "HTTP_X_WEBHOOK_SIGNATURE"
 
 
+def namespaced(provider_name: str) -> str:
+    """How a video provider appears in the shared webhook table.
+
+    Namespaced because the table is shared with transcription (ADR-012 §3) and
+    both fakes are called ``fake``. Without a prefix two providers' events sit
+    in one namespace under a unique constraint on
+    ``(provider, provider_event_id)``, and one id collision would discard one
+    provider's event as a duplicate of the other's — answering 200 while doing
+    nothing.
+    """
+    return f"video:{provider_name}"
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(tags=["webhooks"])
 class VideoWebhookView(APIView):
@@ -97,7 +110,7 @@ class VideoWebhookView(APIView):
         try:
             with transaction.atomic():
                 record = WebhookEvent.objects.create(
-                    provider=provider.name,
+                    provider=namespaced(provider.name),
                     provider_event_id=event.event_id,
                     event_type=event.event_type,
                     payload=event.payload,
