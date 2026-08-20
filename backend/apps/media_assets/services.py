@@ -27,6 +27,7 @@ from apps.media_assets.providers.storage import (
     build_object_key,
     looks_like,
 )
+from apps.media_assets.tasks import process_media_asset
 
 # States an upload may replace. TRANSCODING is excluded because the provider is
 # mid-job on the current master, and READY because replacing live media is a
@@ -178,9 +179,36 @@ def complete_upload(*, asset: MediaAsset, by: User, storage: ObjectStorage) -> M
         asset.status = MediaAssetStatus.UPLOADED
         asset.save(update_fields=["source_bytes", "source_checksum", "status", "updated_at"])
 
-    # T6 enqueues the processing task here, once there is one. Deliberately
-    # not a placeholder call: a task name that does not exist yet would fail
-    # at runtime rather than at import, which is the worst of both.
+    # Enqueued after the row is committed, not inside the atomic block above.
+    # A worker is a separate process and can pick the task up immediately —
+    # before an uncommitted transaction is visible to it — and would then read
+    # an asset still in PENDING and decline to act. `on_commit` is what makes
+    # the ordering certain rather than usually fine.
+    transaction.on_commit(lambda: process_media_asset.delay(str(asset.pk)))
+
+    return asset
+
+
+@transaction.atomic
+def retry_processing(*, asset: MediaAsset) -> MediaAsset:
+    """Put a dead-lettered asset back through the pipeline.
+
+    The point of the master being ours: the file is still in storage, so a
+    failure caused by a provider outage costs a click rather than asking an
+    instructor to upload two gigabytes again.
+
+    Only from FAILED. Retrying something mid-flight would race the task that
+    is already running it.
+    """
+    if asset.status != MediaAssetStatus.FAILED:
+        raise UploadNotAllowed(f"An asset in {asset.status} is not failed.")
+
+    asset.status = MediaAssetStatus.UPLOADED
+    asset.error_message = ""
+    asset.retry_count = 0
+    asset.save(update_fields=["status", "error_message", "retry_count", "updated_at"])
+
+    transaction.on_commit(lambda: process_media_asset.delay(str(asset.pk)))
     return asset
 
 
@@ -192,4 +220,5 @@ __all__ = [
     "UploadVerificationFailed",
     "complete_upload",
     "request_upload",
+    "retry_processing",
 ]

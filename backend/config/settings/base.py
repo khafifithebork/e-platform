@@ -186,6 +186,16 @@ MEDIA_MAX_UPLOAD_BYTES = env.int("MEDIA_MAX_UPLOAD_BYTES", default=5 * 1024 * 10
 # rather than a gate. Long enough that a lesson does not die mid-play.
 MEDIA_PLAYBACK_TOKEN_TTL_SECONDS = env.int("MEDIA_PLAYBACK_TOKEN_TTL_SECONDS", default=4 * 60 * 60)
 
+# How long the video provider has to fetch a master from our storage. Hours,
+# not minutes: the provider queues the pull, and a URL expiring while the job
+# is still queued fails an asset for no reason anyone can see.
+MEDIA_SOURCE_URL_TTL_SECONDS = env.int("MEDIA_SOURCE_URL_TTL_SECONDS", default=6 * 60 * 60)
+
+# How many times processing is retried before an asset lands in the
+# dead-letter queue (the FAILED rows). Bounded: retrying forever turns a
+# permanently broken asset into permanent load on the worker.
+MEDIA_PROCESSING_MAX_RETRIES = env.int("MEDIA_PROCESSING_MAX_RETRIES", default=3)
+
 # ---------------------------------------------------------------------------
 # Django REST Framework
 # ---------------------------------------------------------------------------
