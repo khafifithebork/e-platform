@@ -12,6 +12,8 @@ from apps.media_assets.views import (
     LessonPlaybackTokenView,
     LessonUploadUrlView,
     MediaAssetCompleteView,
+    MediaAssetDetailView,
+    MediaAssetRetryView,
 )
 from apps.media_assets.webhooks import VideoWebhookView
 
@@ -28,6 +30,8 @@ urlpatterns = [
         MediaAssetCompleteView.as_view(),
         name="complete",
     ),
+    path("media-assets/<uuid:pk>/", MediaAssetDetailView.as_view(), name="asset-detail"),
+    path("media-assets/<uuid:pk>/retry/", MediaAssetRetryView.as_view(), name="asset-retry"),
     path(
         "lessons/<uuid:pk>/playback-token/",
         LessonPlaybackTokenView.as_view(),

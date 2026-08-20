@@ -65,7 +65,7 @@ class UploadVerificationFailed(Exception):
     """What landed is not what was authorised."""
 
 
-def _may_manage(lesson: Lesson, user: User) -> bool:
+def may_manage(*, lesson: Lesson, user: User) -> bool:
     """Who may put media on a lesson.
 
     Its own function so the answer is in one place, and deliberately *not* the
@@ -93,7 +93,7 @@ def request_upload(
     person who started and gave up, which is a fact worth having rather than
     silence.
     """
-    if not _may_manage(lesson, by):
+    if not may_manage(lesson=lesson, user=by):
         raise NotYours
 
     asset = MediaAsset.objects.select_for_update().filter(lesson=lesson).first()
@@ -161,7 +161,7 @@ def complete_upload(*, asset: MediaAsset, by: User, storage: ObjectStorage) -> M
        ``Content-Type`` the store recorded — the store only knows what the
        uploader declared.
     """
-    if not _may_manage(asset.lesson, by):
+    if not may_manage(lesson=asset.lesson, user=by):
         raise NotYours
     if asset.status != MediaAssetStatus.PENDING:
         raise UploadNotAllowed(f"An asset in {asset.status} is not awaiting an upload.")
@@ -229,6 +229,7 @@ __all__ = [
     "UploadVerificationFailed",
     "complete_upload",
     "issue_playback_token",
+    "may_manage",
     "request_upload",
     "retry_processing",
 ]

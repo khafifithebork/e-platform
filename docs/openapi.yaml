@@ -1354,6 +1354,41 @@ paths:
           description: No such lesson.
         '409':
           description: The media is not ready to play yet.
+  /api/v1/media-assets/{id}/:
+    get:
+      operationId: media_assets_retrieve
+      description: |-
+        Where an instructor sees what happened to their upload.
+
+        The visible half of the M5 deliverable. Without it, processing is a
+        black box: an instructor uploads a file and either it works or nothing
+        ever says otherwise, which is how a failed asset is discovered on
+        publication day.
+
+        Carries ``status``, ``error_message`` and ``retry_count`` — the same three
+        fields the dead-letter queue is read from, because the person who can act
+        on a failure is usually the one who uploaded it.
+      summary: Processing status of an upload
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+        '404':
+          description: No such asset of yours.
   /api/v1/media-assets/{id}/complete/:
     post:
       operationId: media_assets_complete_create
@@ -1383,6 +1418,39 @@ paths:
           description: Not awaiting an upload.
         '422':
           description: Nothing uploaded, too large, or not the declared type.
+  /api/v1/media-assets/{id}/retry/:
+    post:
+      operationId: media_assets_retry_create
+      description: |-
+        Put a failed asset back through the pipeline.
+
+        The real failure path §10 M5 asks for. The master is already in our
+        storage (invariant 7), so a provider outage costs a click rather than
+        asking an instructor to upload two gigabytes again — and that is the whole
+        practical argument for storing the master ourselves.
+      summary: Retry a failed upload
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+        '404':
+          description: No such asset of yours.
+        '409':
+          description: Not in a failed state.
   /api/v1/webhooks/video/:
     post:
       operationId: webhooks_video_create

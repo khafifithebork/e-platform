@@ -31,7 +31,9 @@ from apps.media_assets.services import (
     UploadVerificationFailed,
     complete_upload,
     issue_playback_token,
+    may_manage,
     request_upload,
+    retry_processing,
 )
 
 
@@ -169,3 +171,74 @@ class LessonPlaybackTokenView(APIView):
         # Details handler renders it (ADR-004). Catching it here to rebuild a
         # response by hand is how the reason gets lost.
         return Response(PlaybackTokenSerializer(token).data)
+
+
+@extend_schema(tags=["media"])
+class MediaAssetDetailView(APIView):
+    """Where an instructor sees what happened to their upload.
+
+    The visible half of the M5 deliverable. Without it, processing is a
+    black box: an instructor uploads a file and either it works or nothing
+    ever says otherwise, which is how a failed asset is discovered on
+    publication day.
+
+    Carries ``status``, ``error_message`` and ``retry_count`` — the same three
+    fields the dead-letter queue is read from, because the person who can act
+    on a failure is usually the one who uploaded it.
+    """
+
+    throttle_scope = "user"
+
+    @extend_schema(
+        responses={
+            200: MediaAssetSerializer,
+            404: OpenApiResponse(description="No such asset of yours."),
+        },
+        summary="Processing status of an upload",
+    )
+    def get(self, request, pk):
+        asset = get_object_or_404(MediaAsset.objects.select_related("lesson__course"), pk=pk)
+
+        if not may_manage(lesson=asset.lesson, user=request.user):
+            # 404, not 403 (§6.3). Ownership is checked here rather than in a
+            # queryset filter because the asset is addressed by its own id.
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(MediaAssetSerializer(asset).data)
+
+
+@extend_schema(tags=["media"])
+class MediaAssetRetryView(APIView):
+    """Put a failed asset back through the pipeline.
+
+    The real failure path §10 M5 asks for. The master is already in our
+    storage (invariant 7), so a provider outage costs a click rather than
+    asking an instructor to upload two gigabytes again — and that is the whole
+    practical argument for storing the master ourselves.
+    """
+
+    throttle_scope = "media_upload"
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: MediaAssetSerializer,
+            404: OpenApiResponse(description="No such asset of yours."),
+            409: OpenApiResponse(description="Not in a failed state."),
+        },
+        summary="Retry a failed upload",
+    )
+    def post(self, request, pk):
+        asset = get_object_or_404(MediaAsset.objects.select_related("lesson__course"), pk=pk)
+
+        if not may_manage(lesson=asset.lesson, user=request.user):
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            retry_processing(asset=asset)
+        except UploadNotAllowed as exc:
+            # 409: retrying something mid-flight would race the task already
+            # running it.
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        return Response(MediaAssetSerializer(asset).data)

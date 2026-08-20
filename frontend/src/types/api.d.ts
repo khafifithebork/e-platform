@@ -703,6 +703,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/media-assets/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Processing status of an upload
+         * @description Where an instructor sees what happened to their upload.
+         *
+         *     The visible half of the M5 deliverable. Without it, processing is a
+         *     black box: an instructor uploads a file and either it works or nothing
+         *     ever says otherwise, which is how a failed asset is discovered on
+         *     publication day.
+         *
+         *     Carries ``status``, ``error_message`` and ``retry_count`` — the same three
+         *     fields the dead-letter queue is read from, because the person who can act
+         *     on a failure is usually the one who uploaded it.
+         */
+        get: operations["media_assets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/media-assets/{id}/complete/": {
         parameters: {
             query?: never;
@@ -717,6 +746,31 @@ export interface paths {
          * @description Confirm an upload landed, and verify it before believing it.
          */
         post: operations["media_assets_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media-assets/{id}/retry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed upload
+         * @description Put a failed asset back through the pipeline.
+         *
+         *     The real failure path §10 M5 asks for. The master is already in our
+         *     storage (invariant 7), so a provider outage costs a click rather than
+         *     asking an instructor to upload two gigabytes again — and that is the whole
+         *     practical argument for storing the master ourselves.
+         */
+        post: operations["media_assets_retry_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2620,6 +2674,34 @@ export interface operations {
             };
         };
     };
+    media_assets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+            /** @description No such asset of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     media_assets_complete_create: {
         parameters: {
             query?: never;
@@ -2655,6 +2737,41 @@ export interface operations {
             };
             /** @description Nothing uploaded, too large, or not the declared type. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    media_assets_retry_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+            /** @description No such asset of yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not in a failed state. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
