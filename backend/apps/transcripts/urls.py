@@ -4,9 +4,13 @@ The callback is called by the provider, not a browser: unauthenticated, and
 the signature is the authentication (invariant 8).
 """
 
-from django.urls import path
+from django.urls import path, re_path
 
-from apps.transcripts.views import SegmentEditView, TranscriptDetailView
+from apps.transcripts.views import (
+    SegmentEditView,
+    TranscriptDetailView,
+    TranscriptReviewView,
+)
 from apps.transcripts.webhooks import TranscriptionWebhookView
 
 app_name = "transcripts"
@@ -14,6 +18,13 @@ app_name = "transcripts"
 urlpatterns = [
     path("transcripts/<uuid:pk>/", TranscriptDetailView.as_view(), name="detail"),
     path("transcript-segments/<uuid:pk>/", SegmentEditView.as_view(), name="segment-edit"),
+    # The actions are enumerated in the pattern, so an unknown one is a 404
+    # by routing rather than a KeyError reaching the client as a 500.
+    re_path(
+        r"^transcripts/(?P<pk>[0-9a-f-]{36})/(?P<action>start-review|approve|reopen)/$",
+        TranscriptReviewView.as_view(),
+        name="review",
+    ),
     path(
         "webhooks/transcription/",
         TranscriptionWebhookView.as_view(),

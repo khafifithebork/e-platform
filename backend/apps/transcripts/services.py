@@ -15,6 +15,7 @@ the window ADR-014 §3 exists to close.
 from __future__ import annotations
 
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.media_assets.services import may_manage
@@ -141,3 +142,102 @@ def _return_to_review(transcript: Transcript) -> None:
         reviewed_by=None,
         approved_at=None,
     )
+
+
+class InvalidTransition(Exception):
+    """The transcript is not in a state this transition can leave."""
+
+
+class NothingToApprove(Exception):
+    """There are no words here to approve."""
+
+
+# Every legal move, in one table. Absent means impossible, whoever asks —
+# the shape M3's course state machine proved.
+#
+# There is deliberately no MACHINE -> APPROVED entry. Approving straight from
+# machine output is the rubber stamp §10 M6 warns about, and the whole reason
+# the review step exists.
+ALLOWED_TRANSITIONS: frozenset[tuple[str, str]] = frozenset(
+    {
+        (TranscriptStatus.MACHINE, TranscriptStatus.IN_REVIEW),
+        (TranscriptStatus.IN_REVIEW, TranscriptStatus.APPROVED),
+        # A reviewer who opened it and changed their mind. Not a failure.
+        (TranscriptStatus.IN_REVIEW, TranscriptStatus.MACHINE),
+        # An approved transcript that is edited comes back here — written by
+        # `_return_to_review` rather than requested, but it is a real move and
+        # the table should say so.
+        (TranscriptStatus.APPROVED, TranscriptStatus.IN_REVIEW),
+    }
+)
+
+
+def _require_transition(transcript: Transcript, target: str) -> None:
+    if (transcript.status, target) not in ALLOWED_TRANSITIONS:
+        raise InvalidTransition(f"{transcript.status} -> {target}")
+
+
+@transaction.atomic
+def start_review(*, transcript: Transcript, by: User) -> Transcript:
+    """Open a machine transcript for correction."""
+    if not may_review(transcript=transcript, user=by):
+        raise NotYours
+
+    _require_transition(transcript, TranscriptStatus.IN_REVIEW)
+
+    transcript.status = TranscriptStatus.IN_REVIEW
+    transcript.save(update_fields=["status", "updated_at"])
+    return transcript
+
+
+@transaction.atomic
+def approve(*, transcript: Transcript, by: User) -> Transcript:
+    """Sign off a reviewed transcript, and let learners see it.
+
+    **The only route to APPROVED**, and therefore the only route to a learner
+    being served subtitles at all (ADR-014 §3). That is why it is one function
+    with the signature written inside it rather than a status a caller can
+    set.
+
+    Only from IN_REVIEW. What that buys is narrow and worth being honest
+    about: it prevents approving a transcript **nobody has opened** — a bulk
+    rubber-stamp over raw machine output — not approving one nobody has
+    *read*. A reviewer determined to click twice can still do so. The stronger
+    guarantee would be per-segment sign-off, which is a product decision about
+    reviewer effort rather than a correctness one.
+    """
+    if not may_review(transcript=transcript, user=by):
+        raise NotYours
+
+    _require_transition(transcript, TranscriptStatus.APPROVED)
+
+    if not TranscriptSegment.objects.filter(transcript=transcript).exists():
+        # An approved transcript with no cues renders an empty subtitle file,
+        # which a player shows as "subtitles available" and then displays
+        # nothing — worse than having none, because it looks provided.
+        raise NothingToApprove("This transcript has no segments.")
+
+    transcript.status = TranscriptStatus.APPROVED
+    transcript.reviewed_by = by
+    transcript.approved_at = timezone.now()
+    transcript.save(update_fields=["status", "reviewed_by", "approved_at", "updated_at"])
+    return transcript
+
+
+@transaction.atomic
+def reopen(*, transcript: Transcript, by: User) -> Transcript:
+    """Send a transcript back from review to untouched machine output.
+
+    For a reviewer who opened the wrong lesson. Deliberately not reachable
+    from APPROVED: withdrawing an approval is what editing does, and giving it
+    a second route would mean two places that must remember to clear the
+    signature.
+    """
+    if not may_review(transcript=transcript, user=by):
+        raise NotYours
+
+    _require_transition(transcript, TranscriptStatus.MACHINE)
+
+    transcript.status = TranscriptStatus.MACHINE
+    transcript.save(update_fields=["status", "updated_at"])
+    return transcript
