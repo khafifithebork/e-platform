@@ -1,13 +1,88 @@
 # STATUS
 
 **Last updated:** 2026-08-21
-**Updated by:** agent session (M6 complete)
+**Updated by:** agent session (M7 complete)
 
 ---
 
 ## Current milestone
 
-**M6 — Transcription & Subtitles. Complete — 10 of 10.**
+**M7 — Learning Experience. Complete — 10 of 10.**
+Branch: `feat/m7-learning`, which branches off `feat/m6-transcription`.
+
+Spec: `docs/specs/m7-learning.md`
+Decisions: `docs/adr/016-m7-learning-decisions.md` (before code),
+`docs/adr/017-m7-learning-implementation.md` (what implementation settled)
+
+| Task | State |
+|---|---|
+| T1 spec + four decisions | **done** — `bd8e314` |
+| T2 `Enrollment`, `LessonProgress` + constraints | **done** — `8d9b0ca` |
+| T3 progress recording, completion defined once | **done** — `1b799ba` |
+| T4 progress endpoint, gated and throttled | **done** — `0e3c8bf` |
+| T5 resume: "my courses", last and next lesson | **done** — `ca8a39a` |
+| T6 course completion rule | **done** — `98936bf` |
+| T7 transcript panel, APPROVED only | **done** — `6c1a2b4` |
+| T8 lesson page: player, panel, heartbeat | **done** — `620f45f` |
+| T9 abuse cases, query counts | **done** — `1790788` |
+| T10 schema, types, ADR-017, close-out | **done** |
+
+**947 tests pass**, ruff clean, tsc/eslint/`next build` clean, `check --deploy`
+clean. Schema and types regenerate to no diff. The entitlement resolver still
+holds **100% branch coverage** — 94 statements, 32 branches, none missed.
+
+### The milestone's claim was demonstrated, not asserted
+
+ADR-016 §4 committed to one lesson page so that *watch → progress persists →
+resume across devices* was something somebody had watched work. It was: played
+against the live stack, left the page, came back at the right second, and the
+lesson completed itself by watched time with the database agreeing.
+
+That is also what found the two defects below. Neither was reachable from a
+test.
+
+### Two defects found by running it
+
+**1. Every unsafe request through the proxy was refused.** `CSRF_TRUSTED_ORIGINS`
+was never set. Next forwards its rewrite destination as the `Host` header, so
+Django's origin is `api` and the browser's is `localhost:3000` — they can never
+match. This broke **login too**, not just the new endpoints, and would have hit
+production identically. Fixed in `07cdfac`. **M13 must set the variable** to the
+public origin. ADR-017 §8.
+
+**2. The player wrote a playhead of zero over a real bookmark.** The ticker's
+cleanup reports a final beat, and React Strict Mode runs that cleanup before the
+fetch saying where the learner was has returned. A lesson resumed at 0:00 having
+just destroyed the thing the milestone exists to prove. Fixed with a readiness
+gate. ADR-017 §6.
+
+### Two comments that were confidently wrong
+
+The transcript prefetch does **not** prevent a query per cue — a reverse foreign
+key collection is one query however many rows it holds, and removing the
+prefetch leaves the test passing. Corrected in `1790788`. This is the same shape
+as M3's deferrable-constraint comment: right code, wrong reason, and no passing
+test can see the difference. ADR-017 §7.
+
+### Carried forward from M7
+
+- **A completed course is not re-evaluated if a lesson is deleted**, so a
+  learner one lesson short stays incomplete. No deletion flow exists yet —
+  **M10**, where it first can.
+- **"My courses" cannot be ordered by last activity**, because a cursor cannot
+  page on an aggregate. Fine under twenty courses; needs a real column and a
+  measurement if that changes. ADR-017 §3.
+- **No frontend test runner.** Adding one is a §5 dependency decision, still
+  unasked. Frontend verification is `tsc`, `eslint`, `next build`, and running
+  it.
+- **The frontend is auth pages plus one lesson page.** No catalogue, course or
+  account surfaces exist. M12 asks for Playwright journeys over a UI that is
+  mostly not built; that work is currently unowned by any milestone.
+
+---
+
+## M6 — Transcription & Subtitles. Complete — 10 of 10.
+
 Branch: `feat/m6-transcription`.
 
 Spec: `docs/specs/m6-transcription.md`
@@ -547,6 +622,16 @@ Deliberately absent from M0: DRF, drf-spectacular, django-celery-beat,
 django-axes, argon2-cffi, Vitest.
 
 ---
+
+## The M0 planning session, kept as written
+
+Everything below this line is the record of the first session, before any code
+existed. It is left unedited as history — "Still no application code" and
+"blocked on approval of the M0 plan" describe **2026 before M0**, not today.
+The current state is at the top of this file.
+
+The one part still live is the open-decisions table, which is why it has not
+been folded away.
 
 ## Completed
 
