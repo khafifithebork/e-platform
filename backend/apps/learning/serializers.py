@@ -57,6 +57,16 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     completed_lesson_count = serializers.IntegerField(read_only=True)
     lesson_count = serializers.IntegerField(read_only=True)
 
+    # Where to go next, as opposed to `last_lesson`, which is where the learner
+    # was. They differ for anyone who skipped ahead, and the difference is the
+    # point: `next_lesson` walks back to the earliest unfinished lesson.
+    # Null when the course is finished.
+    next_lesson = serializers.UUIDField(read_only=True, allow_null=True)
+
+    # Not the sort key — see `courses_in_progress`. A cursor cannot page on an
+    # aggregate, so this ships as data for the caller to use.
+    last_activity = serializers.DateTimeField(read_only=True, allow_null=True)
+
     class Meta:
         model = Enrollment
         fields: ClassVar[list[str]] = [
@@ -64,8 +74,10 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             "course_slug",
             "course_title",
             "last_lesson",
+            "next_lesson",
             "completed_lesson_count",
             "lesson_count",
+            "last_activity",
             "started_at",
             "completed_at",
         ]

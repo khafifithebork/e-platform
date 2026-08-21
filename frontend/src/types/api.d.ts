@@ -782,6 +782,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/courses/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Courses this learner has started
+         * @description "My courses" — what to come back to.
+         *
+         *     Under ``/me/`` rather than ``/learners/{id}/courses/`` for the reason the
+         *     progress routes carry no identifier either: the only answerable question is
+         *     about the caller, so there is nothing to tamper with.
+         *
+         *     No entitlement check. Someone whose subscription lapsed still sees what
+         *     they were partway through — that list is what asks them to come back, and
+         *     an enrolment grants nothing on its own (ADR-016 §1). The lessons behind it
+         *     are gated where they always were, at playback.
+         */
+        get: operations["me_courses_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/media-assets/{id}/": {
         parameters: {
             query?: never;
@@ -1135,6 +1164,33 @@ export interface components {
             email: string;
         };
         /**
+         * @description A course in progress, as "my courses" shows it.
+         *
+         *     ``completed_lesson_count`` is annotated rather than stored (ADR-016 §3),
+         *     so it appears here as a read-only integer with no column behind it.
+         */
+        Enrollment: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly course_slug: string;
+            readonly course_title: string;
+            /**
+             * Format: uuid
+             * @description Where to resume. A bookmark, not a permission.
+             */
+            readonly last_lesson: string | null;
+            /** Format: uuid */
+            readonly next_lesson: string | null;
+            readonly completed_lesson_count: number;
+            readonly lesson_count: number;
+            /** Format: date-time */
+            readonly last_activity: string | null;
+            /** Format: date-time */
+            readonly started_at: string;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+        };
+        /**
          * @description * `TRIAL_STARTED` - Trial started
          *     * `ACTIVATED` - Activated
          *     * `RENEWED` - Renewed
@@ -1404,6 +1460,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["CourseReviewEvent"][];
+        };
+        PaginatedEnrollmentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Enrollment"][];
         };
         PaginatedLessonList: {
             /**
@@ -3084,6 +3153,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    me_courses_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedEnrollmentList"];
+                };
             };
         };
     };

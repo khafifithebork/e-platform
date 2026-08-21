@@ -8,11 +8,14 @@ forbidden.
 
 from django.urls import path
 
-from apps.learning.views import LessonCompleteView, LessonProgressView
+from apps.learning.views import LessonCompleteView, LessonProgressView, MyCoursesView
 
 app_name = "learning"
 
 urlpatterns = [
     path("lessons/<uuid:pk>/progress/", LessonProgressView.as_view(), name="progress"),
     path("lessons/<uuid:pk>/complete/", LessonCompleteView.as_view(), name="complete"),
+    # `/me/`, not `/learners/{id}/`: the only question these routes can answer
+    # is about the caller.
+    path("me/courses/", MyCoursesView.as_view(), name="my-courses"),
 ]

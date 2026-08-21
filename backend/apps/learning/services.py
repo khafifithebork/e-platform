@@ -180,4 +180,9 @@ def _bookmark(*, user: User, lesson: Lesson) -> None:
         # product, so the one that is usually unnecessary is worth removing.
         return
 
-    Enrollment.objects.filter(pk=enrollment.pk).update(last_lesson=lesson)
+    # `updated_at` set by hand because `.update()` bypasses `auto_now`. The row
+    # genuinely changed, and a timestamp that disagrees is the sort of thing
+    # somebody later trusts.
+    Enrollment.objects.filter(pk=enrollment.pk).update(
+        last_lesson=lesson, updated_at=timezone.now()
+    )

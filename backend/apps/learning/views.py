@@ -13,13 +13,18 @@ and the Problem Details handler renders it (ADR-004).
 
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.generics import get_object_or_404
+from rest_framework.generics import ListAPIView, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.selectors import lessons_visible_to
 from apps.learning.models import LessonProgress
-from apps.learning.serializers import HeartbeatSerializer, LessonProgressSerializer
+from apps.learning.selectors import courses_in_progress
+from apps.learning.serializers import (
+    EnrollmentSerializer,
+    HeartbeatSerializer,
+    LessonProgressSerializer,
+)
 from apps.learning.services import Heartbeat, mark_complete, record_progress
 
 
@@ -97,3 +102,23 @@ class LessonCompleteView(APIView):
 
         progress = mark_complete(user=request.user, lesson=lesson)
         return Response(LessonProgressSerializer(progress).data)
+
+
+@extend_schema(tags=["learning"], summary="Courses this learner has started")
+class MyCoursesView(ListAPIView):
+    """ "My courses" — what to come back to.
+
+    Under ``/me/`` rather than ``/learners/{id}/courses/`` for the reason the
+    progress routes carry no identifier either: the only answerable question is
+    about the caller, so there is nothing to tamper with.
+
+    No entitlement check. Someone whose subscription lapsed still sees what
+    they were partway through — that list is what asks them to come back, and
+    an enrolment grants nothing on its own (ADR-016 §1). The lessons behind it
+    are gated where they always were, at playback.
+    """
+
+    serializer_class = EnrollmentSerializer
+
+    def get_queryset(self):
+        return courses_in_progress(user=self.request.user)

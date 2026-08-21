@@ -1490,6 +1490,45 @@ paths:
           description: Entitlement denied, with a reason.
         '404':
           description: No lesson, or no approved transcript.
+  /api/v1/me/courses/:
+    get:
+      operationId: me_courses_list
+      description: |-
+        "My courses" — what to come back to.
+
+        Under ``/me/`` rather than ``/learners/{id}/courses/`` for the reason the
+        progress routes carry no identifier either: the only answerable question is
+        about the caller, so there is nothing to tamper with.
+
+        No entitlement check. Someone whose subscription lapsed still sees what
+        they were partway through — that list is what asks them to come back, and
+        an enrolment grants nothing on its own (ADR-016 §1). The lessons behind it
+        are gated where they always were, at playback.
+      summary: Courses this learner has started
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - learning
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnrollmentList'
+          description: ''
   /api/v1/media-assets/{id}/:
     get:
       operationId: media_assets_retrieve
@@ -2037,6 +2076,67 @@ components:
           maxLength: 254
       required:
       - email
+    Enrollment:
+      type: object
+      description: |-
+        A course in progress, as "my courses" shows it.
+
+        ``completed_lesson_count`` is annotated rather than stored (ADR-016 §3),
+        so it appears here as a read-only integer with no column behind it.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course_slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        course_title:
+          type: string
+          readOnly: true
+        last_lesson:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+          description: Where to resume. A bookmark, not a permission.
+        next_lesson:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        completed_lesson_count:
+          type: integer
+          readOnly: true
+        lesson_count:
+          type: integer
+          readOnly: true
+        last_activity:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - completed_at
+      - completed_lesson_count
+      - course_slug
+      - course_title
+      - id
+      - last_activity
+      - last_lesson
+      - lesson_count
+      - next_lesson
+      - started_at
     EventTypeEnum:
       enum:
       - TRIAL_STARTED
@@ -2541,6 +2641,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CourseReviewEvent'
+    PaginatedEnrollmentList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Enrollment'
     PaginatedLessonList:
       type: object
       required:
