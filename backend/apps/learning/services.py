@@ -71,6 +71,62 @@ def is_complete(*, watched_seconds: int, duration_seconds: int | None) -> bool:
     return watched_seconds >= duration_seconds * settings.LESSON_COMPLETION_THRESHOLD
 
 
+def course_is_complete(*, user: User, course_id) -> bool:
+    """Every lesson finished. The rule, in one place.
+
+    **All of them, not a proportion.** A second threshold beside
+    ``LESSON_COMPLETION_THRESHOLD`` would be a second number to guess and a
+    second thing to disagree about, and it is unnecessary here: a learner who
+    considers an optional lesson skippable can mark it complete themselves
+    (ADR-016 §2). One rule, with an override already built in, beats two
+    thresholds.
+
+    A course with no lessons is never complete. Without that guard, zero of
+    zero is "all of them" and an empty course completes the instant somebody
+    is enrolled in it.
+
+    Two counts rather than one filtered aggregate. The aggregate would join
+    lessons to every learner's progress and need ``distinct`` to stay right —
+    the trap ``courses_in_progress`` documents. This decides whether somebody
+    finished a course, it runs only on the rare transition that can change the
+    answer, and obviously-correct is worth more here than one fewer round trip.
+    """
+    total = Lesson.objects.filter(course_id=course_id).count()
+
+    if not total:
+        return False
+
+    finished = LessonProgress.objects.filter(
+        user=user, lesson__course_id=course_id, completed_at__isnull=False
+    ).count()
+    return finished >= total
+
+
+def _complete_course_if_finished(*, user: User, enrollment: Enrollment) -> None:
+    """Set ``Enrollment.completed_at`` the moment the last lesson lands.
+
+    **Never cleared, and never recomputed afterwards.** An instructor who adds
+    a lesson to a course does not un-finish everyone who completed it — the
+    same principle that stops rewatching a lesson unfinishing it, applied one
+    level up. The visible consequence is a course showing four of five lessons
+    complete *and* a completion date, and that is the honest reading: they
+    finished the course as it stood.
+
+    Checked only when a lesson has just completed, because that is the only
+    event that can make the answer change from no to yes. Running it on every
+    heartbeat would put two counting queries on the highest-frequency write in
+    the product to re-answer a question whose inputs had not moved.
+    """
+    if enrollment.completed_at is not None:
+        return
+
+    if not course_is_complete(user=user, course_id=enrollment.course_id):
+        return
+
+    enrollment.completed_at = timezone.now()
+    enrollment.save(update_fields=["completed_at", "updated_at"])
+
+
 @transaction.atomic
 def record_progress(*, user: User, lesson: Lesson, heartbeat: Heartbeat) -> LessonProgress:
     """Fold one heartbeat into a learner's progress.
@@ -110,10 +166,12 @@ def record_progress(*, user: User, lesson: Lesson, heartbeat: Heartbeat) -> Less
         # seen".
         progress.watched_seconds = min(progress.watched_seconds, duration)
 
+    just_finished_the_lesson = False
     if progress.completed_at is None and is_complete(
         watched_seconds=progress.watched_seconds, duration_seconds=duration
     ):
         progress.completed_at = timezone.now()
+        just_finished_the_lesson = True
 
     # `completed_at` is never cleared here. A learner who rewatches a finished
     # lesson has not unfinished it, and clearing it would make progress
@@ -128,7 +186,9 @@ def record_progress(*, user: User, lesson: Lesson, heartbeat: Heartbeat) -> Less
         ]
     )
 
-    _bookmark(user=user, lesson=lesson)
+    enrollment = _bookmark(user=user, lesson=lesson)
+    if just_finished_the_lesson:
+        _complete_course_if_finished(user=user, enrollment=enrollment)
     return progress
 
 
@@ -150,15 +210,18 @@ def mark_complete(*, user: User, lesson: Lesson) -> LessonProgress:
 
     progress, _ = LessonProgress.objects.select_for_update().get_or_create(user=user, lesson=lesson)
 
-    if progress.completed_at is None:
+    just_finished_the_lesson = progress.completed_at is None
+    if just_finished_the_lesson:
         progress.completed_at = timezone.now()
         progress.save(update_fields=["completed_at", "updated_at"])
 
-    _bookmark(user=user, lesson=lesson)
+    enrollment = _bookmark(user=user, lesson=lesson)
+    if just_finished_the_lesson:
+        _complete_course_if_finished(user=user, enrollment=enrollment)
     return progress
 
 
-def _bookmark(*, user: User, lesson: Lesson) -> None:
+def _bookmark(*, user: User, lesson: Lesson) -> Enrollment:
     """Remember where to resume, enrolling on first contact.
 
     Watching a lesson is what enrolment means, so there is no separate act of
@@ -169,8 +232,7 @@ def _bookmark(*, user: User, lesson: Lesson) -> None:
     enrollment = Enrollment.objects.filter(user=user, course_id=lesson.course_id).first()
 
     if enrollment is None:
-        Enrollment.objects.create(user=user, course_id=lesson.course_id, last_lesson=lesson)
-        return
+        return Enrollment.objects.create(user=user, course_id=lesson.course_id, last_lesson=lesson)
 
     if enrollment.last_lesson_id == lesson.pk:
         # Written only when it moves. `update_or_create` rewrote the same
@@ -178,7 +240,7 @@ def _bookmark(*, user: User, lesson: Lesson) -> None:
         # open lesson, to store what was already there, plus the row churn of
         # a fresh `updated_at`. This is the highest-frequency write in the
         # product, so the one that is usually unnecessary is worth removing.
-        return
+        return enrollment
 
     # `updated_at` set by hand because `.update()` bypasses `auto_now`. The row
     # genuinely changed, and a timestamp that disagrees is the sort of thing
@@ -186,3 +248,5 @@ def _bookmark(*, user: User, lesson: Lesson) -> None:
     Enrollment.objects.filter(pk=enrollment.pk).update(
         last_lesson=lesson, updated_at=timezone.now()
     )
+    enrollment.last_lesson = lesson
+    return enrollment
