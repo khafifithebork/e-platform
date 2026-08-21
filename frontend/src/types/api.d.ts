@@ -703,6 +703,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lessons/{id}/transcript.vtt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Subtitles for a lesson
+         * @description Subtitles for a lesson, as WebVTT.
+         *
+         *     Two gates, the same pair as playback: ``lessons_visible_to`` answers
+         *     whether the lesson exists for you (404), then the entitlement resolver
+         *     answers whether you may read it (403 with a reason). Subtitles are the
+         *     lesson's content in written form, so anything looser here would hand over
+         *     in text what the playback token is guarding in video.
+         *
+         *     ``AllowAny``, because a preview lesson's subtitles are as public as its
+         *     video — the resolver's first branch decides that, and a blanket
+         *     authentication check would refuse them before it ran.
+         *
+         *     Rendered on demand and cached, never stored (invariant 13). The cache key
+         *     carries the transcript's ``updated_at``, so an edit produces a different
+         *     key rather than needing a purge; the ETag carries the same version, so a
+         *     returning learner revalidates with a 304 instead of re-downloading.
+         */
+        get: operations["lessons_transcript.vtt_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/media-assets/{id}/": {
         parameters: {
             query?: never;
@@ -2819,6 +2854,47 @@ export interface operations {
             };
             /** @description The media is not ready to play yet. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "lessons_transcript.vtt_retrieve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A WebVTT file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unchanged since the ETag you hold. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Entitlement denied, with a reason. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No lesson, or no approved transcript. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

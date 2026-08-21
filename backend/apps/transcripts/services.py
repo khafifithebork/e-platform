@@ -117,6 +117,13 @@ def edit_segment(
     segment.is_edited = True
     segment.save(update_fields=["text", "start_ms", "end_ms", "is_edited", "updated_at"])
 
+    # Touch the transcript. The rendered VTT is cached under a key derived
+    # from this timestamp, so without it an edit would leave the cache serving
+    # the words the reviewer just corrected — invalidation by content rather
+    # than by remembering to purge, which is the only kind that survives
+    # somebody adding a second writer later.
+    Transcript.objects.filter(pk=transcript.pk).update(updated_at=timezone.now())
+
     _return_to_review(transcript)
 
     return segment

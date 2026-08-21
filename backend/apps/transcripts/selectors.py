@@ -2,7 +2,12 @@
 
 from django.db.models import Prefetch
 
-from apps.transcripts.models import Transcript, TranscriptSegment
+from apps.transcripts.models import (
+    Transcript,
+    TranscriptKind,
+    TranscriptSegment,
+    TranscriptStatus,
+)
 
 
 def transcript_for_review(*, pk):
@@ -15,6 +20,36 @@ def transcript_for_review(*, pk):
     return (
         Transcript.objects.filter(pk=pk)
         .select_related("media_asset__lesson__course", "language")
+        .prefetch_related(
+            Prefetch("segments", queryset=TranscriptSegment.objects.order_by("position"))
+        )
+        .first()
+    )
+
+
+def approved_transcript_for(*, lesson):
+    """The transcript a learner may be served, or None.
+
+    **APPROVED only**, and this is the control ADR-014 §3 chose instead of a
+    publish gate: unreviewed subtitles teach learners the wrong words with
+    confidence, so a MACHINE or IN_REVIEW transcript is simply not available.
+
+    ADR-014 §3 also named the risk that comes with putting the whole weight
+    here — anything else that renders segments must apply the same filter. So
+    the filter lives in this selector rather than in the view, and the next
+    reader gets it by calling the same function.
+    """
+    return (
+        Transcript.objects.filter(
+            media_asset__lesson=lesson,
+            # `language_id`, not `language`: the id is already on the course
+            # row the caller joined, whereas the object costs a query to fetch
+            # and would be thrown away immediately. ADR-009 — do not add a
+            # join you can avoid, and do not pay for one you already have.
+            language_id=lesson.course.language_id,
+            kind=TranscriptKind.TARGET,
+            status=TranscriptStatus.APPROVED,
+        )
         .prefetch_related(
             Prefetch("segments", queryset=TranscriptSegment.objects.order_by("position"))
         )
