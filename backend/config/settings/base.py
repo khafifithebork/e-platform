@@ -212,6 +212,23 @@ TRANSCRIPTION_MAX_RETRIES = env.int("TRANSCRIPTION_MAX_RETRIES", default=3)
 TRANSCRIPT_VTT_CACHE_SECONDS = env.int("TRANSCRIPT_VTT_CACHE_SECONDS", default=60 * 60 * 24)
 
 # ---------------------------------------------------------------------------
+# Learning
+# ---------------------------------------------------------------------------
+# What fraction of a lesson must be *watched* for it to complete itself
+# (ADR-016 §2). Measured against watched time rather than the furthest
+# position reached, because dragging a scrubber to the end is not watching.
+#
+# 0.9 is a guess. A setting rather than a literal so the boundary is a value a
+# test can move and changing it is configuration.
+LESSON_COMPLETION_THRESHOLD = env.float("LESSON_COMPLETION_THRESHOLD", default=0.9)
+
+# The most watched time one heartbeat may claim. Players report every ten to
+# fifteen seconds; a beat claiming more than a minute is a stuck tab or a bug,
+# and letting it through makes watched_seconds meaningless for everyone who
+# reads it afterwards.
+PROGRESS_MAX_HEARTBEAT_SECONDS = env.int("PROGRESS_MAX_HEARTBEAT_SECONDS", default=60)
+
+# ---------------------------------------------------------------------------
 # Django REST Framework
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {
