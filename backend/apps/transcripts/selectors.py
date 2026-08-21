@@ -50,6 +50,12 @@ def approved_transcript_for(*, lesson):
             kind=TranscriptKind.TARGET,
             status=TranscriptStatus.APPROVED,
         )
+        # Joined for the panel, which renders the language code. Measured, not
+        # assumed (ADR-009): without it the serializer dereferences the foreign
+        # key and pays a round trip for one small row. The VTT view does not
+        # read it, and a JOIN on a table this size is cheaper than the query it
+        # saves — `test_the_panel_does_not_cost_a_query_per_cue` pins both.
+        .select_related("language")
         .prefetch_related(
             Prefetch("segments", queryset=TranscriptSegment.objects.order_by("position"))
         )

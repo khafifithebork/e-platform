@@ -39,6 +39,19 @@ export class ApiError extends Error {
     return this.problem.type === PROBLEM_NOT_AUTHENTICATED;
   }
 
+  /**
+   * The entitlement reason, when the API refused for that reason.
+   *
+   * `EntitlementDenied` carries `reason` and `cta` as RFC 9457 extension
+   * members (ADR-004), so a player can say "your subscription lapsed" rather
+   * than "403". Read defensively: a 403 from anywhere else has neither.
+   */
+  get entitlementReason(): string | null {
+    const problem: ProblemDetails & { reason?: unknown } = this.problem;
+    if (problem.type !== PROBLEM_ENTITLEMENT_DENIED) return null;
+    return typeof problem.reason === "string" ? problem.reason : null;
+  }
+
   /** Field errors for a form, or an empty object. */
   get fieldErrors(): Record<string, string[]> {
     return this.problem.errors ?? {};
@@ -113,6 +126,23 @@ async function request<T>(
 /** The signed-in user, generated from the OpenAPI schema (invariant 16). */
 export type Me = components["schemas"]["Me"];
 
+/**
+ * The learning surface, all generated (invariant 16).
+ *
+ * Hand-written request or response types would be a bug: they drift the first
+ * time the API changes, and the drift shows up as a runtime shape mismatch
+ * rather than a build failure.
+ */
+export type GatedLesson = components["schemas"]["GatedLesson"];
+export type LessonProgress = components["schemas"]["LessonProgress"];
+export type LessonTranscript = components["schemas"]["LessonTranscript"];
+export type TranscriptSegment = components["schemas"]["LearnerSegment"];
+export type PlaybackToken = components["schemas"]["PlaybackToken"];
+export type Enrollment = components["schemas"]["Enrollment"];
+
+/** Problem type the player branches on, to tell "pay" from "went wrong". */
+export const PROBLEM_ENTITLEMENT_DENIED = "/problems/entitlement-denied";
+
 export const api = {
   me: () => request<Me>("/auth/me/"),
 
@@ -134,4 +164,75 @@ export const api = {
 
   verifyEmail: (token: string) =>
     request<{ detail: string }>("/auth/verify-email/", { json: { token } }),
+
+  lesson: (lessonId: string) => request<GatedLesson>(`/lessons/${lessonId}/`),
+
+  /**
+   * Where this learner got to, or `null` if they have never started.
+   *
+   * The 204 becomes `null` here rather than in each caller: `request` returns
+   * `undefined` for an empty body, and a player asking "have I been here
+   * before" wants an answer, not a missing value to guard against twice.
+   */
+  lessonProgress: async (lessonId: string): Promise<LessonProgress | null> =>
+    (await request<LessonProgress | undefined>(`/lessons/${lessonId}/progress/`)) ?? null,
+
+  recordProgress: (lessonId: string, positionSeconds: number, watchedDeltaSeconds: number) =>
+    request<LessonProgress>(`/lessons/${lessonId}/progress/`, {
+      method: "PUT",
+      json: {
+        position_seconds: Math.max(0, Math.round(positionSeconds)),
+        watched_delta_seconds: Math.max(0, Math.round(watchedDeltaSeconds)),
+      },
+    }),
+
+  markLessonComplete: (lessonId: string) =>
+    request<LessonProgress>(`/lessons/${lessonId}/complete/`, { json: {} }),
+
+  playbackToken: (lessonId: string) =>
+    request<PlaybackToken>(`/lessons/${lessonId}/playback-token/`, { json: {} }),
+
+  lessonTranscript: (lessonId: string) =>
+    request<LessonTranscript>(`/lessons/${lessonId}/transcript/`),
+
+  myCourses: () =>
+    request<{ results: Enrollment[] }>("/me/courses/"),
 };
+
+/**
+ * Report a final heartbeat while the page is going away.
+ *
+ * An ordinary `fetch` is cancelled when the document unloads, so the stretch
+ * between the last beat and closing the tab is exactly what gets lost.
+ * `keepalive` asks the browser to deliver the request anyway.
+ *
+ * Not `navigator.sendBeacon`, which is the usual answer here: it cannot set
+ * `X-CSRFToken`, and Django would reject the write. `keepalive` survives
+ * unload *and* carries headers.
+ *
+ * Skipped entirely when no CSRF cookie exists, because the request would be
+ * refused and there is no session to report progress for anyway.
+ */
+export function beaconProgress(
+  lessonId: string,
+  positionSeconds: number,
+  watchedDeltaSeconds: number,
+): void {
+  const csrf = readCookie("csrftoken");
+  if (!csrf) return;
+
+  void fetch(`/api/v1/lessons/${lessonId}/progress/`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+    credentials: "same-origin",
+    keepalive: true,
+    body: JSON.stringify({
+      position_seconds: Math.max(0, Math.round(positionSeconds)),
+      watched_delta_seconds: Math.max(0, Math.round(watchedDeltaSeconds)),
+    }),
+  }).catch(() => {
+    // Best effort by definition: the page is going away and there is nobody
+    // left to tell. Swallowing this is the difference between losing the last
+    // fifteen seconds and an unhandled rejection in the console on every exit.
+  });
+}

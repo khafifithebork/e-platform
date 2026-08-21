@@ -94,6 +94,10 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings.local
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?run "make bootstrap" to generate a local .env}
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+      # The origin the *browser* uses, which is never the one Django sees:
+      # Next forwards its rewrite destination as the Host header. Without this
+      # every unsafe request through the proxy fails the CSRF origin check.
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:${WEB_PORT:-3000}
       DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:?run "make bootstrap"}@postgres:5432/app
       REDIS_URL: redis://redis:6379/0
       # Database 1, not 0. A cache flush must not empty the task queue.
