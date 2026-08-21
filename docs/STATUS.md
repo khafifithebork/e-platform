@@ -1,13 +1,82 @@
 # STATUS
 
-**Last updated:** 2026-08-20
-**Updated by:** agent session (M5 complete)
+**Last updated:** 2026-08-21
+**Updated by:** agent session (M6 complete)
 
 ---
 
 ## Current milestone
 
-**M5 — Media Pipeline. Complete — 10 of 10.**
+**M6 — Transcription & Subtitles. Complete — 10 of 10.**
+Branch: `feat/m6-transcription`.
+
+Spec: `docs/specs/m6-transcription.md`
+Decisions: `docs/adr/014-m6-transcription-decisions.md` (before code),
+`docs/adr/015-m6-transcription-implementation.md` (what implementation settled)
+
+| Task | State |
+|---|---|
+| T1 spec + four decisions | **done** — `a5d7163` |
+| T2 `Transcript`, `TranscriptSegment` + constraints | **done** — `fc8e099` |
+| T3 transcription provider interface + fake | **done** — `79fb3d8` |
+| T4 request transcription when media is ready | **done** — `e265bd4` |
+| T5 callback receiver, segments written | **done** — `75740a6` |
+| T6 segment editing, scoped | **done** — `c52649b` |
+| T7 review workflow | **done** — `3283fde` |
+| T8 VTT rendering, cached, gated | **done** — `7f28ec1` |
+| T9 the serving gate, both halves proven | **done** — `98a4add` |
+| T10 abuse cases, ADRs | **done** |
+
+**819 tests pass**, ruff clean, tsc clean, `check --deploy` clean. The
+entitlement resolver still holds 100% branch coverage.
+
+### The one requirement met somewhere other than where the document put it
+
+§10 M6 asks for a publish gate. ADR-014 §3 put the control at the point of
+**serving** instead: the VTT endpoint returns only `APPROVED` transcripts.
+That is stricter where it counts — it covers a lesson added to an
+already-published course, which a publication-time gate never evaluates — and
+looser where it does not, since a course whose subtitles are still being typed
+can go live and teach.
+
+Both halves are proven rather than assumed: publication is genuinely ungated
+(including structurally — catalog's publication service does not know
+transcripts exist), and a sweep across every learner-readable endpoint shows
+unapproved words reaching nobody, run as a subscriber, anonymously, and with
+the lesson marked a free preview.
+
+**The risk ADR-014 §3 named itself** — that concentrating a requirement on one
+reader means every later reader must remember it — is guarded structurally: no
+app outside `transcripts` may import `Transcript` or `TranscriptSegment`, so a
+future interactive transcript, search result or export has to come through the
+app where the approved-only selector lives.
+
+### Two bugs in earlier milestones, found by building this one
+
+**M5's playback token was flaky one run in eight.** It joined raw HMAC bytes
+with a `b"."` separator and split on the last one — but a digest byte can *be*
+an ASCII dot. `pytest-randomly` made it look like a test-ordering problem.
+Now base64-encoded per half, and guarded by 200 round trips rather than one,
+because a single round trip passes seven times in eight.
+
+**A shared idempotency table with unnamespaced providers.** Both fakes are
+called `fake`, and `WebhookEvent` is unique on `(provider, provider_event_id)`
+— so one id collision would discard a transcription callback as a duplicate
+media event, answering 200 while the lesson silently never got subtitles.
+Events are now `video:fake` and `transcription:fake`. **M8 must use
+`billing:`** (ADR-015 §5).
+
+### What the review step actually buys, stated plainly
+
+It prevents approving a transcript **nobody has opened**. It does not prevent
+approving one nobody has *read*. The stronger guarantee is per-segment
+sign-off, which is a product decision rather than a correctness one — recorded
+in ADR-015 §2 so the workflow is not read as more than it is.
+
+---
+
+## M5 — Media Pipeline. Complete — 10 of 10.
+
 Branch: `feat/m5-media-pipeline`.
 
 Spec: `docs/specs/m5-media-pipeline.md`
@@ -540,27 +609,29 @@ None. Blocked on approval of the M0 plan and the version matrix (below).
 
 ---
 
-## Next milestone: M6 — Transcription
+## Next milestone: M7 — Learning Experience
 
-Deepgram behind a provider adapter; `Transcript` and `TranscriptSegment`;
-VTT as a rendered projection.
+Enrolment, `LessonProgress`, resume logic, and the lesson player that ties
+M5's video to M6's subtitles.
 
-Carried in from M5:
+Carried in:
 
-- **Invariant 13**: transcripts are structured rows. VTT is a rendered,
-  cached projection and never the stored form.
-- **The adapter pattern is settled** and twice proven — billing in M4, video
-  in M5. Deepgram gets an interface and a fake, and the real integration is
-  gated on approving the bill, exactly as ADR-012 §1 did here.
-- **The pipeline hands off by webhook.** M5's receiver is the shape: verify,
-  insert, enqueue, 200, no business logic. The shared `WebhookEvent` table is
-  already there.
-- **ADR-011 applies** the moment transcript state starts deciding anything.
+- **ADR-014 §3's risk lands here first.** An interactive transcript — "click a
+  line, seek the video" — is the most likely next reader of segments, and it
+  must apply the same `APPROVED` filter. The structural guard will stop it
+  being written outside the transcripts app; it will not stop a second
+  unfiltered query inside one.
+- **ADR-011 applies** the moment progress state starts deciding anything.
+- **Two visibility gaps are now overdue.** Nothing tells an instructor that a
+  media asset failed (M5) or that a transcript is waiting for review (M6).
+  Both belong with notifications in M11, and both are "visible if you check"
+  until then.
 
-**Still blocking M8: the payment provider decision** (CLAUDE.md §11 #1), plus
-the webhook timestamp gap above.
+**Still blocking M8:** the payment provider decision (CLAUDE.md §11 #1); the
+webhook signature timestamp (ADR-013 §6); and the `billing:` namespace
+(ADR-015 §5).
 
-**Still blocking a self-serve trial in M9: the trial scoping rule**
+**Still blocking a self-serve trial in M9:** the trial scoping rule
 (ADR-010 §2).
 
 ### Branch tidy-up, outstanding since M0
