@@ -166,8 +166,23 @@ def _bookmark(*, user: User, lesson: Lesson) -> None:
     safe because an enrolment grants nothing (ADR-016 §1); if it did, this
     would be a self-service access grant.
     """
-    Enrollment.objects.update_or_create(
-        user=user,
-        course_id=lesson.course_id,
-        defaults={"last_lesson": lesson},
+    enrollment = Enrollment.objects.filter(user=user, course_id=lesson.course_id).first()
+
+    if enrollment is None:
+        Enrollment.objects.create(user=user, course_id=lesson.course_id, last_lesson=lesson)
+        return
+
+    if enrollment.last_lesson_id == lesson.pk:
+        # Written only when it moves. `update_or_create` rewrote the same
+        # value on every beat — a write every fifteen seconds per learner per
+        # open lesson, to store what was already there, plus the row churn of
+        # a fresh `updated_at`. This is the highest-frequency write in the
+        # product, so the one that is usually unnecessary is worth removing.
+        return
+
+    # `updated_at` set by hand because `.update()` bypasses `auto_now`. The row
+    # genuinely changed, and a timestamp that disagrees is the sort of thing
+    # somebody later trusts.
+    Enrollment.objects.filter(pk=enrollment.pk).update(
+        last_lesson=lesson, updated_at=timezone.now()
     )

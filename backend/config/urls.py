@@ -22,6 +22,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # Uploads. Bytes go browser to store; these two routes are JSON only.
     path("api/v1/", include("apps.media_assets.urls")),
     path("api/v1/", include("apps.transcripts.urls")),
+    path("api/v1/", include("apps.learning.urls")),
     # Administrators only, every route. Not the Django admin site, which M10
     # routes separately after hardening.
     path("api/v1/admin-api/", include("apps.entitlements.admin_urls")),

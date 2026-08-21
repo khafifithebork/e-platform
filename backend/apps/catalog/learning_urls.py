@@ -10,7 +10,11 @@ from rest_framework.routers import DefaultRouter
 
 from apps.catalog.learning_views import LessonViewSet
 
-app_name = "learning"
+# "lesson-content", not "learning": apps.learning owns that namespace, and two
+# includes claiming one namespace is a Django warning today and an unreversible
+# URL the moment anything calls reverse() — the same shape as M6's colliding
+# provider namespaces, in the URL conf.
+app_name = "lesson-content"
 
 router = DefaultRouter()
 router.register("lessons", LessonViewSet, basename="lesson")
