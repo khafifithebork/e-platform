@@ -375,8 +375,18 @@ class TestCachingAndCost:
     def test_the_panel_does_not_cost_a_query_per_cue(
         self, client, lesson, learner, django_assert_num_queries
     ) -> None:
-        """ADR-009. An hour of speech is around six hundred cues, and without
-        the prefetch this is six hundred queries.
+        """ADR-009, and a corrected claim.
+
+        This first said the prefetch is what stops six hundred cues costing
+        six hundred queries. It is not: `transcript.segments.all()` is a
+        reverse foreign key collection, which Django answers in one query
+        however many rows come back. Removing the prefetch leaves this test
+        passing — provoked, to be sure.
+
+        What the prefetch actually buys is the ordering, and one query rather
+        than two on a path that would otherwise fetch the collection twice.
+        The count is still worth pinning, because *serializing* per cue is a
+        real way to fan out and this is the test that would notice.
 
         Seven: session, user, the lesson, the resolver's two checks, the
         transcript with its language joined, and the segments. The language
