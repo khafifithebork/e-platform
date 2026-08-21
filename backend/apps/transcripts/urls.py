@@ -7,6 +7,7 @@ the signature is the authentication (invariant 8).
 from django.urls import path, re_path
 
 from apps.transcripts.views import (
+    LessonTranscriptPanelView,
     LessonTranscriptView,
     SegmentEditView,
     TranscriptDetailView,
@@ -21,6 +22,13 @@ urlpatterns = [
         "lessons/<uuid:pk>/transcript.vtt",
         LessonTranscriptView.as_view(),
         name="lesson-vtt",
+    ),
+    # Beside the .vtt route, not instead of it: a `<track>` element consumes
+    # one and a panel needs the other.
+    path(
+        "lessons/<uuid:pk>/transcript/",
+        LessonTranscriptPanelView.as_view(),
+        name="lesson-transcript",
     ),
     path("transcripts/<uuid:pk>/", TranscriptDetailView.as_view(), name="detail"),
     path("transcript-segments/<uuid:pk>/", SegmentEditView.as_view(), name="segment-edit"),

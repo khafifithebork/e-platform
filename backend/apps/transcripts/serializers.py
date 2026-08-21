@@ -79,3 +79,41 @@ class TranscriptSerializer(serializers.ModelSerializer):
         read_only_fields: ClassVar[list[str]] = fields
 
     lesson = serializers.UUIDField(source="media_asset.lesson_id", read_only=True)
+
+
+class LearnerSegmentSerializer(serializers.ModelSerializer):
+    """One cue, as a learner reads it.
+
+    Deliberately not `SegmentSerializer`. That one carries `is_edited`, which
+    is a reviewer's bookkeeping — it marks the lines a machine got wrong, and
+    showing a learner which words were corrected tells them something about
+    our pipeline rather than about Spanish.
+
+    `position` stays because a panel needs a stable key per row; `id` goes
+    because nothing a learner can do addresses a segment.
+    """
+
+    class Meta:
+        model = TranscriptSegment
+        fields: ClassVar[list[str]] = ["position", "start_ms", "end_ms", "text"]
+        read_only_fields: ClassVar[list[str]] = fields
+
+
+class LessonTranscriptSerializer(serializers.ModelSerializer):
+    """The transcript panel's payload.
+
+    A second serializer over the same model rather than a subset of the
+    reviewer's, because the two audiences differ in what they may know.
+    `status`, `confidence`, `error_message` and `kind` all describe how the
+    text was produced, and a learner reading along has no business with any of
+    it — `status` in particular would let them infer that unreviewed words
+    exist, which is the thing ADR-014 §3 is keeping from them.
+    """
+
+    segments = LearnerSegmentSerializer(many=True, read_only=True)
+    language_code = serializers.CharField(source="language.code", read_only=True)
+
+    class Meta:
+        model = Transcript
+        fields: ClassVar[list[str]] = ["language_code", "segments", "updated_at"]
+        read_only_fields: ClassVar[list[str]] = fields

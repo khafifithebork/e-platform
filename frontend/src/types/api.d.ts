@@ -747,6 +747,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lessons/{id}/transcript/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transcript for a lesson, as rows
+         * @description The transcript panel: the same words as the VTT, as rows.
+         *
+         *     Two renderings of one thing, and that is exactly the risk ADR-014 §3 named
+         *     when it put the whole control at the point of serving rather than at
+         *     publication: *anything else that renders segments must apply the same
+         *     filter*. This is the "anything else". It applies the filter by calling
+         *     `approved_transcript_for` and never touching `Transcript.objects` itself,
+         *     and `test_no_learner_route_leaks_unapproved_words` sweeps every
+         *     lesson-scoped route rather than trusting that this one is the last.
+         *
+         *     Why both shapes exist: WebVTT is what a `<track>` element consumes and it
+         *     cannot be read back out of the player, while a panel needs cue boundaries
+         *     to highlight the current line and to seek when one is clicked. Deriving
+         *     one from the other in the browser means parsing VTT by hand.
+         *
+         *     Gates are the VTT view's, in the same order — visible (404), then entitled
+         *     (403 with a reason). Subtitles are the lesson's content in written form.
+         *
+         *     No body cache, unlike the VTT. That cache exists because rendering VTT is
+         *     string work over every row; this endpoint *is* the rows, so there is
+         *     nothing to memoise that the prefetch does not already answer in two
+         *     queries. The ETag is worth keeping either way — a returning learner
+         *     revalidates instead of re-downloading an hour of speech.
+         */
+        get: operations["lessons_transcript_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/lessons/{id}/transcript.vtt": {
         parameters: {
             query?: never;
@@ -1257,6 +1299,23 @@ export interface components {
             native_name: string;
         };
         /**
+         * @description One cue, as a learner reads it.
+         *
+         *     Deliberately not `SegmentSerializer`. That one carries `is_edited`, which
+         *     is a reviewer's bookkeeping — it marks the lines a machine got wrong, and
+         *     showing a learner which words were corrected tells them something about
+         *     our pipeline rather than about Spanish.
+         *
+         *     `position` stays because a panel needs a stable key per row; `id` goes
+         *     because nothing a learner can do addresses a segment.
+         */
+        LearnerSegment: {
+            readonly position: number;
+            readonly start_ms: number;
+            readonly end_ms: number;
+            readonly text: string;
+        };
+        /**
          * @description ``section`` is writable, and the view narrows its queryset to the course
          *     in the URL — see ``InstructorLessonViewSet.get_serializer``. That is what
          *     turns another course's section id into a 400 rather than a cross-course
@@ -1336,6 +1395,22 @@ export interface components {
             body?: string;
             lesson_type?: components["schemas"]["LessonTypeEnum"];
             position: number;
+        };
+        /**
+         * @description The transcript panel's payload.
+         *
+         *     A second serializer over the same model rather than a subset of the
+         *     reviewer's, because the two audiences differ in what they may know.
+         *     `status`, `confidence`, `error_message` and `kind` all describe how the
+         *     text was produced, and a learner reading along has no business with any of
+         *     it — `status` in particular would let them infer that unreviewed words
+         *     exist, which is the thing ADR-014 §3 is keeping from them.
+         */
+        LessonTranscript: {
+            readonly language_code: string;
+            readonly segments: components["schemas"]["LearnerSegment"][];
+            /** Format: date-time */
+            readonly updated_at: string;
         };
         /**
          * @description * `VIDEO` - Video
@@ -3107,6 +3182,48 @@ export interface operations {
                 content?: never;
             };
             /** @description No such lesson. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    lessons_transcript_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonTranscript"];
+                };
+            };
+            /** @description Unchanged since the ETag you hold. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Entitlement denied, with a reason. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No lesson, or no approved transcript. */
             404: {
                 headers: {
                     [name: string]: unknown;

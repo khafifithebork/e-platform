@@ -25,6 +25,7 @@ from apps.transcripts.models import Transcript, TranscriptSegment
 from apps.transcripts.rendering import render_vtt
 from apps.transcripts.selectors import approved_transcript_for, transcript_for_review
 from apps.transcripts.serializers import (
+    LessonTranscriptSerializer,
     SegmentEditSerializer,
     SegmentSerializer,
     TranscriptSerializer,
@@ -215,5 +216,70 @@ class LessonTranscriptView(APIView):
         response["ETag"] = version
         # Private: subtitles are gated content, and a shared cache holding
         # them would serve one learner's entitlement to the next request.
+        response["Cache-Control"] = "private, max-age=0, must-revalidate"
+        return response
+
+
+@extend_schema(tags=["learning"])
+class LessonTranscriptPanelView(APIView):
+    """The transcript panel: the same words as the VTT, as rows.
+
+    Two renderings of one thing, and that is exactly the risk ADR-014 §3 named
+    when it put the whole control at the point of serving rather than at
+    publication: *anything else that renders segments must apply the same
+    filter*. This is the "anything else". It applies the filter by calling
+    `approved_transcript_for` and never touching `Transcript.objects` itself,
+    and `test_no_learner_route_leaks_unapproved_words` sweeps every
+    lesson-scoped route rather than trusting that this one is the last.
+
+    Why both shapes exist: WebVTT is what a `<track>` element consumes and it
+    cannot be read back out of the player, while a panel needs cue boundaries
+    to highlight the current line and to seek when one is clicked. Deriving
+    one from the other in the browser means parsing VTT by hand.
+
+    Gates are the VTT view's, in the same order — visible (404), then entitled
+    (403 with a reason). Subtitles are the lesson's content in written form.
+
+    No body cache, unlike the VTT. That cache exists because rendering VTT is
+    string work over every row; this endpoint *is* the rows, so there is
+    nothing to memoise that the prefetch does not already answer in two
+    queries. The ETag is worth keeping either way — a returning learner
+    revalidates instead of re-downloading an hour of speech.
+    """
+
+    permission_classes = (AllowAny,)
+    throttle_scope = "catalogue"
+
+    @extend_schema(
+        responses={
+            200: LessonTranscriptSerializer,
+            304: OpenApiResponse(description="Unchanged since the ETag you hold."),
+            403: OpenApiResponse(description="Entitlement denied, with a reason."),
+            404: OpenApiResponse(description="No lesson, or no approved transcript."),
+        },
+        summary="Transcript for a lesson, as rows",
+    )
+    def get(self, request, pk):
+        lesson = get_object_or_404(lessons_visible_to(user=request.user), pk=pk)
+
+        decision = resolve_access(user=request.user, lesson=lesson)
+        if not decision.allowed:
+            raise EntitlementDenied(decision)
+
+        transcript = approved_transcript_for(lesson=lesson)
+        if transcript is None:
+            # Indistinguishable from "this lesson has no transcript", which is
+            # the point: an unapproved one must not be knowable.
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        version = f'"{transcript.pk}:{transcript.updated_at.timestamp()}"'
+        if request.headers.get("If-None-Match") == version:
+            return HttpResponseNotModified()
+
+        response = Response(LessonTranscriptSerializer(transcript).data)
+        response["ETag"] = version
+        # Private, for the reason the VTT is: this is gated content, and a
+        # shared cache holding it would serve one learner's entitlement to the
+        # next request.
         response["Cache-Control"] = "private, max-age=0, must-revalidate"
         return response
