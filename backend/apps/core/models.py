@@ -10,6 +10,7 @@ decision to put ``WebhookEvent`` here rather than one copy per app.
 import uuid
 from typing import ClassVar
 
+from django.conf import settings
 from django.db import models
 
 
@@ -107,3 +108,152 @@ class WebhookEvent(UUIDPrimaryKeyModel, TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.provider}:{self.provider_event_id}"
+
+
+class AuditLogIsAppendOnly(Exception):
+    """Raised by any attempt to change or remove an audit row.
+
+    An exception rather than a silent no-op: code that thinks it is editing
+    history should stop, not continue believing it succeeded.
+    """
+
+
+class AuditLogQuerySet(models.QuerySet):
+    """Refuses the two operations that would rewrite history.
+
+    Model-level `save` and `delete` are not enough on their own —
+    `AuditLog.objects.filter(...).update(...)` and `.delete()` never touch
+    them, and a bulk call is the more likely way this happens by accident.
+
+    Django's cascade machinery is unaffected: `on_delete=SET_NULL` clears
+    `actor` through `sql.UpdateQuery`, not through this class, so deleting an
+    administrator still works and the row survives naming them. That is
+    asserted rather than assumed — see `test_an_audit_row_outlives_its_actor`.
+
+    A retention policy, if one ever exists, must delete through raw SQL and say
+    in writing why. Making that awkward is the point.
+    """
+
+    def update(self, **kwargs):
+        raise AuditLogIsAppendOnly("Audit rows are never updated.")
+
+    def delete(self):
+        raise AuditLogIsAppendOnly("Audit rows are never deleted.")
+
+
+class AuditLog(UUIDPrimaryKeyModel):
+    """Who did what to whom, and why. architecture.md 8.
+
+    Every administrative action writes one of these — access overrides,
+    refunds, role changes, course approvals. M10 grants a small number of
+    people the ability to give away paid content and move money; the same
+    capability with no trail is indistinguishable from a compromise, which is
+    why this model exists before any of the capabilities that use it
+    (ADR-018 1).
+
+    **Not `TimestampedModel`**, deliberately. That base carries `updated_at`,
+    and a column named "when this last changed" on an append-only table tells
+    the next reader that rows change. They do not.
+
+    Append-only means *no application path edits history* — not tamper-proof.
+    A database superuser can rewrite anything, and chaining hashes without an
+    external witness proves nothing a determined operator cannot reproduce.
+    ADR-018 6 says so plainly rather than implying a guarantee this cannot
+    make.
+    """
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        # SET_NULL, and the label below is what keeps the row readable
+        # afterwards. PROTECT would make an audit row the reason an account
+        # cannot be deleted, and that argument is eventually settled by
+        # deleting audit rows — the worst outcome for the one table whose
+        # only job is to be complete (ADR-018 5).
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_actions",
+    )
+
+    # Denormalised on purpose, and the one place in this codebase where that
+    # is right: it is a historical fact about a moment, not a cached copy of
+    # something still changing. ADR-016 3 declined denormalisation for exactly
+    # the opposite reason.
+    actor_label = models.CharField(
+        max_length=254,
+        help_text="Who acted, as it read at the time. Survives their deletion.",
+    )
+
+    action = models.CharField(max_length=64)
+
+    target_type = models.CharField(max_length=64)
+    # Text, not UUID: most targets are UUID-keyed but not all — architecture.md
+    # 5.2 keeps `Language` and `Plan` on integers, and an audit log that cannot
+    # record an action against them is an audit log with holes.
+    target_id = models.CharField(max_length=64)
+
+    # The reason, and anything else worth reading later. Never read to make a
+    # decision — same discipline as `WebhookEvent.payload`.
+    metadata = models.JSONField(default=dict, blank=True)
+
+    # Null for actions taken from a management command, which has no request
+    # and therefore no address. Recording 0.0.0.0 would be a fact we invented.
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, editable=False)
+
+    objects = AuditLogQuerySet.as_manager()
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        indexes: ClassVar[list] = [
+            # architecture.md 5.4 names this exact question: "what happened to
+            # this user?" It is what every access support ticket starts as.
+            models.Index(
+                fields=["target_type", "target_id", "-created_at"],
+                name="audit_by_target_newest_first",
+            ),
+            # The paginator's ordering, to the letter. 6.1 lists the audit log
+            # among the cursor-paginated collections, and CursorPagination
+            # orders by ("-created_at", "-pk") — a composite index matching it
+            # is what stops deep pages scanning the table.
+            models.Index(
+                fields=["-created_at", "-id"],
+                name="audit_paginated_feed",
+            ),
+        ]
+        constraints: ClassVar[list] = [
+            # A row naming no actor and no target is not an audit entry. These
+            # are the backstop for a caller that bypasses the service, which is
+            # what invariant 11 asks for — the service checks first, and the
+            # database is what makes the check unavoidable.
+            models.CheckConstraint(
+                condition=~models.Q(actor_label=""),
+                name="audit_names_who_acted",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(action=""),
+                name="audit_names_what_happened",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(target_type="") & ~models.Q(target_id=""),
+                name="audit_names_what_it_happened_to",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.actor_label} {self.action} {self.target_type}:{self.target_id}"
+
+    def save(self, *args, **kwargs):
+        """Insert only.
+
+        `_state.adding` rather than `self.pk is None`, because the primary key
+        is a UUID generated in Python and is already set before the first
+        insert — the usual check would pass for every update.
+        """
+        if not self._state.adding:
+            raise AuditLogIsAppendOnly("Audit rows are never updated.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise AuditLogIsAppendOnly("Audit rows are never deleted.")
