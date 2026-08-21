@@ -42,6 +42,7 @@ class TestConfiguredRates:
         assert rates["password_reset"] == "5/hour"
         assert rates["resend_verification"] == "3/hour"
         assert rates["media_upload"] == "30/hour"
+        assert rates["progress"] == "40/min"
 
     def test_auth_endpoints_are_tighter_than_the_anonymous_baseline(self, settings) -> None:
         """Each of these either creates state, sends an email, or is worth
@@ -207,3 +208,64 @@ class TestUploadUrlsAreRationed:
 
         assert statuses[-1] == 429
         assert statuses[:limit] == [201] * limit
+
+
+class TestProgressWritesAreRationed:
+    """§10 M7 names "a progress write per second" as this milestone's mistake.
+
+    Here rather than beside the progress tests for the reason this module's
+    docstring gives, and which M5 learned the hard way: DRF binds
+    `SimpleRateThrottle.THROTTLE_RATES` as a class attribute when
+    `rest_framework.throttling` is first imported, so in a module whose
+    fixtures raise every rate to 10000/hour a per-test override never takes
+    effect and the test reads exactly like an inert throttle.
+    """
+
+    def _entitled_learner_with_a_lesson(self):
+        from apps.accounts.models import Role
+        from apps.accounts.services import create_account
+        from apps.catalog.models import Course, Language, Lesson, Section
+        from apps.catalog.services import approve, submit_for_review
+        from apps.entitlements.providers.fake import FakeBillingProvider
+        from apps.entitlements.services import start_subscription
+
+        instructor = create_account(email="teacher@example.test", password=PASSWORD)
+        instructor.role = Role.INSTRUCTOR
+        instructor.save(update_fields=["role"])
+        admin = create_account(email="admin@example.test", password=PASSWORD)
+        admin.role = Role.ADMIN
+        admin.save(update_fields=["role"])
+
+        language = Language.objects.create(code="es", name="Spanish", native_name="Espanol")
+        course = Course.objects.create(
+            slug="spanish", title="Spanish", language=language, level="A1", instructor=instructor
+        )
+        section = Section.objects.create(course=course, title="Greetings", position=1)
+        lesson = Lesson.objects.create(
+            course=course, section=section, slug="intro", title="Intro", position=1
+        )
+        submit_for_review(course=course, by=instructor)
+        approve(course=course, by=admin)
+
+        learner = create_account(email="learner@example.test", password=PASSWORD)
+        start_subscription(user=learner, provider=FakeBillingProvider())
+        return lesson
+
+    @pytest.mark.django_db
+    def test_heartbeats_stop_after_their_limit(self, client, settings) -> None:
+        lesson = self._entitled_learner_with_a_lesson()
+        limit = int(settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["progress"].split("/")[0])
+        _post(client, LOGIN, {"email": "learner@example.test", "password": PASSWORD})
+
+        path = f"/api/v1/lessons/{lesson.id}/progress/"
+        statuses = [
+            client.put(
+                path,
+                {"position_seconds": beat * 15, "watched_delta_seconds": 15},
+                content_type="application/json",
+            ).status_code
+            for beat in range(limit + 1)
+        ]
+
+        assert statuses[-1] == 429
+        assert statuses[:limit] == [200] * limit

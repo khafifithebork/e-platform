@@ -289,6 +289,11 @@ REST_FRAMEWORK = {
         # abuse to bound; a learner moving through a course needs only a few
         # per minute. A starting figure, not a measured one.
         "playback_token": "60/min",
+        # §10 M7 names "a progress write per second" as this milestone's
+        # mistake. A player beats every ten to fifteen seconds, so this allows
+        # several lessons open at once while stopping a client that loops on
+        # every timeupdate event.
+        "progress": "40/min",
         # Trial abuse (§7.1) starts with cheap account creation.
         "register": "5/hour",
         # Credential stuffing. django-axes locks a single account; this limits

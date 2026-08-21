@@ -1265,6 +1265,33 @@ paths:
             and `cta` — see /problems/entitlement-denied.
         '404':
           description: No such lesson, or not published.
+  /api/v1/lessons/{id}/complete/:
+    post:
+      operationId: lessons_complete_create
+      description: Let a learner say they are done with a lesson.
+      summary: Mark a lesson complete
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - learning
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgress'
+          description: ''
+        '403':
+          description: Entitlement denied, with a reason.
+        '404':
+          description: No such lesson.
   /api/v1/lessons/{id}/media/upload-url/:
     post:
       operationId: lessons_media_upload_url_create
@@ -1354,6 +1381,73 @@ paths:
           description: No such lesson.
         '409':
           description: The media is not ready to play yet.
+  /api/v1/lessons/{id}/progress/:
+    get:
+      operationId: lessons_progress_retrieve
+      description: Read or report progress through one lesson.
+      summary: Where a learner got to
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - learning
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgress'
+          description: ''
+        '204':
+          description: Never started.
+        '404':
+          description: No such lesson.
+    put:
+      operationId: lessons_progress_update
+      description: Read or report progress through one lesson.
+      summary: Report a heartbeat
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgress'
+          description: ''
+        '400':
+          description: Malformed heartbeat.
+        '403':
+          description: Entitlement denied, with a reason.
+        '404':
+          description: No such lesson.
   /api/v1/lessons/{id}/transcript.vtt:
     get:
       operationId: lessons_transcript.vtt_retrieve
@@ -2028,6 +2122,26 @@ components:
       - slug
       - title
       - updated_at
+    HeartbeatRequest:
+      type: object
+      description: |-
+        One report from a player.
+
+        ``watched_delta_seconds`` is bounded here as well as clamped in the
+        service. The serializer rejects nonsense loudly with a 400; the service
+        clamps quietly, because it is also reachable from code that is not a
+        request.
+      properties:
+        position_seconds:
+          type: integer
+          minimum: 0
+        watched_delta_seconds:
+          type: integer
+          maximum: 3600
+          minimum: 0
+      required:
+      - position_seconds
+      - watched_delta_seconds
     KindEnum:
       enum:
       - TARGET
@@ -2124,6 +2238,38 @@ components:
       - slug
       - title
       - updated_at
+    LessonProgress:
+      type: object
+      properties:
+        lesson:
+          type: string
+          format: uuid
+          readOnly: true
+        last_position_seconds:
+          type: integer
+          readOnly: true
+        max_position_seconds:
+          type: integer
+          readOnly: true
+        watched_seconds:
+          type: integer
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - completed_at
+      - last_position_seconds
+      - lesson
+      - max_position_seconds
+      - updated_at
+      - watched_seconds
     LessonReorderRequest:
       type: object
       description: Shape only. Whether the ids are *yours* is decided in the service.
