@@ -125,6 +125,20 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
+# The origins a browser may send an unsafe request from.
+#
+# Required, not optional, because we sit behind a proxy: Next.js forwards the
+# rewrite destination as the Host header — the same fact the ALLOWED_HOSTS
+# comment in local.py records — so Django's idea of its own origin is `api` or
+# the internal hostname, never the `localhost:3000` or `lingua.example` the
+# browser actually posted from. Django compares the two and rejects every POST,
+# PUT and DELETE with "Origin checking failed".
+#
+# Empty by default so that nothing is silently trusted, and so a deployment
+# that forgets it fails loudly on the first write rather than trusting a
+# guessable origin. Every environment behind the proxy must set it.
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+
 # ---------------------------------------------------------------------------
 # Cache
 #
