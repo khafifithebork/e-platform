@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/api/v1/admin-api/users/{id}/access-override/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant a time-bounded access override
+         * @description Grant one person access the billing system does not.
+         *
+         *     The write half of diagnostics. §10 M10's deliverable is that an admin can
+         *     resolve any access complaint **without touching the database**, and until
+         *     now an override could only be created by hand in Postgres — which is the
+         *     same as saying the deliverable was unmet.
+         *
+         *     Administrators only, `role == ADMIN`. Not `is_staff`: this hands out paid
+         *     content, and the day somebody is given staff to fix a typo must not be the
+         *     day they can give the catalogue away.
+         *
+         *     Audited by the service, in the grant's own transaction. Not here — a view
+         *     that audits records what it asked for rather than what happened.
+         */
+        post: operations["admin_api_users_access_override_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin-api/users/{id}/diagnostics/": {
         parameters: {
             query?: never;
@@ -1078,6 +1110,18 @@ export interface components {
             readonly created_at: string;
         };
         /**
+         * @description What an administrator sends to grant access.
+         *
+         *     A duration rather than an end date, so an override cannot be created
+         *     already expired and cannot be created without an end. The upper bound is
+         *     `settings.ACCESS_OVERRIDE_MAX_DAYS` — read at validation time rather than
+         *     captured at import, so a deployment can lower it without a code change.
+         */
+        AccessOverrideGrantRequest: {
+            days: number;
+            reason: string;
+        };
+        /**
          * @description * `SUBMITTED` - Submitted for review
          *     * `APPROVED` - Approved
          *     * `REJECTED` - Rejected
@@ -1956,6 +2000,54 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_api_users_access_override_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessOverrideGrantRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AccessOverrideGrantRequest"];
+                "multipart/form-data": components["schemas"]["AccessOverrideGrantRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessOverride"];
+                };
+            };
+            /** @description No reason, or a duration out of range. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not an administrator. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such user. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     admin_api_users_diagnostics_retrieve: {
         parameters: {
             query?: never;

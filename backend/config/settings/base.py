@@ -225,6 +225,15 @@ TRANSCRIPTION_MAX_RETRIES = env.int("TRANSCRIPTION_MAX_RETRIES", default=3)
 # rather than a correctness one — a stale entry is unreachable, not wrong.
 TRANSCRIPT_VTT_CACHE_SECONDS = env.int("TRANSCRIPT_VTT_CACHE_SECONDS", default=60 * 60 * 24)
 
+# The longest manual access grant an administrator may give in one go.
+#
+# A guess, named rather than buried, the same way LESSON_COMPLETION_THRESHOLD
+# is. The point is not the number: §5.2 rejects manual access as a boolean
+# because "nobody dares remove it", and an override measured in years is that
+# boolean wearing an expiry date. Ninety days is long enough for any support
+# situation and short enough that somebody has to look again.
+ACCESS_OVERRIDE_MAX_DAYS = 90
+
 # ---------------------------------------------------------------------------
 # Learning
 # ---------------------------------------------------------------------------

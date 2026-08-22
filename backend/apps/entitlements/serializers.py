@@ -76,3 +76,25 @@ class UserDiagnosticsSerializer(serializers.Serializer):
     subscriptions = SubscriptionDiagnosticSerializer(many=True, read_only=True)
     events = SubscriptionEventSerializer(many=True, read_only=True)
     overrides = AccessOverrideSerializer(many=True, read_only=True)
+
+
+class AccessOverrideGrantSerializer(serializers.Serializer):
+    """What an administrator sends to grant access.
+
+    A duration rather than an end date, so an override cannot be created
+    already expired and cannot be created without an end. The upper bound is
+    `settings.ACCESS_OVERRIDE_MAX_DAYS` — read at validation time rather than
+    captured at import, so a deployment can lower it without a code change.
+    """
+
+    days = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(allow_blank=False, trim_whitespace=True)
+
+    def validate_days(self, value: int) -> int:
+        from django.conf import settings
+
+        if value > settings.ACCESS_OVERRIDE_MAX_DAYS:
+            raise serializers.ValidationError(
+                f"An override runs at most {settings.ACCESS_OVERRIDE_MAX_DAYS} days."
+            )
+        return value

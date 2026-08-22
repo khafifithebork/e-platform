@@ -4,6 +4,60 @@ info:
   version: 1.0.0
   description: Curated language-learning subscription platform.
 paths:
+  /api/v1/admin-api/users/{id}/access-override/:
+    post:
+      operationId: admin_api_users_access_override_create
+      description: |-
+        Grant one person access the billing system does not.
+
+        The write half of diagnostics. §10 M10's deliverable is that an admin can
+        resolve any access complaint **without touching the database**, and until
+        now an override could only be created by hand in Postgres — which is the
+        same as saying the deliverable was unmet.
+
+        Administrators only, `role == ADMIN`. Not `is_staff`: this hands out paid
+        content, and the day somebody is given staff to fix a typo must not be the
+        day they can give the catalogue away.
+
+        Audited by the service, in the grant's own transaction. Not here — a view
+        that audits records what it asked for rather than what happened.
+      summary: Grant a time-bounded access override
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessOverrideGrantRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AccessOverrideGrantRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AccessOverrideGrantRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessOverride'
+          description: ''
+        '400':
+          description: No reason, or a duration out of range.
+        '403':
+          description: Not an administrator.
+        '404':
+          description: No such user.
   /api/v1/admin-api/users/{id}/diagnostics/:
     get:
       operationId: admin_api_users_diagnostics_retrieve
@@ -1902,6 +1956,25 @@ components:
       - id
       - reason
       - starts_at
+    AccessOverrideGrantRequest:
+      type: object
+      description: |-
+        What an administrator sends to grant access.
+
+        A duration rather than an end date, so an override cannot be created
+        already expired and cannot be created without an end. The upper bound is
+        `settings.ACCESS_OVERRIDE_MAX_DAYS` — read at validation time rather than
+        captured at import, so a deployment can lower it without a code change.
+      properties:
+        days:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+      required:
+      - days
+      - reason
     ActionEnum:
       enum:
       - SUBMITTED
