@@ -17,13 +17,18 @@ behaves differently the second time it is asked.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import ClassVar
 
+from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.core.audit import AdminAction, record_admin_action
 from apps.entitlements.models import (
     LIVE_STATUSES,
+    AccessOverride,
     Subscription,
     SubscriptionEvent,
     SubscriptionStatus,
@@ -230,3 +235,69 @@ def expire(*, subscription: Subscription) -> Subscription:
         to_status=SubscriptionStatus.EXPIRED,
     )
     return subscription
+
+
+class InvalidOverride(Exception):
+    """A grant that would not be time-bounded, or would not say why.
+
+    Both are the boolean §5.2 rejects, arriving in a shape that looks like the
+    table that replaced it.
+    """
+
+
+def grant_access_override(
+    *,
+    actor: User,
+    user: User,
+    days: int,
+    reason: str,
+    request=None,
+) -> AccessOverride:
+    """Give one person access the billing system does not.
+
+    **Days, not an end date.** A support person thinks "give them two weeks",
+    and taking a duration makes two failures impossible by construction: an
+    override that expired before it was created, and one with no end at all.
+    §5.2 rejects manual access as a boolean precisely because it never ends.
+
+    Audited in the same transaction as the grant. If the write fails the row
+    describing it goes too, and if the audit fails the grant does — which is
+    the correct pairing for a capability that hands out paid content.
+
+    Self-grants are allowed and recorded like any other. Blocking them would
+    be theatre: an administrator who wants free access can grant it to a second
+    account they control. The control that works is the one that makes it
+    visible (spec §4, case 10).
+    """
+    if days < 1 or days > settings.ACCESS_OVERRIDE_MAX_DAYS:
+        raise InvalidOverride(
+            f"An override runs between 1 and {settings.ACCESS_OVERRIDE_MAX_DAYS} days."
+        )
+
+    if not reason or not reason.strip():
+        # Checked here as well as in the database, because the service is
+        # reachable from a management command where no serializer runs.
+        raise InvalidOverride("An override must record why it was granted.")
+
+    now = timezone.now()
+
+    with transaction.atomic():
+        override = AccessOverride.objects.create(
+            user=user,
+            granted_by=actor,
+            reason=reason.strip(),
+            starts_at=now,
+            ends_at=now + timedelta(days=days),
+        )
+        record_admin_action(
+            actor=actor,
+            action=AdminAction.ACCESS_OVERRIDE_GRANTED,
+            target=user,
+            reason=reason,
+            request=request,
+            days=days,
+            ends_at=override.ends_at.isoformat(),
+            override_id=str(override.pk),
+        )
+
+    return override
