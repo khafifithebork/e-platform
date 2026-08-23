@@ -234,6 +234,18 @@ TRANSCRIPT_VTT_CACHE_SECONDS = env.int("TRANSCRIPT_VTT_CACHE_SECONDS", default=6
 # situation and short enough that somebody has to look again.
 ACCESS_OVERRIDE_MAX_DAYS = 90
 
+# Where the Django admin site is mounted. **Unset means it is not routed.**
+#
+# architecture.md §8: "the default /admin/ with a password is not acceptable
+# for a system that can grant free access and issue refunds." A default here
+# would be in the repository and therefore public, so there is none — an
+# environment that has not chosen a path gets no admin site rather than a
+# guessable one. `check_admin_path` refuses the obvious values.
+#
+# Obscurity is not the control. Staff-only and 2FA are; this only keeps the
+# login form out of the way of automated scanners.
+ADMIN_PATH = env("DJANGO_ADMIN_PATH", default="").strip("/")
+
 # ---------------------------------------------------------------------------
 # Learning
 # ---------------------------------------------------------------------------

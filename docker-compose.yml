@@ -98,6 +98,9 @@ services:
       # Next forwards its rewrite destination as the Host header. Without this
       # every unsafe request through the proxy fails the CSRF origin check.
       DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:${WEB_PORT:-3000}
+      # Local only, and still not "admin": a developer who habitually types
+      # /admin/ will type it in production too.
+      DJANGO_ADMIN_PATH: ${DJANGO_ADMIN_PATH:-staff-console-local}
       DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:?run "make bootstrap"}@postgres:5432/app
       REDIS_URL: redis://redis:6379/0
       # Database 1, not 0. A cache flush must not empty the task queue.

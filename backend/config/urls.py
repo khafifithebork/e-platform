@@ -1,11 +1,14 @@
 """Root URL configuration.
 
-Product endpoints arrive in later milestones. Django Admin is installed but
-deliberately not routed: it is the highest-value target in the system and stays
-unreachable until it is hardened in M10 (obscure path, staff-only, 2FA, audit
-logging).
+**The Django admin is routed only when `DJANGO_ADMIN_PATH` is set.** M10
+hardened it — an unguessable path, staff-only, 2FA — and until M10 it was not
+routed at all. The conditional is deliberate: an environment that has not
+chosen a path gets no admin site, rather than one at a location that would have
+had to be written down in this repository to be a default.
 """
 
+from django.conf import settings
+from django.contrib import admin
 from django.urls import URLPattern, URLResolver, include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
@@ -43,3 +46,13 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="swagger-ui",
     ),
 ]
+
+# Appended rather than declared inline, so the list above reads the same in
+# every environment and the one path that varies is visibly conditional.
+#
+# Staff-only comes free: `AdminSite.has_permission` requires `is_active` and
+# `is_staff`, and this codebase grants `is_staff` deliberately rather than with
+# a role — an ADMIN is not automatically staff (accounts.models). So routing
+# this exposes it to superusers and to nobody else.
+if settings.ADMIN_PATH:
+    urlpatterns.append(path(f"{settings.ADMIN_PATH}/", admin.site.urls))
