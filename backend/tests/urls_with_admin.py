@@ -1,14 +1,17 @@
-"""A urlconf that routes Django Admin, for tests only.
+"""A urlconf that routes Django Admin at a fixed path, for tests only.
 
-``config/urls.py`` deliberately does not route ``admin/``: it is the
-highest-value target in the system and stays unreachable until M10 hardens it
-(obscure path, staff-only, 2FA, audit logging). The review queue still has to
-be proven to work, so the suite points ``ROOT_URLCONF`` here instead of
-weakening the real one.
+M10 routes the real admin site, but only when `DJANGO_ADMIN_PATH` is set, and
+the path is deliberately not a constant anything can rely on. Tests that need
+to *reach* an admin page — the review queue, the dead-letter queue — point
+`ROOT_URLCONF` here and get a stable `/admin/` instead of reaching into
+settings.
 
-Keeping this in ``tests/`` rather than ``config/`` is the point. A module in
-``config/`` that routes admin is one settings typo away from being the
-production urlconf.
+Tests about the routing itself do not use this: `test_admin_site_routing.py`
+reloads the real urlconf, because the conditional is the thing under test.
+
+Keeping this in `tests/` rather than `config/` remains the point. A module in
+`config/` that routes admin unconditionally is one settings typo away from
+being the production urlconf.
 """
 
 from django.contrib import admin

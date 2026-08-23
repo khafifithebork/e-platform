@@ -16,9 +16,11 @@ from django.utils import timezone
 from apps.accounts.models import (
     EmailVerificationToken,
     PasswordResetToken,
+    Role,
     StudentProfile,
     User,
 )
+from apps.core.audit import AdminAction, record_admin_action
 
 # 32 bytes of entropy, URL-safe. Long enough that guessing is not a strategy —
 # unlike login, a token endpoint has no account to lock out, so brute-force
@@ -28,6 +30,19 @@ VERIFICATION_TOKEN_BYTES = 32
 # Long enough to survive a spam folder and a night's sleep; short enough that a
 # link forwarded months later is not still a working credential.
 VERIFICATION_TOKEN_LIFETIME = timedelta(hours=24)
+
+
+class InvalidRole(Exception):
+    """A role that is not one of the three this system has."""
+
+
+class RoleUnchanged(Exception):
+    """The requested role is the one already held.
+
+    Refused rather than ignored: writing an audit row for a change that did not
+    happen fills the trail with non-events, and a trail nobody reads is not a
+    control.
+    """
 
 
 class EmailAlreadyRegistered(Exception):
@@ -227,4 +242,42 @@ def change_password(*, user: User, current_password: str, new_password: str) -> 
     user.set_password(new_password)
     user.save(update_fields=["password"])
 
+    return user
+
+
+@transaction.atomic
+def change_role(*, actor: User, user: User, role: str, reason: str, request=None) -> User:
+    """Move somebody between student, instructor and administrator.
+
+    §6.10 calls this "instructor approval" and puts it in Django Admin. It is
+    an administrative action in §8's list, so it writes an audit row naming who
+    changed what, from what, to what, and why.
+
+    **Refuses a no-op.** Saving the change form without touching the role would
+    otherwise write an audit row saying a role changed when it did not, and a
+    trail full of non-events is one nobody reads.
+
+    Does not touch `is_staff`. That is the Django admin's own gate and a wider
+    capability than any role — accounts.models draws the distinction, and
+    granting it through a role dropdown would erase it.
+    """
+    if role not in Role.values:
+        raise InvalidRole(role)
+
+    previous = user.role
+    if previous == role:
+        raise RoleUnchanged(role)
+
+    user.role = role
+    user.save(update_fields=["role"])
+
+    record_admin_action(
+        actor=actor,
+        action=AdminAction.ROLE_CHANGED,
+        target=user,
+        reason=reason,
+        request=request,
+        previous_role=previous,
+        new_role=role,
+    )
     return user
