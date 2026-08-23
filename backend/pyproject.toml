@@ -19,6 +19,12 @@ dependencies = [
     "django-environ==0.14.0",
     # Argon2 password hashing (architecture.md 4.2).
     "argon2-cffi==25.1.0",
+    # Two-factor authentication on the admin site (architecture.md 8, ADR-018
+    # 2). Versions read from the installed packages, not recalled.
+    "django-otp==1.7.0",
+    # Renders the enrolment QR code in a terminal, so bootstrapping the first
+    # administrator needs no admin site to reach.
+    "qrcode==8.2",
     # Brute-force lockout on login.
     "django-axes==8.3.1",
     # Presigned uploads against any S3-compatible store: MinIO in

@@ -18,6 +18,7 @@ import pytest
 
 from apps.accounts.models import Role
 from apps.media_assets.models import MediaAsset, MediaAssetStatus
+from tests.otp_helpers import verify_admin_session
 
 PASSWORD = "a-long-enough-passphrase"
 
@@ -77,6 +78,10 @@ def _sign_in(client, email: str) -> None:
         {"email": email, "password": PASSWORD},
         content_type="application/json",
     )
+    # T6 put the admin site behind a second factor, so signing in is no longer
+    # enough to reach an admin page. Harmless for the API-only tests here: a
+    # verified session changes nothing outside the admin.
+    verify_admin_session(client, email)
 
 
 def _detail(asset) -> str:
