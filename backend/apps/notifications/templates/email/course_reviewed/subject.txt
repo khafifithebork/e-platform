@@ -1,0 +1,1 @@
+{% autoescape off %}Your course was reviewed: {{ course_title }}{% endautoescape %}

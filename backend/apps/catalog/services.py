@@ -20,8 +20,13 @@ from django.db.models.functions import Cast
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
+from apps.accounts.selectors import administrator_emails
 from apps.catalog.models import Course, CourseReviewEvent, CourseStatus, Lesson, Section
 from apps.core.audit import AdminAction, record_admin_action
+from apps.notifications.emails import (
+    send_course_reviewed_email,
+    send_course_submitted_email,
+)
 
 
 class InvalidTransition(Exception):
@@ -100,6 +105,13 @@ def submit_for_review(*, course: Course, by: User) -> Course:
         actor=by,
         action=CourseReviewEvent.Action.SUBMITTED,
     )
+
+    # architecture.md:218. Queued on commit rather than inline: this function
+    # is not atomic today, but its callers may become so, and a task that runs
+    # before its transaction commits sends mail about something that has not
+    # happened — or that then rolls back.
+    _notify_reviewers(course)
+
     return course
 
 
@@ -142,6 +154,9 @@ def approve(*, course: Course, by: User, notes: str = "", request=None) -> Cours
         request=request,
         course_slug=course.slug,
     )
+
+    _notify_instructor_of_review(course, decision="Approved", notes=notes)
+
     return course
 
 
@@ -167,6 +182,17 @@ def _return_to_draft(*, course: Course, by: User, action: str, notes: str, reque
         request=request,
         course_slug=course.slug,
     )
+
+    _notify_instructor_of_review(
+        course,
+        decision=(
+            "Changes requested"
+            if action == CourseReviewEvent.Action.CHANGES_REQUESTED
+            else "Rejected"
+        ),
+        notes=notes,
+    )
+
     return course
 
 
@@ -327,3 +353,50 @@ def refresh_search_vector(*, course: Course) -> None:
         vector = part if vector is None else vector + part
 
     Course.objects.filter(pk=course.pk).update(search_vector=vector)
+
+
+def _notify_reviewers(course: Course) -> None:
+    """Tell every administrator a course is waiting.
+
+    On commit, always. `submit_for_review` is not wrapped in a transaction
+    today and this fires immediately there — but the guarantee has to belong to
+    the notification rather than to whichever caller happens to be atomic, or
+    it is a correctness property somebody can remove by adding a decorator
+    somewhere else.
+
+    One message per administrator, because the provider interface takes a
+    single recipient (`OutboundEmail.to`). A bcc list is how a transactional
+    message reaches somebody it was not about.
+    """
+    title = course.title
+    # The address, because there is no name to use: `User` has no name field at
+    # all (`display_name` lives on `StudentProfile`, which an instructor need
+    # not have). This message goes to administrators, who can already see
+    # addresses in diagnostics, so it is the honest identifier rather than a
+    # placeholder. See the T7 note about `PublicCourseSerializer`.
+    instructor_name = course.instructor.email
+
+    def notify() -> None:
+        for address in administrator_emails():
+            send_course_submitted_email(
+                to=address, course_title=title, instructor_name=instructor_name
+            )
+
+    transaction.on_commit(notify)
+
+
+def _notify_instructor_of_review(course: Course, *, decision: str, notes: str) -> None:
+    """Tell the instructor what a reviewer decided.
+
+    On commit, and here it matters: `approve` and `_return_to_draft` are
+    atomic, so an inline enqueue could deliver "your course was approved"
+    for a transaction that then rolled back.
+    """
+    address = course.instructor.email
+    title = course.title
+    cleaned = notes.strip()
+
+    def notify() -> None:
+        send_course_reviewed_email(to=address, course_title=title, decision=decision, notes=cleaned)
+
+    transaction.on_commit(notify)

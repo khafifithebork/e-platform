@@ -44,7 +44,11 @@ from apps.accounts.services import (
     reset_password,
     verify_email,
 )
-from apps.notifications.services import send_transactional_email
+from apps.notifications.emails import (
+    send_password_changed_email,
+    send_password_reset_email,
+    send_verification_email,
+)
 
 # One response for every registration outcome. Returned whether the account was
 # created, the address was already taken, or nothing happened at all.
@@ -60,28 +64,12 @@ RESEND_ACCEPTED = {
 def _send_verification_email(*, email: str, token: str) -> None:
     """Deliver the raw token.
 
-    **Queued, not sent here.** M11 T6 moved this off the request path: the
-    original called `send_mail` inline, so a learner's registration latency was
-    a function of an SMTP handshake and a slow mail server was a slow signup.
-
-    The original docstring argued invariant 4 was not engaged because Django's
-    framework speaks SMTP and so does Resend. That argument still holds, and
-    the adapter was not built to overturn it — it was built because T7 adds
-    five more of these, and five call sites that each know how to send mail is
-    the shape that becomes a provider migration later.
-
-    A plain-text body for now. Templates and branding arrive with T7.
+    A thin shim over `notifications.emails`, kept because the call sites below
+    read better for it and because the token is the only thing this layer
+    knows. The body and subject moved into templates in T7; T6 had already
+    moved the sending itself off the request path.
     """
-    send_transactional_email(
-        to=email,
-        subject="Verify your email address",
-        body=(
-            "Welcome. Use this token to verify your email address:\n\n"
-            f"{token}\n\n"
-            "It expires in 24 hours. If you did not create an account, "
-            "you can ignore this message."
-        ),
-    )
+    send_verification_email(to=email, token=token)
 
 
 @extend_schema(
@@ -293,16 +281,7 @@ PASSWORD_RESET_ACCEPTED = {"detail": "If that address has an account, a reset li
 
 
 def _send_password_reset_email(*, email: str, token: str) -> None:
-    send_transactional_email(
-        to=email,
-        subject="Reset your password",
-        body=(
-            "Use this token to set a new password:\n\n"
-            f"{token}\n\n"
-            "It expires in one hour. If you did not ask to reset your "
-            "password, you can ignore this message — nothing has changed."
-        ),
-    )
+    send_password_reset_email(to=email, token=token)
 
 
 @extend_schema(
@@ -403,6 +382,11 @@ class PasswordChangeView(APIView):
         # because changing the password rotates the session auth hash. Other
         # sessions still die, which is the intent.
         update_session_auth_hash(request, request.user)
+
+        # After the change, not before: the notice should describe something
+        # that happened. The person who most needs it is the one who did not
+        # do it.
+        send_password_changed_email(to=request.user.email)
 
         return Response({"detail": "Password changed."}, status=status.HTTP_200_OK)
 

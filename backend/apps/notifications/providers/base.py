@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+NEWLINES = ("\n", "\r")
+
 
 class EmailNotSent(Exception):
     """The provider did not accept the message.
@@ -47,6 +49,21 @@ class OutboundEmail:
     to: str
     subject: str
     body: str
+
+    def __post_init__(self) -> None:
+        """Refuse a subject that could forge a header.
+
+        Checked when the message is built rather than left to the backend,
+        because the backend raises at *send* time — which is inside a retrying
+        Celery task. One injected newline would become four SMTP attempts and
+        four tracebacks for an error that can never succeed. A malformed
+        message is not a transient failure and must not be queued as one.
+
+        The body is not checked: nothing parses it, and a newline in it is
+        simply a newline.
+        """
+        if any(character in self.subject for character in NEWLINES):
+            raise ValueError("An email subject may not contain a newline.")
 
 
 @runtime_checkable

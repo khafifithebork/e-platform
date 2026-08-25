@@ -3,7 +3,7 @@
 Invariant 2: queries live here, not in views or serializers.
 """
 
-from apps.accounts.models import User
+from apps.accounts.models import Role, User
 
 
 def get_user_for_me(*, user: User) -> User:
@@ -16,3 +16,18 @@ def get_user_for_me(*, user: User) -> User:
     response, which is what stops /auth/me/ fanning out later.
     """
     return User.objects.select_related("student_profile").get(pk=user.pk)
+
+
+def administrator_emails() -> list[str]:
+    """Everyone who should hear that a course needs reviewing.
+
+    A selector rather than a queryset built inside the notifying service, so
+    "who is an administrator" stays one answer. Returns addresses rather than
+    users because that is all the caller may have — handing a service a `User`
+    invites it to read something else off them.
+    """
+    return list(
+        User.objects.filter(role=Role.ADMIN, is_active=True)
+        .order_by("email")
+        .values_list("email", flat=True)
+    )

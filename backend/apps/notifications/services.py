@@ -13,6 +13,7 @@ honest response is that transactional email is asynchronous everywhere.
 
 from __future__ import annotations
 
+from apps.notifications.providers.base import OutboundEmail
 from apps.notifications.tasks import deliver_email
 
 
@@ -24,4 +25,8 @@ def send_transactional_email(*, to: str, subject: str, body: str) -> None:
     (`CELERY_RESULT_BACKEND = None`), so it could not be polled even if
     somebody wanted to.
     """
+    # Constructed here purely to validate: a malformed message must be refused
+    # to the caller, not discovered by a worker four retries later.
+    OutboundEmail(to=to, subject=subject, body=body)
+
     deliver_email.delay(to=to, subject=subject, body=body)
