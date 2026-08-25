@@ -1,13 +1,102 @@
 # STATUS
 
 **Last updated:** 2026-08-25
-**Updated by:** agent session (M10 complete)
+**Updated by:** agent session (M11 complete)
 
 ---
 
 ## Current milestone
 
-**M10 — Admin & Moderation. Complete — 10 of 10.**
+**M11 — Discovery & Notifications. Complete — 8 of 8.**
+Branch: `feat/m11-discovery`, off `master` at `ad80d18` (M10 merged, PR #37).
+
+Spec: `docs/specs/m11-discovery.md`
+Decisions: `docs/adr/020-m11-discovery-decisions.md` (before code),
+`docs/adr/021-m11-discovery-implementation.md` (what implementation settled)
+
+| Task | State |
+|---|---|
+| T1 spec + five decisions | **done** — `56e9649` |
+| T2 `search_vector`, GIN, `pg_trgm`, backfill | **done** — `bf129fd` |
+| T3 search endpoint, ranked and throttled | **done** — `e5f0fde` |
+| T4 catalogue filters | **done** — `1e70311` |
+| T5 related courses | **done** — `046c35d` |
+| T6 email adapter + Celery task | **done** — `192b9ce` |
+| T7 the transactional set, in templates | **done** — `edbda25` |
+| T8 abuse cases, ADR-021, close-out | **done** — `e16df20` |
+
+**1219 tests pass, none skipped**, in 85s — ruff, `tsc`, `eslint` and
+`check --deploy` clean, schema and types regenerate to no diff. Run with
+Postgres *and* MinIO up.
+
+### M11 is backend-only, on the owner's decision
+
+architecture.md:1050 lists an accessibility pass and mobile QA. There is no
+frontend to apply them to — auth pages and one lesson page — so a green
+accessibility report over three pages would be ADR-006's inert control wearing
+a compliance badge. Dropped, and recorded rather than absorbed.
+
+### Three bugs, each found by a test built so only the rule could pass it
+
+- **Related courses ranked by nothing.** Overlap was counted with a single
+  `Case` holding one `When` per skill area, and `Case` returns the *first*
+  match — so sharing five areas scored the same as sharing one.
+- **Search had an unauthenticated 500.** `?q=%00` reached the driver;
+  PostgreSQL text cannot hold a NUL byte. One request, no account.
+- **A notification broke the action it described.** Abuse case 7's first
+  version *raised* on an unverified address, so an unverified learner changing
+  their password got a 500 from the notice about the change.
+
+The first two were caught because the fixtures were built so nothing else could
+produce the answer — the weaker related candidate is deliberately the more
+recent one, and the abuse case listed control characters rather than only long
+input. **That is M11's standing lesson:** a test whose fixture happens to order
+correctly proves nothing.
+
+### Two abuse cases are reworded rather than claimed
+
+**Case 7** now names its two exemptions — verification and password reset exist
+to reach an unconfirmed address — and says a withheld message is skipped and
+logged, never raised.
+
+**Case 8 is unmet by design.** Delivery is at-least-once; at-most-once needs
+the table ADR-020 §8 declined or a provider idempotency key that does not exist
+yet. `TestCaseEightIsNotMet` asserts the duplicate, because a missing test and
+a satisfied one look identical in a summary.
+
+### ADR-020 §7 was wrong and ADR-021 §1 says so
+
+It called M2's direct `send_mail` an invariant-4 violation. The code it accused
+had already argued the opposite in a docstring — Django's framework speaks SMTP,
+and so does Resend — and that argument holds. What was actually wrong was the
+synchronous send in the request path, and the five more call sites T7 was about
+to add. **An ADR that accuses existing code should quote what that code says for
+itself.**
+
+### Found in passing, not fixed: the catalogue has no instructor name
+
+`PublicCourseSerializer.instructor_name` sources `instructor.get_full_name`,
+which `User` does not have — and `read_only` makes DRF `SkipField` rather than
+error, so the field is **silently absent from every catalogue response** and no
+test asserts it. Underneath is a product gap: there is no instructor name in the
+data model at all (`display_name` is on `StudentProfile`). Choosing what a
+public page shows instead is a product decision. ADR-021 §7.
+
+### What is next
+
+**M12 — Hardening.** Its Playwright objective is **unbuildable** until the
+frontend-ownership question in ADR-020 §2 is answered; M7 raised it, M11 hit it
+from the other side, and it belongs in CLAUDE.md §11 where an agent should not
+put it unasked.
+
+M8 and M9 remain blocked on the payment provider and the trial scoping rule,
+and M8 still inherits M10's two follow-ups — moving the refund route into the
+audited half of the route inventory, and teaching `admin_trail_for` about
+subscription-targeted rows.
+
+---
+
+## M10 — Admin & Moderation. Complete — 10 of 10.
 Branch: `feat/m10-admin`, which branches off `master` (M7 merged at `0e3124b`).
 
 Spec: `docs/specs/m10-admin.md`
