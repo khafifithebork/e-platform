@@ -21,6 +21,7 @@ from apps.catalog.selectors import (
     filtered_published_courses,
     languages_with_published_courses,
     published_course_detail,
+    related_courses,
     search_published_courses,
 )
 from apps.catalog.serializers import (
@@ -119,6 +120,12 @@ class PublicCourseViewSet(viewsets.ReadOnlyModelViewSet):
             # identically — anything else confirms the course is being worked
             # on, which is exactly what a competitor wants to know.
             raise Http404 from exc
+
+        # Attached rather than resolved inside the serializer: a serializer
+        # that ran a query would be doing a read the layering puts in a
+        # selector (invariant 2), and it would run that query once per course
+        # the day this serializer is used for a list.
+        course.related = related_courses(course=course)
 
         return Response(self.get_serializer(course).data)
 

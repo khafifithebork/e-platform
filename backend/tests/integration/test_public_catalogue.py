@@ -231,7 +231,10 @@ class TestQueryCount:
                 position=1,
             )
 
-        # The course, its sections, their lessons. Three regardless of how many
-        # sections exist — that is what the prefetch buys.
-        with django_assert_num_queries(3):
+        # The course, its sections, their lessons, and M11's related strip.
+        # Four regardless of how many sections exist — that is what the
+        # prefetch buys, and the fourth is one query however many related
+        # courses come back, which `test_related_courses.py` pins at two
+        # dataset sizes.
+        with django_assert_num_queries(4):
             client.get(f"{CATALOGUE}{course.slug}/")

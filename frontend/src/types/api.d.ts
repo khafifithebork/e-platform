@@ -1901,6 +1901,16 @@ export interface components {
         /**
          * @description The card plus the curriculum. Structure sells the course; content does
          *     not appear until someone is entitled to it.
+         *
+         *     `related` is embedded rather than served from its own endpoint. It belongs
+         *     to this page and nothing else asks for it, so a second route would be a
+         *     second round trip for data the first response already knows — and invariant
+         *     15 makes public pages statically generated, so the cost is paid at build
+         *     time rather than per visitor.
+         *
+         *     `PublicCourseSerializer`, not this class, for the related items: a related
+         *     course rendering *its* curriculum and *its* related courses would recurse,
+         *     and a strip of cards needs neither.
          */
         PublicCourseDetail: {
             /** Format: uuid */
@@ -1920,6 +1930,7 @@ export interface components {
              */
             published_at?: string | null;
             readonly sections: components["schemas"]["PublicSection"][];
+            readonly related: components["schemas"]["PublicCourse"][];
         };
         /**
          * @description A lesson as an anonymous visitor sees it: a title and a shape.

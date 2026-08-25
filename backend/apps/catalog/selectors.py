@@ -1,7 +1,10 @@
 """Catalogue reads."""
 
+import operator
+from functools import reduce
+
 from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramSimilarity
-from django.db.models import F, Prefetch, Q
+from django.db.models import Case, F, IntegerField, Prefetch, Q, Value, When
 
 from apps.accounts.models import Role, User
 from apps.catalog.models import (
@@ -250,3 +253,74 @@ def filtered_published_courses(*, language: str = "", level: str = "", skill_are
         courses = courses.filter(skill_areas__contains=[skill_area])
 
     return courses
+
+
+# ADR-020 §6. Six, because a related strip is a nudge rather than a second
+# catalogue — a learner who wants the whole list has the catalogue.
+RELATED_LIMIT = 6
+
+
+def related_courses(*, course: Course, limit: int = RELATED_LIMIT):
+    """Published courses a learner looking at this one might also want.
+
+    **A rule, not a recommender** (ADR-020 §6). Same language is a hard filter;
+    within it, more shared skill areas ranks higher, then the same level, then
+    the most recently published. Collaborative filtering needs enrolment volume
+    this product does not have, and a recommender trained on ten enrolments
+    recommends noise — which reads as a broken product rather than an empty
+    one.
+
+    **Same language is a filter rather than a rank** because the alternative is
+    worse than useless: a learner studying Spanish shown a French course has
+    been given a row of things they cannot use, and no amount of ranking below
+    that saves it.
+
+    Overlap is counted in SQL, one `CASE` per skill area the course carries.
+    Doing it in Python means loading every course in the language to sort a
+    handful, which is fine at a hundred courses and is the shape that stops
+    being fine silently. There are few skill areas per course, so the
+    expression stays small.
+
+    Built on `published_courses()` — abuse case 2 is the same rule as case 1
+    with a second reader, and a second reader is exactly where it gets
+    forgotten.
+    """
+    candidates = published_courses().filter(language=course.language).exclude(pk=course.pk)
+
+    areas = [area for area in (course.skill_areas or []) if isinstance(area, str)]
+    if areas:
+        # One `Case` per area, **added together**. A single `Case` with several
+        # `When`s returns the first branch that matches, so it answers "shares
+        # at least one" — which is 1 for a course sharing all five areas and 1
+        # for a course sharing one. That was the first version here, and
+        # `test_more_shared_skill_areas_ranks_higher` caught it because the
+        # weaker candidate was deliberately the more recent one.
+        #
+        # Not `Sum`: that is an aggregate and would collapse the queryset. This
+        # is arithmetic across columns of a single row.
+        overlap = reduce(
+            operator.add,
+            [
+                Case(
+                    When(skill_areas__contains=[area], then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+                for area in areas
+            ],
+        )
+    else:
+        # No skill areas to share. Ranking then rests on level and recency,
+        # which is still better than an empty strip.
+        overlap = Value(0, output_field=IntegerField())
+
+    return list(
+        candidates.annotate(
+            shared=overlap,
+            same_level=Case(
+                When(level=course.level, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+        ).order_by("-shared", "-same_level", "-published_at")[:limit]
+    )
