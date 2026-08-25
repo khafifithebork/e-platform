@@ -230,6 +230,154 @@ class TestTheDiagnosis:
             fail_payment(subscription=subscription, provider=provider)
 
         # Session, user, the user being diagnosed, the resolver's override and
-        # subscription checks, then the three diagnostic lists.
-        with django_assert_num_queries(8):
+        # subscription checks, then the three diagnostic lists, then two more:
+        # T9's administrative trail and its total. The count moved 8 -> 10 when
+        # the trail arrived, and the two are separate on purpose — a LIMIT
+        # cannot report what it cut off.
+        with django_assert_num_queries(10):
             client.get(_url(subject))
+
+
+class TestTheAdministrativeTrail:
+    """T9. "What did we do to this account, and who did it" — the question
+    ADR-018 §8 says `AuditLog` exists to answer, arriving on the screen support
+    already opens."""
+
+    @pytest.fixture(autouse=True)
+    def _as_admin(self, client, db):
+        _user("admin@example.test", Role.ADMIN)
+        _sign_in(client, "admin@example.test")
+
+    @staticmethod
+    def _grant(actor, target, reason: str = "Double charged in July"):
+        from apps.entitlements.services import grant_access_override
+
+        return grant_access_override(actor=actor, user=target, days=14, reason=reason)
+
+    def test_it_returns_what_was_done_to_this_account(self, client, subject) -> None:
+        from apps.accounts.models import User
+
+        admin = User.objects.get(email="admin@example.test")
+        self._grant(admin, subject)
+
+        trail = client.get(_url(subject)).json()["admin_trail"]
+
+        assert trail["total"] == 1
+        assert trail["entries"][0]["action"] == "ACCESS_OVERRIDE_GRANTED"
+        assert trail["entries"][0]["actor_label"] == "admin@example.test"
+        assert trail["entries"][0]["reason"] == "Double charged in July"
+
+    def test_it_does_not_return_what_was_done_to_somebody_else(self, client, subject) -> None:
+        """Invariant 10 on a read that crosses users by design. The endpoint is
+        scoped by the id in the path, and an audit log that answered with
+        everybody's history would be the widest leak in the product."""
+        from apps.accounts.models import User
+
+        admin = User.objects.get(email="admin@example.test")
+        other = _user("other@example.test")
+        self._grant(admin, other, reason="Nothing to do with the subject")
+
+        trail = client.get(_url(subject)).json()["admin_trail"]
+
+        assert trail["total"] == 0
+        assert trail["entries"] == []
+
+    def test_a_course_approval_is_not_in_it(self, client, subject) -> None:
+        """User-targeted rows only, settled 2026-08-25. A course approval
+        targets the course, so it belongs to that course's history. This test
+        exists so the boundary is a decision on the record rather than
+        something a reader has to infer from a filter."""
+        from apps.accounts.models import User
+        from apps.catalog.models import Course, Language
+        from apps.catalog.services import approve, submit_for_review
+
+        admin = User.objects.get(email="admin@example.test")
+        subject.role = Role.INSTRUCTOR
+        subject.save(update_fields=["role"])
+        language = Language.objects.create(code="es", name="Spanish", native_name="Espanol")
+        course = Course.objects.create(
+            slug="spanish", title="Spanish", language=language, level="A1", instructor=subject
+        )
+        submit_for_review(course=course, by=subject)
+        approve(course=course, by=admin)
+
+        trail = client.get(_url(subject)).json()["admin_trail"]
+
+        assert trail["total"] == 0
+
+    def test_it_still_names_the_actor_after_their_account_is_deleted(self, client, subject) -> None:
+        """Abuse case 7, through the read path rather than at the model. The
+        column exists for this moment, and a serializer rendering `actor.email`
+        would return null here while the row itself still knew.
+
+        A **role change**, not an override, and the reason is worth recording:
+        `AccessOverride.granted_by` is PROTECT, so an administrator who has
+        ever granted an override cannot be deleted at all — the audit row's
+        SET_NULL never gets a chance to matter. ADR-018 §5 argued the audit
+        log must not become the reason an account cannot be removed; M4's
+        override table is that reason instead, and this test would have hidden
+        it behind a `ProtectedError` if it had kept using a grant.
+        """
+        from apps.accounts.models import User
+        from apps.accounts.services import change_role
+
+        admin = User.objects.get(email="admin@example.test")
+        change_role(actor=admin, user=subject, role=Role.INSTRUCTOR, reason="Teaching now")
+
+        # A second administrator, because deleting the one signed in would end
+        # the session this test reads through.
+        _user("second@example.test", Role.ADMIN)
+        _sign_in(client, "second@example.test")
+        User.objects.filter(pk=admin.pk).delete()
+
+        entry = client.get(_url(subject)).json()["admin_trail"]["entries"][0]
+
+        assert entry["actor_label"] == "admin@example.test"
+        assert entry["action"] == "ROLE_CHANGED"
+
+    def test_it_does_not_render_the_metadata_blob(self, client, subject) -> None:
+        """`reason` is lifted out by name; the rest is not published. An API
+        that returned the blob wholesale would publish whatever a future
+        `record_admin_action(..., something=...)` put there, with no review
+        against this serializer. The whole row is readable in the admin site.
+        """
+        from apps.accounts.models import User
+
+        admin = User.objects.get(email="admin@example.test")
+        self._grant(admin, subject)
+
+        entry = client.get(_url(subject)).json()["admin_trail"]["entries"][0]
+
+        assert "metadata" not in entry
+        assert "override_id" not in entry
+
+    def test_it_is_capped_but_says_how_much_it_cut(self, client, subject) -> None:
+        """A list capped at fifty reporting fifty as its total would tell
+        support they had seen everything, which is the one thing a truncated
+        audit view must not do."""
+        from apps.accounts.models import User
+        from apps.entitlements.selectors import DIAGNOSTIC_TRAIL_LIMIT
+
+        admin = User.objects.get(email="admin@example.test")
+        for index in range(DIAGNOSTIC_TRAIL_LIMIT + 5):
+            self._grant(admin, subject, reason=f"Grant number {index}")
+
+        trail = client.get(_url(subject)).json()["admin_trail"]
+
+        assert len(trail["entries"]) == DIAGNOSTIC_TRAIL_LIMIT
+        assert trail["total"] == DIAGNOSTIC_TRAIL_LIMIT + 5
+
+    def test_the_newest_entries_are_the_ones_kept(self, client, subject) -> None:
+        """The twin. A cap that kept the oldest fifty would satisfy the counts
+        above while hiding everything that just happened — which is precisely
+        what support is looking for."""
+        from apps.accounts.models import User
+        from apps.entitlements.selectors import DIAGNOSTIC_TRAIL_LIMIT
+
+        admin = User.objects.get(email="admin@example.test")
+        for index in range(DIAGNOSTIC_TRAIL_LIMIT + 5):
+            self._grant(admin, subject, reason=f"Grant number {index}")
+
+        entries = client.get(_url(subject)).json()["admin_trail"]["entries"]
+
+        assert entries[0]["reason"] == f"Grant number {DIAGNOSTIC_TRAIL_LIMIT + 4}"

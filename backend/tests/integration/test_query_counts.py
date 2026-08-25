@@ -357,3 +357,67 @@ class TestLearningReads:
         # Session, user, the lesson, the resolver's two checks, the transcript
         # with its language joined, and one for the cues — one, not one each.
         _assert_flat(client, f"/api/v1/lessons/{lesson.id}/transcript/", seed=seed, expected=7)
+
+
+class TestAdminDiagnostics:
+    """The support endpoint, which reads five collections for one account.
+
+    ADR-009's reason for pinning it: a per-row query here is fast until the
+    account being diagnosed is the one with two years of history, which is
+    exactly the account somebody opens this page for.
+    """
+
+    @pytest.fixture
+    def subject(self, db):
+        from apps.accounts.services import create_account
+
+        return create_account(email="subject@example.test", password=PASSWORD)
+
+    @pytest.fixture
+    def as_admin(self, client, db):
+        _admin("admin@example.test")
+        client.post(
+            "/api/v1/auth/login/",
+            {"email": "admin@example.test", "password": PASSWORD},
+            content_type="application/json",
+        )
+        return client
+
+    def test_the_administrative_trail(self, as_admin, subject) -> None:
+        """What this pins is flatness, and only flatness.
+
+        It does **not** pin the absence of a join: `select_related("actor")`
+        was added on purpose and every test here still passed, because a join
+        changes one query's shape rather than the count. The argument against
+        it lives in `core/selectors.py` and is not a performance one.
+
+        What this would catch is a serializer rendering `actor.email` instead
+        of `actor_label` — that is a query per row, and the difference between
+        the two dataset sizes names it.
+        """
+        from apps.accounts.models import User
+        from apps.entitlements.services import grant_access_override
+
+        admin = User.objects.get(email="admin@example.test")
+        grants = iter(range(1, 100))
+
+        def seed(count: int) -> None:
+            for _ in range(count):
+                index = next(grants)
+                grant_access_override(actor=admin, user=subject, days=1, reason=f"Grant {index}")
+
+        # Session, user, the user being diagnosed, the resolver's override
+        # check, the three diagnostic lists, then the trail and its total.
+        #
+        # Nine, where `test_it_does_not_fan_out_over_the_event_log` measures
+        # ten on the same endpoint — and the difference is the resolver, not
+        # the trail. Seeding overrides grants this subject access, so
+        # `resolve_account_access` answers on the override and never reaches
+        # its subscription query. Measured rather than assumed, which is the
+        # whole of ADR-009.
+        _assert_flat(
+            as_admin,
+            f"/api/v1/admin-api/users/{subject.id}/diagnostics/",
+            seed=seed,
+            expected=9,
+        )

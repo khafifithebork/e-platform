@@ -2039,6 +2039,66 @@ components:
         * `APPROVED` - Approved
         * `REJECTED` - Rejected
         * `CHANGES_REQUESTED` - Changes requested
+    AdminTrail:
+      type: object
+      description: |-
+        The trail, with what it left out.
+
+        `total` is not `len(entries)`. A list capped at fifty that reported fifty
+        as its total would tell support they had seen everything, which is the one
+        thing a truncated audit view must not do.
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditTrailEntry'
+          readOnly: true
+        total:
+          type: integer
+          readOnly: true
+      required:
+      - entries
+      - total
+    AuditTrailEntry:
+      type: object
+      description: |-
+        One administrative action, as support needs to read it.
+
+        **`metadata` is not rendered**, and that is deliberate rather than an
+        oversight. It is an open-ended blob written by every service that records
+        an action, so an API that returned it wholesale would publish whatever a
+        future `record_admin_action(..., something=...)` happened to put there —
+        a leak that arrives with a call site nobody reviewed against this
+        serializer. `reason` is lifted out by name because it is the field §8
+        requires and the one the screen exists to show; the rest of the row is
+        readable in the admin site, which is the surface for detail.
+
+        `actor_label` rather than a nested actor, for the same reason the column
+        exists: it still names who acted after their account is gone.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        action:
+          type: string
+          readOnly: true
+        actor_label:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor_label
+      - created_at
+      - id
+      - reason
     ContentTypeEnum:
       enum:
       - audio/mp4
@@ -3681,8 +3741,13 @@ components:
           items:
             $ref: '#/components/schemas/AccessOverride'
           readOnly: true
+        admin_trail:
+          allOf:
+          - $ref: '#/components/schemas/AdminTrail'
+          readOnly: true
       required:
       - access
+      - admin_trail
       - events
       - overrides
       - subscriptions
