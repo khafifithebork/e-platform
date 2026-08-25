@@ -1,13 +1,82 @@
 # STATUS
 
-**Last updated:** 2026-08-21
-**Updated by:** agent session (M7 complete)
+**Last updated:** 2026-08-25
+**Updated by:** agent session (M10 T1-T7 recorded from the commit trail)
 
 ---
 
 ## Current milestone
 
-**M7 — Learning Experience. Complete — 10 of 10.**
+**M10 — Admin & Moderation. In progress — 7 of 10.**
+Branch: `feat/m10-admin`, which branches off `master` (M7 merged at `0e3124b`).
+
+Spec: `docs/specs/m10-admin.md`
+Decisions: `docs/adr/018-m10-admin-decisions.md` (before code)
+
+| Task | State |
+|---|---|
+| T1 spec + five decisions | **done** — `db46bf8` |
+| T2 `AuditLog`, index, append-only | **done** — `79f80a8` |
+| T3 `record_admin_action` + one-writer guard | **done** — `fef8fb9` |
+| T4 access override write path, audited | **done** — `a57546e` |
+| T5 route the Django admin: obscure path, staff-only | **done** — `7b0e654` |
+| T6 2FA: `django-otp` enrolment and enforcement | **done** — `e51b096` |
+| T7 audit the existing admin actions | **done** — `ac01da3` |
+| T8 refund service and audit, no provider call | **done** — `3a5cfd6` |
+| T9 audit log read surface + diagnostics extension | **next** |
+| T10 abuse cases, schema, types, ADR-019, close-out | not started |
+
+**1043 tests pass, 40 skipped**, in 16m03s — ruff check and format clean,
+frontend `tsc` and `eslint` clean, `check --deploy` reports no issues and 0
+silenced, and the committed OpenAPI document regenerates to no diff. The 40
+skips are the object-storage tests, which skip when no S3 endpoint answers;
+run again with MinIO up, all 48 tests in those three files pass. Nothing in
+the suite is currently unrun.
+
+The suite got roughly four times faster in this session, and the change is
+worth knowing about (`50ced9d`): `config/settings/test.py` now configures MD5
+hashing.
+Argon2 is memory-hard on purpose, most integration tests create an account,
+and a full run was heading for an hour. **Nothing was given up** — the three
+assertions that production uses Argon2, keeps PBKDF2 beneath it, and really
+produces an `argon2$` hash now read *production* settings in a clean
+interpreter, and were provoked against a PBKDF2-first `base.py` to confirm
+they still fail. What is genuinely reduced: no test exercises Argon2
+in-process any more, so Django's upgrade-on-next-login path runs on MD5 in
+tests.
+
+### Why this file was four days stale
+
+The seven commits above did not update it, so the document that exists to
+answer *where are we* said M7 while M10 was most of the way built. §10 requires
+updating it at the end of every session. That is the whole of the failure and
+the whole of the fix.
+
+### T8's one open question was settled before T8 started
+
+§2.2 puts four things in scope for the refund — permission check, service, audit
+row, refusal cases. **The audit row is the one that cannot honestly be
+written:** a refund that raises `RefundNotAvailable` did not happen, and a row
+describing an action that did not happen is a false record. The suite already
+guards against exactly that shape in `test_a_refused_approval_writes_nothing`.
+
+Settled 2026-08-25: `REFUND_ISSUED` stays in the closed vocabulary as the
+marker, and T8's audit obligation is met by the twin test asserting a refused
+refund writes nothing. The alternative — a `refund()` seam on the provider
+protocol, proven against a stub — was declined because it invents the provider
+capability ADR-018 §3 forbids by name: partial refunds, currency, windows,
+idempotency keys.
+
+Two smaller calls settled with it. The refusal answers **501**, not 503, because
+503 says *try again shortly* and 501 says *this server does not do this*. And
+the request carries **no amount**, because `Subscription` deliberately holds no
+money (`entitlements/providers/base.py` says so) and whether partial refunds
+exist is a provider fact we do not have.
+
+---
+
+## M7 — Learning Experience. Complete — 10 of 10.
+
 Branch: `feat/m7-learning`, which branches off `feat/m6-transcription`.
 
 Spec: `docs/specs/m7-learning.md`
