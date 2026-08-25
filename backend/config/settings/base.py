@@ -328,6 +328,12 @@ REST_FRAMEWORK = {
         # anonymous limit would throttle ordinary use. A starting figure, not
         # a measured one: revisit when there is traffic to measure.
         "catalogue": "120/min",
+        # Ranked full-text over a GIN index is the most expensive thing an
+        # anonymous visitor can ask this service to do, and unlike browsing
+        # it is not something a person does several times per page. Tighter
+        # than the catalogue on purpose. A starting figure, not a measured
+        # one — revisit when there is traffic to measure.
+        "search": "30/min",
         # Each call signs a URL that can write to our bucket, so an
         # unthrottled version mints write grants without uploading through us.
         "media_upload": "30/hour",

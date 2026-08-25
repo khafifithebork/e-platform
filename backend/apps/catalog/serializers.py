@@ -247,3 +247,22 @@ class GatedLessonSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields: ClassVar[list[str]] = fields
+
+
+class CourseSearchResultsSerializer(serializers.Serializer):
+    """Search results, and the fact that they are capped.
+
+    `truncated` is not decoration. ADR-020 §4 caps results at 50 with no
+    pagination, and a client that cannot tell a full list from a cut one will
+    render "3 results" and "50 results" the same way — the second being a lie
+    by omission. Saying so is what makes the cap honest rather than hidden.
+
+    `count` is the number returned, deliberately **not** a total. A total costs
+    a second query over the whole match set on every search, and nothing in the
+    product needs it: there is no page 2 to size.
+    """
+
+    results = PublicCourseSerializer(many=True, read_only=True)
+    count = serializers.IntegerField(read_only=True)
+    limit = serializers.IntegerField(read_only=True)
+    truncated = serializers.BooleanField(read_only=True)

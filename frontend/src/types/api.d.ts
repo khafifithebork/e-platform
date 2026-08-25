@@ -400,6 +400,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalogue/search/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search published courses
+         * @description Search the published catalogue.
+         *
+         *     Its own endpoint rather than a `?q=` on the course list, because the two
+         *     have incompatible shapes: the list is cursor-paginated by publication date,
+         *     and results here are ranked and capped (ADR-020 §4). Bolting a query
+         *     parameter onto the list would mean one endpoint whose pagination silently
+         *     changes meaning depending on whether a parameter is present.
+         *
+         *     Its own throttle scope for the same reason it is capped: a ranked query
+         *     over a GIN index is the most expensive thing an anonymous visitor can ask
+         *     this service to do, and the catalogue scope is sized for browsing.
+         *
+         *     `AllowAny` with no authentication, matching the rest of this module — a
+         *     signed-in visitor and an anonymous one must get identical results, because
+         *     search reads only published rows and there is nothing to personalise.
+         */
+        get: operations["catalogue_search_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instructor/courses/": {
         parameters: {
             query?: never;
@@ -1297,6 +1331,24 @@ export interface components {
             readonly notes: string;
             /** Format: date-time */
             readonly created_at: string;
+        };
+        /**
+         * @description Search results, and the fact that they are capped.
+         *
+         *     `truncated` is not decoration. ADR-020 §4 caps results at 50 with no
+         *     pagination, and a client that cannot tell a full list from a cut one will
+         *     render "3 results" and "50 results" the same way — the second being a lie
+         *     by omission. Saying so is what makes the cap honest rather than hidden.
+         *
+         *     `count` is the number returned, deliberately **not** a total. A total costs
+         *     a second query over the whole match set on every search, and nothing in the
+         *     product needs it: there is no page 2 to size.
+         */
+        CourseSearchResults: {
+            readonly results: components["schemas"]["PublicCourse"][];
+            readonly count: number;
+            readonly limit: number;
+            readonly truncated: boolean;
         };
         /**
          * @description * `DRAFT` - Draft
@@ -2531,6 +2583,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Language"][];
+                };
+            };
+        };
+    };
+    catalogue_search_retrieve: {
+        parameters: {
+            query: {
+                /** @description Search terms. Truncated at 200 characters. */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseSearchResults"];
                 };
             };
         };

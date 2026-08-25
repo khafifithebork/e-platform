@@ -1,6 +1,7 @@
 """Catalogue reads."""
 
-from django.db.models import Prefetch, Q
+from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramSimilarity
+from django.db.models import F, Prefetch, Q
 
 from apps.accounts.models import Role, User
 from apps.catalog.models import (
@@ -145,3 +146,74 @@ def lessons_visible_to(*, user):
         visible = published | Q(course__instructor=user)
 
     return Lesson.objects.filter(visible).select_related("course").distinct()
+
+
+# ADR-020 §4: the top N by rank, and no pagination. Rank is a function of the
+# query, so there is no stored column for a cursor to page on, and this
+# codebase does not use offset pagination on public surfaces.
+SEARCH_LIMIT = 50
+
+# Longer than any real search. The bound exists because `to_tsquery` work grows
+# with the number of terms, and an anonymous endpoint that will happily parse a
+# 50KB query is a way to spend our CPU for the price of one request.
+MAX_QUERY_LENGTH = 200
+
+# pg_trgm's own documented default for `similarity_threshold`. Used rather than
+# chosen: a number invented here would be a guess presented as a tuning
+# decision, and §6 is explicit about not inventing provider behaviour.
+TRIGRAM_THRESHOLD = 0.3
+
+
+def search_published_courses(*, query: str, limit: int = SEARCH_LIMIT):
+    """Published courses matching `query`, best first.
+
+    **Full text first; trigram only if that returns nothing** (ADR-020 §5).
+    Unioning the two makes every search pay for both and lets a fuzzy match
+    outrank an exact one, which is the behaviour users report as "the search is
+    broken" without being able to say why. The fallback exists for typos, and a
+    typo is the case where full text returns zero rows.
+
+    Built on `published_courses()`, not on `Course.objects`. That selector is
+    the single place the publication filter lives, and abuse cases 1 and 2 both
+    reduce to search never being a second way in — a hand-rolled
+    `filter(status=...)` here is how a draft eventually leaks.
+
+    Returns a list, not a queryset: the caller must not be able to bolt further
+    filtering onto something already sliced, and the slice is the deliberate
+    cap rather than an implementation detail.
+    """
+    # Control characters are stripped before anything else, and NUL is the one
+    # that matters: PostgreSQL text cannot contain 0x00, so `?q=%00` reached the
+    # driver and returned a **500** — an unauthenticated one-request crash of
+    # the catalogue's search. Found by abuse case 5, which is why that case
+    # lists control characters and not only long input.
+    #
+    # Stripped rather than rejected: nobody types a NUL, so a 400 would only
+    # tell an attacker their probe was noticed. The remaining text still
+    # searches.
+    cleaned = "".join(ch for ch in (query or "") if ch.isprintable() or ch.isspace())
+    cleaned = cleaned.strip()[:MAX_QUERY_LENGTH]
+    if not cleaned:
+        return []
+
+    # `websearch_to_tsquery`, not `plainto_tsquery`: it accepts quoted phrases
+    # and `-exclusions` the way a person expects a search box to behave, and it
+    # never raises on malformed input. `to_tsquery` would — an unbalanced
+    # parenthesis from a visitor becomes a 500.
+    search = SearchQuery(cleaned, search_type="websearch", config="english")
+
+    matches = list(
+        published_courses()
+        .filter(search_vector=search)
+        .annotate(rank=SearchRank(F("search_vector"), search))
+        .order_by("-rank", "-published_at")[:limit]
+    )
+    if matches:
+        return matches
+
+    return list(
+        published_courses()
+        .annotate(similarity=TrigramSimilarity("title", cleaned))
+        .filter(similarity__gte=TRIGRAM_THRESHOLD)
+        .order_by("-similarity", "-published_at")[:limit]
+    )

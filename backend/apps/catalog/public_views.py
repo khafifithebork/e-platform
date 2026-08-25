@@ -8,7 +8,7 @@ reading this file knows every class in it is public; a reviewer reading
 """
 
 from django.http import Http404
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -16,11 +16,15 @@ from rest_framework.views import APIView
 
 from apps.catalog.models import Course
 from apps.catalog.selectors import (
+    MAX_QUERY_LENGTH,
+    SEARCH_LIMIT,
     languages_with_published_courses,
     published_course_detail,
     published_courses,
+    search_published_courses,
 )
 from apps.catalog.serializers import (
+    CourseSearchResultsSerializer,
     LanguageSerializer,
     PublicCourseDetailSerializer,
     PublicCourseSerializer,
@@ -93,3 +97,53 @@ class PublicCourseViewSet(viewsets.ReadOnlyModelViewSet):
             raise Http404 from exc
 
         return Response(self.get_serializer(course).data)
+
+
+@extend_schema(tags=["catalogue"])
+class CourseSearchView(APIView):
+    """Search the published catalogue.
+
+    Its own endpoint rather than a `?q=` on the course list, because the two
+    have incompatible shapes: the list is cursor-paginated by publication date,
+    and results here are ranked and capped (ADR-020 §4). Bolting a query
+    parameter onto the list would mean one endpoint whose pagination silently
+    changes meaning depending on whether a parameter is present.
+
+    Its own throttle scope for the same reason it is capped: a ranked query
+    over a GIN index is the most expensive thing an anonymous visitor can ask
+    this service to do, and the catalogue scope is sized for browsing.
+
+    `AllowAny` with no authentication, matching the rest of this module — a
+    signed-in visitor and an anonymous one must get identical results, because
+    search reads only published rows and there is nothing to personalise.
+    """
+
+    permission_classes = (AllowAny,)
+    authentication_classes = ()
+    throttle_scope = "search"
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="q",
+                description=f"Search terms. Truncated at {MAX_QUERY_LENGTH} characters.",
+                required=True,
+                type=str,
+            )
+        ],
+        responses={200: CourseSearchResultsSerializer},
+        summary="Search published courses",
+    )
+    def get(self, request):
+        courses = search_published_courses(query=request.query_params.get("q", ""))
+
+        return Response(
+            CourseSearchResultsSerializer(
+                {
+                    "results": courses,
+                    "count": len(courses),
+                    "limit": SEARCH_LIMIT,
+                    "truncated": len(courses) == SEARCH_LIMIT,
+                }
+            ).data
+        )
