@@ -11,6 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.core.selectors import admin_actions_against
 from apps.entitlements.models import AccessOverride, Subscription, SubscriptionEvent
 
 
@@ -66,3 +67,32 @@ def diagnostics_for(*, user: User):
         .select_related("granted_by")
         .order_by("-starts_at"),
     )
+
+
+# Diagnostics renders inline with no pagination, and audit rows accumulate for
+# the life of an account. Fifty is enough to answer "what did we do to this
+# person recently", which is the question §5.4 says support arrives with; the
+# whole history is readable in the admin site, which is paginated and can be
+# searched. The total is returned beside the rows so a truncated list is
+# visibly truncated rather than quietly short.
+DIAGNOSTIC_TRAIL_LIMIT = 50
+
+
+def admin_trail_for(*, user: User) -> tuple[list, int]:
+    """What administrators have done to this account, and how much there is.
+
+    **User-targeted rows only.** An override and a role change record the user
+    as their target; a course approval records the course, and a refund will
+    record the subscription. So an instructor's approvals do not appear here
+    and neither will a refund — settled 2026-08-25 rather than joining through
+    every object a user owns, because T8 makes a refund impossible today and
+    the join would be a path no test could reach. **M8 must revisit this**, or
+    the first refund will be absent from the screen support opens to ask about
+    it.
+
+    Two queries, not one: the page needs the count as well as the rows, and a
+    `LIMIT` cannot report what it cut off.
+    """
+    rows = admin_actions_against(target=user, limit=DIAGNOSTIC_TRAIL_LIMIT)
+    total = admin_actions_against(target=user).count()
+    return list(rows), total

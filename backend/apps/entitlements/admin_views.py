@@ -22,7 +22,7 @@ from apps.entitlements.exceptions import RefundUnavailable
 from apps.entitlements.models import Subscription
 from apps.entitlements.permissions import IsAdministrator
 from apps.entitlements.resolver import resolve_account_access
-from apps.entitlements.selectors import diagnostics_for
+from apps.entitlements.selectors import admin_trail_for, diagnostics_for
 from apps.entitlements.serializers import (
     AccessOverrideGrantSerializer,
     AccessOverrideSerializer,
@@ -65,6 +65,7 @@ class UserDiagnosticsView(APIView):
     def get(self, request, pk):
         user = get_object_or_404(User.objects.all(), pk=pk)
         subscriptions, events, overrides = diagnostics_for(user=user)
+        trail, trail_total = admin_trail_for(user=user)
 
         # The resolver's answer, not a description of it. If this disagreed
         # with what the person experiences, the diagnosis would be worse than
@@ -83,6 +84,7 @@ class UserDiagnosticsView(APIView):
                     "subscriptions": subscriptions,
                     "events": events,
                     "overrides": overrides,
+                    "admin_trail": {"entries": trail, "total": trail_total},
                 }
             ).data
         )

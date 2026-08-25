@@ -1164,6 +1164,41 @@ export interface components {
          */
         ActionEnum: "SUBMITTED" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
         /**
+         * @description The trail, with what it left out.
+         *
+         *     `total` is not `len(entries)`. A list capped at fifty that reported fifty
+         *     as its total would tell support they had seen everything, which is the one
+         *     thing a truncated audit view must not do.
+         */
+        AdminTrail: {
+            readonly entries: components["schemas"]["AuditTrailEntry"][];
+            readonly total: number;
+        };
+        /**
+         * @description One administrative action, as support needs to read it.
+         *
+         *     **`metadata` is not rendered**, and that is deliberate rather than an
+         *     oversight. It is an open-ended blob written by every service that records
+         *     an action, so an API that returned it wholesale would publish whatever a
+         *     future `record_admin_action(..., something=...)` happened to put there —
+         *     a leak that arrives with a call site nobody reviewed against this
+         *     serializer. `reason` is lifted out by name because it is the field §8
+         *     requires and the one the screen exists to show; the rest of the row is
+         *     readable in the admin site, which is the surface for detail.
+         *
+         *     `actor_label` rather than a nested actor, for the same reason the column
+         *     exists: it still names who acted after their account is gone.
+         */
+        AuditTrailEntry: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly action: string;
+            readonly actor_label: string;
+            readonly reason: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
          * @description * `audio/mp4` - audio/mp4
          *     * `audio/mpeg` - audio/mpeg
          *     * `audio/webm` - audio/webm
@@ -2037,6 +2072,7 @@ export interface components {
             readonly subscriptions: components["schemas"]["SubscriptionDiagnostic"][];
             readonly events: components["schemas"]["SubscriptionEvent"][];
             readonly overrides: components["schemas"]["AccessOverride"][];
+            readonly admin_trail: components["schemas"]["AdminTrail"];
         };
         /** @description For consuming a verification token. */
         VerifyEmailRequest: {

@@ -68,6 +68,44 @@ class AccessDecisionSerializer(serializers.Serializer):
     cta = serializers.CharField(read_only=True, allow_null=True)
 
 
+class AuditTrailEntrySerializer(serializers.Serializer):
+    """One administrative action, as support needs to read it.
+
+    **`metadata` is not rendered**, and that is deliberate rather than an
+    oversight. It is an open-ended blob written by every service that records
+    an action, so an API that returned it wholesale would publish whatever a
+    future `record_admin_action(..., something=...)` happened to put there —
+    a leak that arrives with a call site nobody reviewed against this
+    serializer. `reason` is lifted out by name because it is the field §8
+    requires and the one the screen exists to show; the rest of the row is
+    readable in the admin site, which is the surface for detail.
+
+    `actor_label` rather than a nested actor, for the same reason the column
+    exists: it still names who acted after their account is gone.
+    """
+
+    id = serializers.UUIDField(read_only=True)
+    action = serializers.CharField(read_only=True)
+    actor_label = serializers.CharField(read_only=True)
+    reason = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(read_only=True)
+
+    def get_reason(self, row) -> str:
+        return row.metadata.get("reason", "")
+
+
+class AdminTrailSerializer(serializers.Serializer):
+    """The trail, with what it left out.
+
+    `total` is not `len(entries)`. A list capped at fifty that reported fifty
+    as its total would tell support they had seen everything, which is the one
+    thing a truncated audit view must not do.
+    """
+
+    entries = AuditTrailEntrySerializer(many=True, read_only=True)
+    total = serializers.IntegerField(read_only=True)
+
+
 class UserDiagnosticsSerializer(serializers.Serializer):
     """The answer to "why is this person's access wrong"."""
 
@@ -76,6 +114,7 @@ class UserDiagnosticsSerializer(serializers.Serializer):
     subscriptions = SubscriptionDiagnosticSerializer(many=True, read_only=True)
     events = SubscriptionEventSerializer(many=True, read_only=True)
     overrides = AccessOverrideSerializer(many=True, read_only=True)
+    admin_trail = AdminTrailSerializer(read_only=True)
 
 
 class AccessOverrideGrantSerializer(serializers.Serializer):
