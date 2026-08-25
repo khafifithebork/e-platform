@@ -197,7 +197,26 @@ class PublicCourseSerializer(serializers.ModelSerializer):
     """
 
     language = LanguageSerializer(read_only=True)
-    instructor_name = serializers.CharField(source="instructor.get_full_name", read_only=True)
+    instructor_name = serializers.SerializerMethodField()
+
+    # A method field rather than a `source`, deliberately. The previous version
+    # was `CharField(source="instructor.get_full_name")` — a method `User` does
+    # not have — and because the field was `read_only`, DRF raised `SkipField`
+    # instead of erroring. The key was silently missing from every catalogue
+    # response and no test noticed, because a serializer that quietly drops a
+    # field looks exactly like one that never declared it.
+    #
+    # Returning `""` for an instructor with no profile is the same choice made
+    # deliberately: the client is told there is no name rather than left to
+    # infer it from an absent key.
+    #
+    # A comment, not a docstring: drf-spectacular publishes a method field's
+    # docstring as the field's description, and this note is for whoever edits
+    # the serializer, not for whoever consumes the API.
+    def get_instructor_name(self, course) -> str:
+        """The instructor's public name. Empty when they have not set one."""
+        profile = getattr(course.instructor, "instructor_profile", None)
+        return getattr(profile, "display_name", "") or ""
 
     class Meta:
         model = Course

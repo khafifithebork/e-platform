@@ -18,7 +18,7 @@ from typing import ClassVar
 
 from django.contrib import admin
 
-from apps.accounts.models import Role, User
+from apps.accounts.models import InstructorProfile, Role, User
 from apps.accounts.services import RoleUnchanged, change_role
 
 
@@ -87,3 +87,31 @@ class UserAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(role__in=Role.values)
+
+
+@admin.register(InstructorProfile)
+class InstructorProfileAdmin(admin.ModelAdmin):
+    """Where an instructor's public name is set.
+
+    The catalogue renders `display_name` and nothing else can write it: there
+    is no instructor-facing profile API, and adding one would be an endpoint
+    with no caller while the frontend is auth pages and a lesson page. Django
+    Admin is the interface for this, the same call M10 §2.5 made.
+
+    Deliberately narrow, for the reason `UserAdmin` above is: `approved_at` and
+    `approved_by` are the instructor approval trail and must not be editable
+    from a form — approval is an act with a record, not a checkbox. `user` is
+    read-only because moving a profile between accounts is not an edit, it is
+    two operations pretending to be one.
+    """
+
+    list_display: ClassVar[list[str]] = ["user", "display_name", "is_active", "approved_at"]
+    list_filter: ClassVar[list[str]] = ["is_active"]
+    search_fields: ClassVar[list[str]] = ["user__email", "display_name"]
+    fields: ClassVar[list[str]] = ["user", "display_name", "headline", "bio", "is_active"]
+    readonly_fields: ClassVar[list[str]] = ["user"]
+
+    def has_add_permission(self, request) -> bool:
+        # A profile belongs to an account and is created with one. Adding a
+        # bare profile here would produce a row pointing at nobody.
+        return False

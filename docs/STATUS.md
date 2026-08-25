@@ -25,7 +25,7 @@ Decisions: `docs/adr/020-m11-discovery-decisions.md` (before code),
 | T7 the transactional set, in templates | **done** — `edbda25` |
 | T8 abuse cases, ADR-021, close-out | **done** — `e16df20` |
 
-**1219 tests pass, none skipped**, in 85s — ruff, `tsc`, `eslint` and
+**1229 tests pass, none skipped**, in 88s — ruff, `tsc`, `eslint` and
 `check --deploy` clean, schema and types regenerate to no diff. Run with
 Postgres *and* MinIO up.
 
@@ -73,14 +73,25 @@ synchronous send in the request path, and the five more call sites T7 was about
 to add. **An ADR that accuses existing code should quote what that code says for
 itself.**
 
-### Found in passing, not fixed: the catalogue has no instructor name
+### Fixed after close-out: the catalogue's missing instructor name
 
-`PublicCourseSerializer.instructor_name` sources `instructor.get_full_name`,
+`PublicCourseSerializer.instructor_name` sourced `instructor.get_full_name`,
 which `User` does not have — and `read_only` makes DRF `SkipField` rather than
-error, so the field is **silently absent from every catalogue response** and no
-test asserts it. Underneath is a product gap: there is no instructor name in the
-data model at all (`display_name` is on `StudentProfile`). Choosing what a
-public page shows instead is a product decision. ADR-021 §7.
+error, so the field was **silently absent from every catalogue response since
+M3** and no test asserted it.
+
+**Fixed in `059cdbd`.** `InstructorProfile` gained `display_name` — it had
+`headline` and `bio` and no name, while `StudentProfile` had one, and that
+asymmetry is what the serializer was reaching around. The field is a method
+field returning the name or `""`: present and empty beats silently absent.
+Joined with `select_related` and pinned at two dataset sizes, because rendering
+a name off a related row is the textbook N+1. Settable in Django Admin, because
+a field nothing can write is always empty and an instructor profile API would
+be an endpoint with no caller.
+
+The tests assert the **key is present**, not only its value — every value
+assertion would pass against a response missing the field, which is how this
+survived eight milestones. ADR-021 §7 records the original finding.
 
 ### What is next
 
