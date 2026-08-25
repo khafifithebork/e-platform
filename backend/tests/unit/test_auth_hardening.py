@@ -8,6 +8,7 @@ absence is invisible until it is exploited.
 
 from __future__ import annotations
 
+import ast
 import secrets
 import subprocess
 import sys
@@ -21,10 +22,27 @@ _PROBE = (
     "print(getattr(module, sys.argv[2]))"
 )
 
+# Reading a setting proves intent; this proves effect. It has to run out of
+# process because the suite itself deliberately configures a fast hasher
+# (config/settings/test.py), so an in-process `make_password` would report the
+# suite's choice rather than production's.
+_HASH_PROBE = (
+    "import os, django; "
+    "os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.production'; "
+    "django.setup(); "
+    "from django.contrib.auth.hashers import make_password; "
+    "print(make_password(os.environ['PROBE_PASSWORD']))"
+)
 
-def _production_setting(name: str) -> str:
-    """Read a setting from production settings in a clean interpreter."""
-    environment = {
+
+def _production_environment() -> dict[str, str]:
+    """A complete production environment for a probe subprocess.
+
+    Secrets are generated per call rather than written literally, because
+    CLAUDE.md §6 forbids environment variable *values* in code or tests even
+    when they are throwaway.
+    """
+    return {
         "PATH": __import__("os").environ["PATH"],
         "SYSTEMROOT": __import__("os").environ.get("SYSTEMROOT", ""),
         "DJANGO_SECRET_KEY": secrets.token_urlsafe(50),
@@ -39,10 +57,13 @@ def _production_setting(name: str) -> str:
         "MEDIA_STORAGE_ACCESS_KEY": secrets.token_urlsafe(16),
         "MEDIA_STORAGE_SECRET_KEY": secrets.token_urlsafe(32),
     }
+
+
+def _run_probe(script: str, *args: str, **extra_environment: str) -> str:
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-c", _PROBE, "config.settings.production", name],
+        [sys.executable, "-c", script, *args],
         cwd=BACKEND_ROOT,
-        env=environment,
+        env=_production_environment() | extra_environment,
         capture_output=True,
         text=True,
         check=False,
@@ -51,28 +72,63 @@ def _production_setting(name: str) -> str:
     return result.stdout.strip()
 
 
+def _production_setting(name: str) -> str:
+    """Read a setting from production settings in a clean interpreter."""
+    return _run_probe(_PROBE, "config.settings.production", name)
+
+
+def _production_hashers() -> list[str]:
+    """The production hasher list, as a list.
+
+    The probe prints `str(list)`, which is a Python literal, so this parses it
+    back rather than matching on substrings — a `split` on the printed form
+    fails with an IndexError instead of an assertion when the list is short,
+    which is a worse signal than the one it is trying to give.
+    """
+    return ast.literal_eval(_production_setting("PASSWORD_HASHERS"))
+
+
+def _hash_under_production_settings(password: str) -> str:
+    """Hash a password with whatever production is actually configured to use."""
+    return _run_probe(_HASH_PROBE, PROBE_PASSWORD=password)
+
+
 class TestPasswordHashing:
+    """Asserted against *production* settings, not the running suite.
+
+    The suite configures MD5 for speed (config/settings/test.py explains why),
+    so reading `django.conf.settings` here would assert the suite's own
+    shortcut and pass forever no matter what production did — an inert control
+    of exactly the shape ADR-006 exists to catch. Every case below therefore
+    loads production in a clean interpreter.
+    """
+
     def test_argon2_is_the_default(self) -> None:
         """architecture.md §4.2. Stronger than Django's PBKDF2 default, and
         the winner of the Password Hashing Competition — memory-hard, so a
         GPU farm buys an attacker much less than it does against PBKDF2."""
-        from django.conf import settings
-
-        assert settings.PASSWORD_HASHERS[0] == ("django.contrib.auth.hashers.Argon2PasswordHasher")
+        assert _production_hashers()[0] == "django.contrib.auth.hashers.Argon2PasswordHasher"
 
     def test_pbkdf2_is_retained_below_it(self) -> None:
         """Not decoration. Django upgrades a hash on next successful login, so
         removing the old hasher would lock out every account created before
         the switch — it could no longer verify their stored password."""
-        from django.conf import settings
-
-        assert any("PBKDF2" in hasher for hasher in settings.PASSWORD_HASHERS[1:])
+        assert any("PBKDF2" in hasher for hasher in _production_hashers()[1:])
 
     def test_a_password_is_actually_hashed_with_argon2(self) -> None:
         """Configuration proves intent; this proves effect."""
-        from django.contrib.auth.hashers import make_password
+        assert _hash_under_production_settings("pw-for-this-test").startswith("argon2$")
 
-        assert make_password("pw-for-this-test").startswith("argon2$")
+    def test_and_the_suite_is_the_only_thing_that_relaxes_it(self) -> None:
+        """The twin, and the reason the relaxation is safe to leave in place.
+
+        If test settings ever stopped overriding the hashers this would fail,
+        which is the signal that the three cases above could have gone back to
+        reading live settings — and, more usefully, that an hour-long suite had
+        quietly returned."""
+        from django.conf import settings
+
+        assert settings.PASSWORD_HASHERS == ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 
 class TestSessionCookie:
