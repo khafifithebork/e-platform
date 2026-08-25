@@ -428,6 +428,7 @@ paths:
         cacheable at the edge (invariant 15).
 
         Read-only because there is no public write anywhere in this product.
+      summary: Browse published courses
       parameters:
       - name: cursor
         required: false
@@ -435,12 +436,27 @@ paths:
         description: The pagination cursor value.
         schema:
           type: string
+      - in: query
+        name: language
+        schema:
+          type: string
+        description: ISO 639 code, e.g. `es`.
+      - in: query
+        name: level
+        schema:
+          type: string
+        description: CEFR level, e.g. `A1`.
       - name: page_size
         required: false
         in: query
         description: Number of results to return per page.
         schema:
           type: integer
+      - in: query
+        name: skill_area
+        schema:
+          type: string
+        description: One skill tag.
       tags:
       - catalogue
       security:
@@ -452,6 +468,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedPublicCourseList'
           description: ''
+        '400':
+          description: An unrecognised filter value.
   /api/v1/catalogue/courses/{slug}/:
     get:
       operationId: catalogue_courses_retrieve

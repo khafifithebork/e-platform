@@ -328,6 +328,7 @@ export interface paths {
             cookie?: never;
         };
         /**
+         * Browse published courses
          * @description Published courses, by slug.
          *
          *     ``AllowAny`` is explicit and deliberate: DRF is configured to deny by
@@ -2521,8 +2522,14 @@ export interface operations {
             query?: {
                 /** @description The pagination cursor value. */
                 cursor?: string;
+                /** @description ISO 639 code, e.g. `es`. */
+                language?: string;
+                /** @description CEFR level, e.g. `A1`. */
+                level?: string;
                 /** @description Number of results to return per page. */
                 page_size?: number;
+                /** @description One skill tag. */
+                skill_area?: string;
             };
             header?: never;
             path?: never;
@@ -2537,6 +2544,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaginatedPublicCourseList"];
                 };
+            };
+            /** @description An unrecognised filter value. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

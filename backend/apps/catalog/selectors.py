@@ -217,3 +217,36 @@ def search_published_courses(*, query: str, limit: int = SEARCH_LIMIT):
         .filter(similarity__gte=TRIGRAM_THRESHOLD)
         .order_by("-similarity", "-published_at")[:limit]
     )
+
+
+def filtered_published_courses(*, language: str = "", level: str = "", skill_area: str = ""):
+    """The catalogue, narrowed. Every filter is optional and they compose.
+
+    Built on `published_courses()` for the same reason search is: that selector
+    is the one place the publication rule lives, and a filter is exactly the
+    kind of code that grows a second `filter(status=...)` when somebody is in a
+    hurry. Abuse case 4 sweeps every combination of these parameters to prove
+    no pairing of them is a way past it.
+
+    **Validation is not here.** An unknown level or a language code that does
+    not exist is rejected by the query serializer before this is called, so
+    this function narrows and never has to decide what a bad value means. The
+    reason that matters: the tempting behaviour for an unrecognised filter is
+    to ignore it, which returns the whole catalogue and looks to the caller
+    exactly like a filter that worked.
+
+    `skill_areas` is JSONB and matched with `contains`, which uses the column
+    rather than pulling every row into Python. There is no index on it — with
+    a curated catalogue of hundreds it does not need one, and adding a GIN
+    index nobody has measured a need for is the guess ADR-009 forbids.
+    """
+    courses = published_courses()
+
+    if language:
+        courses = courses.filter(language__code=language)
+    if level:
+        courses = courses.filter(level=level)
+    if skill_area:
+        courses = courses.filter(skill_areas__contains=[skill_area])
+
+    return courses

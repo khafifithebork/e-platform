@@ -4,7 +4,14 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from apps.catalog.models import Course, CourseReviewEvent, Language, Lesson, Section
+from apps.catalog.models import (
+    Course,
+    CourseReviewEvent,
+    Language,
+    Lesson,
+    Level,
+    Section,
+)
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -266,3 +273,29 @@ class CourseSearchResultsSerializer(serializers.Serializer):
     count = serializers.IntegerField(read_only=True)
     limit = serializers.IntegerField(read_only=True)
     truncated = serializers.BooleanField(read_only=True)
+
+
+class CourseFilterSerializer(serializers.Serializer):
+    """The catalogue's query parameters. I/O shape only (invariant 2).
+
+    Every field is optional, and an unrecognised *value* is a 400 rather than a
+    silently dropped filter. That is the whole point of validating here: a
+    filter that is ignored returns the entire catalogue, which is
+    indistinguishable to the caller from a filter that matched everything — and
+    the day a `level=A1` typo starts showing C2 courses, nothing reports it.
+
+    An unknown *parameter name* is still ignored, which is deliberate and
+    different: adding a tracking parameter to a URL must not break the page.
+    """
+
+    language = serializers.CharField(required=False, allow_blank=True, max_length=10)
+    level = serializers.ChoiceField(choices=Level.choices, required=False, allow_blank=True)
+    skill_area = serializers.CharField(required=False, allow_blank=True, max_length=50)
+
+    def validate_language(self, value: str) -> str:
+        # Checked against the table rather than a regex: the set of languages
+        # taught is data, and a code that matches the shape but teaches nothing
+        # should read as "no such language", not as an empty catalogue.
+        if value and not Language.objects.filter(code=value).exists():
+            raise serializers.ValidationError("No such language.")
+        return value
