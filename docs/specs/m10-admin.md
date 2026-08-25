@@ -1,6 +1,6 @@
 # M10 — Admin & Moderation
 
-**Status:** spec, awaiting approval to start T2
+**Status:** complete. All ten tasks shipped; see `docs/STATUS.md`.
 **Branch:** `feat/m10-admin`
 **Depends on:** M3 (review queue), M4 (`AccessOverride`, diagnostics)
 
@@ -64,6 +64,13 @@ not hold for a provider's refund API, where we do not.
 
 The service raises `RefundNotAvailable` until M8 supplies the adapter. The test
 asserts that, so the gap is visible rather than silent.
+
+> **Amended at T8.** "The audit row" above did not survive implementation, and
+> the decision above is left as written because it is the record of what was
+> settled on 2026-08-21. A refund that raised did not happen, and a row
+> describing an action that did not happen is a false record — the line this
+> suite already holds for a rejected course approval. `REFUND_ISSUED` stays in
+> the closed vocabulary as the marker and M8 makes it reachable. ADR-019 §2.
 
 ### 2.3 Audit rows are written explicitly — **settled**
 
@@ -137,8 +144,12 @@ different questions for different readers.
 
 ## 4. Abuse cases — these become the first tests
 
-1. A non-admin reaching any `/admin-api/` route is refused; an ordinary user
-   reaching the admin site is not told it exists.
+1. A non-admin reaching any `/admin-api/` route is refused — **swept over every
+   routed endpoint**, not asserted per route. An ordinary user reaching the
+   admin site is not told it exists. (The second half is **not met** and is
+   recorded as a known limit in ADR-019 §5: a visitor who finds the path sees
+   Django's login form. The controls that operate are the unguessable path,
+   `is_staff`, and mandatory TOTP.)
 2. An admin **without a confirmed 2FA device** cannot reach the admin site,
    even with correct credentials.
 3. An access override **without an expiry or a reason** is refused.
@@ -148,8 +159,13 @@ different questions for different readers.
    actor, target, reason and IP. Structural guard.
 6. An audit row cannot be edited or deleted through any surface we ship.
 7. An audit row **survives deletion of its actor**, still naming who acted.
-8. Diagnostics leaks nothing a non-admin could not already see, and no provider
-   identifiers.
+8. Diagnostics leaks nothing to a non-admin — not to a student, an instructor,
+   or a `is_staff` account without `role == ADMIN`. **Provider identifiers stay
+   in the response for administrators**, deliberately: `provider_subscription_id`
+   is the handle support needs to find the same subscription in the provider's
+   own dashboard, and this endpoint is administrators only. (Reworded at T10.
+   The original sentence read as though the field had to go, which contradicted
+   M4's serializer and its written rationale. ADR-019 §6.)
 9. The admin path appears in **no response body and no OpenAPI schema** —
    asserted against raw bytes, swept rather than spot-checked.
 10. An admin granting an override **to themselves** is recorded exactly like

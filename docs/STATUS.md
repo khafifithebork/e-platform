@@ -1,17 +1,18 @@
 # STATUS
 
 **Last updated:** 2026-08-25
-**Updated by:** agent session (M10 through T9)
+**Updated by:** agent session (M10 complete)
 
 ---
 
 ## Current milestone
 
-**M10 — Admin & Moderation. In progress — 9 of 10.**
+**M10 — Admin & Moderation. Complete — 10 of 10.**
 Branch: `feat/m10-admin`, which branches off `master` (M7 merged at `0e3124b`).
 
 Spec: `docs/specs/m10-admin.md`
-Decisions: `docs/adr/018-m10-admin-decisions.md` (before code)
+Decisions: `docs/adr/018-m10-admin-decisions.md` (before code),
+`docs/adr/019-m10-admin-implementation.md` (what implementation settled)
 
 | Task | State |
 |---|---|
@@ -24,13 +25,67 @@ Decisions: `docs/adr/018-m10-admin-decisions.md` (before code)
 | T7 audit the existing admin actions | **done** — `ac01da3` |
 | T8 refund service and audit, no provider call | **done** — `3a5cfd6` |
 | T9 audit log read surface + diagnostics extension | **done** — `0717a7b` |
-| T10 abuse cases, schema, types, ADR-019, close-out | **next** |
+| T10 abuse cases, schema, types, ADR-019, close-out | **done** — `c644502` |
 
-**1101 tests pass, none skipped**, in 82s — ruff check and format clean,
+**1114 tests pass, none skipped**, in 81s — ruff check and format clean,
 frontend `tsc` and `eslint` clean, `check --deploy` reports no issues and 0
 silenced, and the committed OpenAPI document regenerates to no diff. Run with
 Postgres *and* MinIO up, so the object-storage tests run rather than skipping.
 Nothing in the suite is unrun.
+
+### What is next
+
+**M11 — Discovery & notifications.** M8 and M9 sit earlier in §10's order and
+are both still blocked: M8 on the payment provider and jurisdiction (§11 #1),
+and additionally owes the webhook signature timestamp (ADR-013 §6) and the
+`billing:` idempotency namespace (ADR-015 §5); M9 on the trial scoping rule
+(ADR-010 §2), which must be answered before any self-serve trial ships.
+
+M8 also inherits two things from M10 that will be wrong if it forgets them: the
+refund route must move from `NOT_YET_CAPABLE` into `AUDITED` in the route
+inventory, and `admin_trail_for` must learn about subscription-targeted rows or
+the first real refund will be missing from diagnostics. The first fails a test
+until it is done; the second does not, which is why it is written here.
+
+### All ten abuse cases have a test, and two were weaker than the spec asked
+
+T10 audited §4 case by case. Eight were genuinely covered. Two were not:
+
+- **Case 1** had three hand-written per-route permission classes. It now sweeps
+  every route under `/admin-api/` from the URL conf, as anonymous, student,
+  instructor and `is_staff`-without-the-role.
+- **Case 9** says the admin path must be absent "swept rather than
+  spot-checked", and was four hand-listed URLs. It now sweeps every requestable
+  route anonymously *and* as a signed-in administrator, plus a 404 and a 403.
+  The 404 is the one worth naming: Django's **debug** 404 lists every URL
+  pattern it tried, admin included, so there is now a test asserting `DEBUG` is
+  off rather than an assumption.
+
+Both sweeps have twins asserting they visited something, and the path sweep has
+a second twin asserting the needle would be found if present. Provoked: an
+unguarded `/admin-api/` route fails three, a leaked path fails two, an unknown
+URL converter fails the coverage twin.
+
+**Case 1's second half is not met and is now recorded as such.** An ordinary
+user who finds the admin path sees Django's login form, which identifies
+itself. The controls that operate are the unguessable path, `is_staff` and
+mandatory TOTP. Changing `HardenedAdminSite` to answer 404 is a defensible
+follow-up and was declined as a behaviour change to a routed production surface
+on a milestone's closing task. ADR-019 §5.
+
+**Case 8's wording was the other correction.** It read as though diagnostics had
+to drop `provider_subscription_id`, contradicting M4's deliberate inclusion of
+it. Settled as being about what a *non-admin* learns; the spec is reworded so
+the document and the code stop disagreeing. ADR-019 §6.
+
+### ADR-019 §1 is the standing rule to carry forward
+
+**A decision recorded in an ADR is not a control until something asserts it.**
+ADR-018 §6 said `AuditLog` was registered read-only in the admin. It was never
+registered at all, and abuse case 6 passed for seven tasks because there was no
+surface to edit through. This is ADR-006's shape one level up: a control nobody
+provoked may be inert, and a control nobody *wrote* still reads as done to
+anyone holding the document that promised it.
 
 ### The suite's runtime, measured rather than guessed
 
