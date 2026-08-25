@@ -13,7 +13,10 @@ from collections.abc import Sequence
 from typing import ClassVar
 from uuid import UUID
 
+from django.contrib.postgres.search import SearchVector
 from django.db import transaction
+from django.db.models import TextField
+from django.db.models.functions import Cast
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
@@ -281,3 +284,46 @@ def reorder_lessons(*, section: Section, ordered_ids: Sequence[UUID]) -> None:
     each lesson belongs to and would silently move lessons between them.
     """
     _apply_order(queryset=Lesson.objects.filter(section=section), ordered_ids=ordered_ids)
+
+
+# Weights, and the reason each one is where it is. `A` is the strongest.
+#
+# Title A, skill areas B, description C. A learner searching "pronunciation"
+# wants the course *about* pronunciation above the one that mentions it in a
+# paragraph, and without weights those rank identically — a difference no
+# functional test can see, because both are returned either way.
+#
+# The instructor's name is deliberately not indexed. Searching for a person is
+# a different feature with different privacy questions, and adding the field
+# here would answer them by accident.
+SEARCH_WEIGHTS = (("title", "A"), ("skill_areas", "B"), ("description", "C"))
+
+
+def refresh_search_vector(*, course: Course) -> None:
+    """Rebuild one course's search vector. The only writer.
+
+    ADR-020 §3: a stored column written here rather than a database trigger.
+    The trade is that a writer bypassing this function leaves the vector stale,
+    which `test_a_direct_save_leaves_it_stale` provokes and pins rather than
+    describing in a comment.
+
+    Computed **in the database**, not in Python. `to_tsvector` is Postgres's
+    own parser and a Python reimplementation would drift from the one the
+    query side uses — matching would then depend on which half was written
+    last, which is the class of bug that only shows up as "search sometimes
+    misses things".
+
+    `skill_areas` is JSON, so it is cast to text before indexing. That indexes
+    the punctuation of the JSON array too; the tokeniser discards it, and the
+    alternative — unpacking the array in SQL — buys nothing a learner can see.
+
+    Uses `update()`, so `updated_at` does not move. Refreshing a derived column
+    is not an edit of the course, and a search reindex that made every course
+    look recently changed would corrupt any ordering built on that field.
+    """
+    vector = None
+    for field, weight in SEARCH_WEIGHTS:
+        part = SearchVector(Cast(field, TextField()), weight=weight, config="english")
+        vector = part if vector is None else vector + part
+
+    Course.objects.filter(pk=course.pk).update(search_vector=vector)

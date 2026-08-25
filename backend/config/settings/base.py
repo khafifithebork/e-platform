@@ -42,6 +42,9 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Ships with Django; no new dependency. Provides SearchVectorField,
+    # GinIndex and the CONCURRENTLY index operations M11 needs.
+    "django.contrib.postgres",
 ]
 
 THIRD_PARTY_APPS = [
