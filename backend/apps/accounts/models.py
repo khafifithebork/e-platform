@@ -201,6 +201,22 @@ class InstructorProfile(UUIDPrimaryKeyModel, TimestampedModel):
         on_delete=models.CASCADE,
         related_name="instructor_profile",
     )
+    # The name the public catalogue shows. It lives here rather than on `User`
+    # because `User` is the authentication record and carries no personal
+    # detail at all — `StudentProfile` holds the learner's equivalent, and this
+    # is the symmetry that was missing.
+    #
+    # Blank is allowed and means "no name to show", which the catalogue renders
+    # as an empty string rather than omitting the field. An absent field and an
+    # unset one are different facts, and M11 shipped for a while unable to tell
+    # them apart: the serializer pointed at a method `User` does not have, and
+    # `read_only` turned that into a silent `SkipField`.
+    display_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Shown on the public catalogue. Blank shows nothing.",
+    )
+
     headline = models.CharField(max_length=200, blank=True)
     bio = models.TextField(blank=True)
 

@@ -1891,6 +1891,7 @@ export interface components {
             level: components["schemas"]["LevelEnum"];
             /** @description Free-form tags, e.g. ['listening', 'grammar']. */
             skill_areas?: unknown;
+            /** @description The instructor's public name. Empty when they have not set one. */
             readonly instructor_name: string;
             /**
              * Format: date-time
@@ -1923,6 +1924,7 @@ export interface components {
             level: components["schemas"]["LevelEnum"];
             /** @description Free-form tags, e.g. ['listening', 'grammar']. */
             skill_areas?: unknown;
+            /** @description The instructor's public name. Empty when they have not set one. */
             readonly instructor_name: string;
             /**
              * Format: date-time

@@ -3338,6 +3338,8 @@ components:
           description: Free-form tags, e.g. ['listening', 'grammar'].
         instructor_name:
           type: string
+          description: The instructor's public name. Empty when they have not set
+            one.
           readOnly: true
         published_at:
           type: string
@@ -3391,6 +3393,8 @@ components:
           description: Free-form tags, e.g. ['listening', 'grammar'].
         instructor_name:
           type: string
+          description: The instructor's public name. Empty when they have not set
+            one.
           readOnly: true
         published_at:
           type: string

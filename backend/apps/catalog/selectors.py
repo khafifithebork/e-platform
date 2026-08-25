@@ -89,7 +89,12 @@ def published_courses():
     """
     return (
         Course.objects.filter(status=CourseStatus.PUBLISHED)
-        .select_related("language", "instructor")
+        # `instructor__instructor_profile` because the card renders the
+        # instructor's public name. Without it that is one query per course,
+        # and the fan-out is invisible until the catalogue has more than a
+        # handful of rows — measured in `test_query_counts.py` at two dataset
+        # sizes rather than reasoned about (ADR-009).
+        .select_related("language", "instructor", "instructor__instructor_profile")
         .order_by("-published_at")
     )
 
