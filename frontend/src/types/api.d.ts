@@ -328,6 +328,7 @@ export interface paths {
             cookie?: never;
         };
         /**
+         * Browse published courses
          * @description Published courses, by slug.
          *
          *     ``AllowAny`` is explicit and deliberate: DRF is configured to deny by
@@ -392,6 +393,40 @@ export interface paths {
          *     is a handful, and a paginated filter control is a worse control.
          */
         get: operations["catalogue_languages_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalogue/search/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search published courses
+         * @description Search the published catalogue.
+         *
+         *     Its own endpoint rather than a `?q=` on the course list, because the two
+         *     have incompatible shapes: the list is cursor-paginated by publication date,
+         *     and results here are ranked and capped (ADR-020 §4). Bolting a query
+         *     parameter onto the list would mean one endpoint whose pagination silently
+         *     changes meaning depending on whether a parameter is present.
+         *
+         *     Its own throttle scope for the same reason it is capped: a ranked query
+         *     over a GIN index is the most expensive thing an anonymous visitor can ask
+         *     this service to do, and the catalogue scope is sized for browsing.
+         *
+         *     `AllowAny` with no authentication, matching the rest of this module — a
+         *     signed-in visitor and an anonymous one must get identical results, because
+         *     search reads only published rows and there is nothing to personalise.
+         */
+        get: operations["catalogue_search_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1299,6 +1334,24 @@ export interface components {
             readonly created_at: string;
         };
         /**
+         * @description Search results, and the fact that they are capped.
+         *
+         *     `truncated` is not decoration. ADR-020 §4 caps results at 50 with no
+         *     pagination, and a client that cannot tell a full list from a cut one will
+         *     render "3 results" and "50 results" the same way — the second being a lie
+         *     by omission. Saying so is what makes the cap honest rather than hidden.
+         *
+         *     `count` is the number returned, deliberately **not** a total. A total costs
+         *     a second query over the whole match set on every search, and nothing in the
+         *     product needs it: there is no page 2 to size.
+         */
+        CourseSearchResults: {
+            readonly results: components["schemas"]["PublicCourse"][];
+            readonly count: number;
+            readonly limit: number;
+            readonly truncated: boolean;
+        };
+        /**
          * @description * `DRAFT` - Draft
          *     * `IN_REVIEW` - In review
          *     * `PUBLISHED` - Published
@@ -1848,6 +1901,16 @@ export interface components {
         /**
          * @description The card plus the curriculum. Structure sells the course; content does
          *     not appear until someone is entitled to it.
+         *
+         *     `related` is embedded rather than served from its own endpoint. It belongs
+         *     to this page and nothing else asks for it, so a second route would be a
+         *     second round trip for data the first response already knows — and invariant
+         *     15 makes public pages statically generated, so the cost is paid at build
+         *     time rather than per visitor.
+         *
+         *     `PublicCourseSerializer`, not this class, for the related items: a related
+         *     course rendering *its* curriculum and *its* related courses would recurse,
+         *     and a strip of cards needs neither.
          */
         PublicCourseDetail: {
             /** Format: uuid */
@@ -1867,6 +1930,7 @@ export interface components {
              */
             published_at?: string | null;
             readonly sections: components["schemas"]["PublicSection"][];
+            readonly related: components["schemas"]["PublicCourse"][];
         };
         /**
          * @description A lesson as an anonymous visitor sees it: a title and a shape.
@@ -2469,8 +2533,14 @@ export interface operations {
             query?: {
                 /** @description The pagination cursor value. */
                 cursor?: string;
+                /** @description ISO 639 code, e.g. `es`. */
+                language?: string;
+                /** @description CEFR level, e.g. `A1`. */
+                level?: string;
                 /** @description Number of results to return per page. */
                 page_size?: number;
+                /** @description One skill tag. */
+                skill_area?: string;
             };
             header?: never;
             path?: never;
@@ -2485,6 +2555,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaginatedPublicCourseList"];
                 };
+            };
+            /** @description An unrecognised filter value. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2531,6 +2608,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Language"][];
+                };
+            };
+        };
+    };
+    catalogue_search_retrieve: {
+        parameters: {
+            query: {
+                /** @description Search terms. Truncated at 200 characters. */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseSearchResults"];
                 };
             };
         };

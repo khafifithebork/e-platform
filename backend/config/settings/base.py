@@ -42,6 +42,9 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Ships with Django; no new dependency. Provides SearchVectorField,
+    # GinIndex and the CONCURRENTLY index operations M11 needs.
+    "django.contrib.postgres",
 ]
 
 THIRD_PARTY_APPS = [
@@ -63,6 +66,7 @@ LOCAL_APPS = [
     "apps.media_assets",
     "apps.transcripts",
     "apps.learning",
+    "apps.notifications",
 ]
 
 INSTALLED_APPS = [*DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]
@@ -325,6 +329,12 @@ REST_FRAMEWORK = {
         # anonymous limit would throttle ordinary use. A starting figure, not
         # a measured one: revisit when there is traffic to measure.
         "catalogue": "120/min",
+        # Ranked full-text over a GIN index is the most expensive thing an
+        # anonymous visitor can ask this service to do, and unlike browsing
+        # it is not something a person does several times per page. Tighter
+        # than the catalogue on purpose. A starting figure, not a measured
+        # one — revisit when there is traffic to measure.
+        "search": "30/min",
         # Each call signs a URL that can write to our bucket, so an
         # unthrottled version mints write grants without uploading through us.
         "media_upload": "30/hour",

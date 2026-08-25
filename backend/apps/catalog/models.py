@@ -9,6 +9,8 @@ enforce it are in ``services.py`` rather than scattered through views
 
 from typing import ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 
 from apps.accounts.models import User
@@ -114,6 +116,17 @@ class Course(UUIDPrimaryKeyModel, TimestampedModel):
         help_text="Set when an admin approves. Null means it has never been live.",
     )
 
+    # Written by `services.refresh_search_vector`, never from a request body.
+    # Null means "never refreshed" — a new row, or one the backfill has not
+    # reached — and is deliberately distinguishable from an empty vector, which
+    # would mean a course whose words are all stop words.
+    #
+    # ADR-020 §3 chose this over a database trigger: a trigger cannot drift,
+    # and it also cannot be seen from the service layer that everything else in
+    # this codebase is read through. The drift is pinned by
+    # `test_a_direct_save_leaves_it_stale` rather than left as a footnote.
+    search_vector = SearchVectorField(null=True, editable=False)
+
     class Meta:
         ordering: ClassVar[list[str]] = ["-created_at"]
         indexes: ClassVar[list] = [
@@ -127,6 +140,10 @@ class Course(UUIDPrimaryKeyModel, TimestampedModel):
                 condition=models.Q(status=CourseStatus.PUBLISHED),
                 name="course_published_recent",
             ),
+            # The search index. GIN over the stored vector is what makes a
+            # `@@` lookup an index scan rather than a sequential one — without
+            # it the column is a slower way to do what `icontains` already did.
+            GinIndex(fields=["search_vector"], name="course_search_vector_gin"),
         ]
         constraints: ClassVar[list] = [
             # A published course must have a publication date, and an

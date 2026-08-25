@@ -1,0 +1,10 @@
+{% autoescape off %}Your course "{{ course_title }}" has been reviewed.
+
+Decision: {{ decision }}
+{% if notes %}
+Notes from the reviewer:
+
+{{ notes }}
+{% else %}
+The reviewer recorded no notes.
+{% endif %}{% endautoescape %}

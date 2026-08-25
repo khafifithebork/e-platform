@@ -428,6 +428,7 @@ paths:
         cacheable at the edge (invariant 15).
 
         Read-only because there is no public write anywhere in this product.
+      summary: Browse published courses
       parameters:
       - name: cursor
         required: false
@@ -435,12 +436,27 @@ paths:
         description: The pagination cursor value.
         schema:
           type: string
+      - in: query
+        name: language
+        schema:
+          type: string
+        description: ISO 639 code, e.g. `es`.
+      - in: query
+        name: level
+        schema:
+          type: string
+        description: CEFR level, e.g. `A1`.
       - name: page_size
         required: false
         in: query
         description: Number of results to return per page.
         schema:
           type: integer
+      - in: query
+        name: skill_area
+        schema:
+          type: string
+        description: One skill tag.
       tags:
       - catalogue
       security:
@@ -452,6 +468,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedPublicCourseList'
           description: ''
+        '400':
+          description: An unrecognised filter value.
   /api/v1/catalogue/courses/{slug}/:
     get:
       operationId: catalogue_courses_retrieve
@@ -508,6 +526,44 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Language'
+          description: ''
+  /api/v1/catalogue/search/:
+    get:
+      operationId: catalogue_search_retrieve
+      description: |-
+        Search the published catalogue.
+
+        Its own endpoint rather than a `?q=` on the course list, because the two
+        have incompatible shapes: the list is cursor-paginated by publication date,
+        and results here are ranked and capped (ADR-020 §4). Bolting a query
+        parameter onto the list would mean one endpoint whose pagination silently
+        changes meaning depending on whether a parameter is present.
+
+        Its own throttle scope for the same reason it is capped: a ranked query
+        over a GIN index is the most expensive thing an anonymous visitor can ask
+        this service to do, and the catalogue scope is sized for browsing.
+
+        `AllowAny` with no authentication, matching the rest of this module — a
+        signed-in visitor and an anonymous one must get identical results, because
+        search reads only published rows and there is nothing to personalise.
+      summary: Search published courses
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search terms. Truncated at 200 characters.
+        required: true
+      tags:
+      - catalogue
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseSearchResults'
           description: ''
   /api/v1/instructor/courses/:
     get:
@@ -2273,6 +2329,39 @@ components:
       - created_at
       - id
       - notes
+    CourseSearchResults:
+      type: object
+      description: |-
+        Search results, and the fact that they are capped.
+
+        `truncated` is not decoration. ADR-020 §4 caps results at 50 with no
+        pagination, and a client that cannot tell a full list from a cut one will
+        render "3 results" and "50 results" the same way — the second being a lie
+        by omission. Saying so is what makes the cap honest rather than hidden.
+
+        `count` is the number returned, deliberately **not** a total. A total costs
+        a second query over the whole match set on every search, and nothing in the
+        product needs it: there is no page 2 to size.
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicCourse'
+          readOnly: true
+        count:
+          type: integer
+          readOnly: true
+        limit:
+          type: integer
+          readOnly: true
+        truncated:
+          type: boolean
+          readOnly: true
+      required:
+      - count
+      - limit
+      - results
+      - truncated
     CourseStatusEnum:
       enum:
       - DRAFT
@@ -3267,6 +3356,16 @@ components:
       description: |-
         The card plus the curriculum. Structure sells the course; content does
         not appear until someone is entitled to it.
+
+        `related` is embedded rather than served from its own endpoint. It belongs
+        to this page and nothing else asks for it, so a second route would be a
+        second round trip for data the first response already knows — and invariant
+        15 makes public pages statically generated, so the cost is paid at build
+        time rather than per visitor.
+
+        `PublicCourseSerializer`, not this class, for the related items: a related
+        course rendering *its* curriculum and *its* related courses would recurse,
+        and a strip of cards needs neither.
       properties:
         id:
           type: string
@@ -3303,11 +3402,17 @@ components:
           items:
             $ref: '#/components/schemas/PublicSection'
           readOnly: true
+        related:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicCourse'
+          readOnly: true
       required:
       - id
       - instructor_name
       - language
       - level
+      - related
       - sections
       - slug
       - title

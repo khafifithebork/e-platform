@@ -4,7 +4,14 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from apps.catalog.models import Course, CourseReviewEvent, Language, Lesson, Section
+from apps.catalog.models import (
+    Course,
+    CourseReviewEvent,
+    Language,
+    Lesson,
+    Level,
+    Section,
+)
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -209,12 +216,29 @@ class PublicCourseSerializer(serializers.ModelSerializer):
 
 class PublicCourseDetailSerializer(PublicCourseSerializer):
     """The card plus the curriculum. Structure sells the course; content does
-    not appear until someone is entitled to it."""
+    not appear until someone is entitled to it.
+
+    `related` is embedded rather than served from its own endpoint. It belongs
+    to this page and nothing else asks for it, so a second route would be a
+    second round trip for data the first response already knows — and invariant
+    15 makes public pages statically generated, so the cost is paid at build
+    time rather than per visitor.
+
+    `PublicCourseSerializer`, not this class, for the related items: a related
+    course rendering *its* curriculum and *its* related courses would recurse,
+    and a strip of cards needs neither.
+    """
 
     sections = PublicSectionSerializer(many=True, read_only=True)
 
+    related = PublicCourseSerializer(many=True, read_only=True)
+
     class Meta(PublicCourseSerializer.Meta):
-        fields: ClassVar[list[str]] = [*PublicCourseSerializer.Meta.fields, "sections"]
+        fields: ClassVar[list[str]] = [
+            *PublicCourseSerializer.Meta.fields,
+            "sections",
+            "related",
+        ]
 
 
 class GatedLessonSerializer(serializers.ModelSerializer):
@@ -247,3 +271,48 @@ class GatedLessonSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields: ClassVar[list[str]] = fields
+
+
+class CourseSearchResultsSerializer(serializers.Serializer):
+    """Search results, and the fact that they are capped.
+
+    `truncated` is not decoration. ADR-020 §4 caps results at 50 with no
+    pagination, and a client that cannot tell a full list from a cut one will
+    render "3 results" and "50 results" the same way — the second being a lie
+    by omission. Saying so is what makes the cap honest rather than hidden.
+
+    `count` is the number returned, deliberately **not** a total. A total costs
+    a second query over the whole match set on every search, and nothing in the
+    product needs it: there is no page 2 to size.
+    """
+
+    results = PublicCourseSerializer(many=True, read_only=True)
+    count = serializers.IntegerField(read_only=True)
+    limit = serializers.IntegerField(read_only=True)
+    truncated = serializers.BooleanField(read_only=True)
+
+
+class CourseFilterSerializer(serializers.Serializer):
+    """The catalogue's query parameters. I/O shape only (invariant 2).
+
+    Every field is optional, and an unrecognised *value* is a 400 rather than a
+    silently dropped filter. That is the whole point of validating here: a
+    filter that is ignored returns the entire catalogue, which is
+    indistinguishable to the caller from a filter that matched everything — and
+    the day a `level=A1` typo starts showing C2 courses, nothing reports it.
+
+    An unknown *parameter name* is still ignored, which is deliberate and
+    different: adding a tracking parameter to a URL must not break the page.
+    """
+
+    language = serializers.CharField(required=False, allow_blank=True, max_length=10)
+    level = serializers.ChoiceField(choices=Level.choices, required=False, allow_blank=True)
+    skill_area = serializers.CharField(required=False, allow_blank=True, max_length=50)
+
+    def validate_language(self, value: str) -> str:
+        # Checked against the table rather than a regex: the set of languages
+        # taught is data, and a code that matches the shape but teaches nothing
+        # should read as "no such language", not as an empty catalogue.
+        if value and not Language.objects.filter(code=value).exists():
+            raise serializers.ValidationError("No such language.")
+        return value

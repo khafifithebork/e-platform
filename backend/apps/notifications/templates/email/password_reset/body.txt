@@ -1,0 +1,5 @@
+{% autoescape off %}Use this token to set a new password:
+
+{{ token }}
+
+It expires in one hour. If you did not ask to reset your password, you can ignore this message - nothing has changed.{% endautoescape %}

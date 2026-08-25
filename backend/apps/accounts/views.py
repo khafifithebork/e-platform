@@ -13,7 +13,6 @@ be able to learn which ones have accounts here.
 from typing import ClassVar
 
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.core.mail import send_mail
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_safe
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -45,6 +44,11 @@ from apps.accounts.services import (
     reset_password,
     verify_email,
 )
+from apps.notifications.emails import (
+    send_password_changed_email,
+    send_password_reset_email,
+    send_verification_email,
+)
 
 # One response for every registration outcome. Returned whether the account was
 # created, the address was already taken, or nothing happened at all.
@@ -60,25 +64,12 @@ RESEND_ACCEPTED = {
 def _send_verification_email(*, email: str, token: str) -> None:
     """Deliver the raw token.
 
-    Django's email framework rather than a provider adapter: this speaks SMTP,
-    which Mailpit serves locally and Resend serves in production, so invariant
-    4 is not engaged until we call a vendor's HTTP API.
-
-    A plain-text body for now. Templates and branding arrive with the
-    notifications app.
+    A thin shim over `notifications.emails`, kept because the call sites below
+    read better for it and because the token is the only thing this layer
+    knows. The body and subject moved into templates in T7; T6 had already
+    moved the sending itself off the request path.
     """
-    send_mail(
-        subject="Verify your email address",
-        message=(
-            "Welcome. Use this token to verify your email address:\n\n"
-            f"{token}\n\n"
-            "It expires in 24 hours. If you did not create an account, "
-            "you can ignore this message."
-        ),
-        from_email=None,
-        recipient_list=[email],
-        fail_silently=False,
-    )
+    send_verification_email(to=email, token=token)
 
 
 @extend_schema(
@@ -290,18 +281,7 @@ PASSWORD_RESET_ACCEPTED = {"detail": "If that address has an account, a reset li
 
 
 def _send_password_reset_email(*, email: str, token: str) -> None:
-    send_mail(
-        subject="Reset your password",
-        message=(
-            "Use this token to set a new password:\n\n"
-            f"{token}\n\n"
-            "It expires in one hour. If you did not ask to reset your "
-            "password, you can ignore this message — nothing has changed."
-        ),
-        from_email=None,
-        recipient_list=[email],
-        fail_silently=False,
-    )
+    send_password_reset_email(to=email, token=token)
 
 
 @extend_schema(
@@ -402,6 +382,11 @@ class PasswordChangeView(APIView):
         # because changing the password rotates the session auth hash. Other
         # sessions still die, which is the intent.
         update_session_auth_hash(request, request.user)
+
+        # After the change, not before: the notice should describe something
+        # that happened. The person who most needs it is the one who did not
+        # do it.
+        send_password_changed_email(to=request.user.email)
 
         return Response({"detail": "Password changed."}, status=status.HTTP_200_OK)
 

@@ -1,0 +1,5 @@
+{% autoescape off %}{{ instructor_name }} submitted a course for review:
+
+{{ course_title }}
+
+Review it in the admin site.{% endautoescape %}

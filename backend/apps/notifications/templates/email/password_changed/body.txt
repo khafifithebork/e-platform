@@ -1,0 +1,7 @@
+{% autoescape off %}Your password was changed just now.
+
+If that was you, there is nothing to do.
+
+If it was not, your account may be compromised. Reset your password immediately from the sign-in page, and do so from a device you trust.
+
+This message contains no links on purpose: a security notice that asks you to click something is a template anyone can copy.{% endautoescape %}

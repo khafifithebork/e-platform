@@ -269,3 +269,37 @@ class TestProgressWritesAreRationed:
 
         assert statuses[-1] == 429
         assert statuses[:limit] == [200] * limit
+
+
+class TestSearchIsRationed:
+    """Ranked full text over a GIN index is the most expensive thing an
+    anonymous visitor can ask this service to do, and unlike browsing it is not
+    something a person does several times per page.
+
+    Here rather than beside the search tests for the reason this module's
+    docstring gives, and which M5 and M11 have both now learned: DRF binds
+    `SimpleRateThrottle.THROTTLE_RATES` as a class attribute when
+    `rest_framework.throttling` is first imported, so in a module whose
+    fixtures raise every rate to 10000/hour a per-test override never takes
+    effect and the test reads exactly like an inert throttle.
+    """
+
+    @pytest.mark.django_db
+    def test_search_stops_after_its_limit(self, client, settings) -> None:
+        limit = int(settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["search"].split("/")[0])
+
+        path = "/api/v1/catalogue/search/"
+        statuses = [client.get(path, {"q": "spanish"}).status_code for _ in range(limit + 1)]
+
+        assert statuses[-1] == 429
+        assert statuses[:limit] == [200] * limit
+
+    @pytest.mark.django_db
+    def test_it_is_tighter_than_browsing(self, settings) -> None:
+        """The positive half. A search scope equal to the catalogue's would be
+        a scope in name only — the point of a separate one is that it differs.
+        """
+        rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        per_minute = {key: int(rates[key].split("/")[0]) for key in ("search", "catalogue")}
+
+        assert per_minute["search"] < per_minute["catalogue"]

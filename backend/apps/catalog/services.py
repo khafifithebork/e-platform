@@ -13,12 +13,20 @@ from collections.abc import Sequence
 from typing import ClassVar
 from uuid import UUID
 
+from django.contrib.postgres.search import SearchVector
 from django.db import transaction
+from django.db.models import TextField
+from django.db.models.functions import Cast
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
+from apps.accounts.selectors import administrator_emails
 from apps.catalog.models import Course, CourseReviewEvent, CourseStatus, Lesson, Section
 from apps.core.audit import AdminAction, record_admin_action
+from apps.notifications.emails import (
+    send_course_reviewed_email,
+    send_course_submitted_email,
+)
 
 
 class InvalidTransition(Exception):
@@ -97,6 +105,13 @@ def submit_for_review(*, course: Course, by: User) -> Course:
         actor=by,
         action=CourseReviewEvent.Action.SUBMITTED,
     )
+
+    # architecture.md:218. Queued on commit rather than inline: this function
+    # is not atomic today, but its callers may become so, and a task that runs
+    # before its transaction commits sends mail about something that has not
+    # happened — or that then rolls back.
+    _notify_reviewers(course)
+
     return course
 
 
@@ -139,6 +154,9 @@ def approve(*, course: Course, by: User, notes: str = "", request=None) -> Cours
         request=request,
         course_slug=course.slug,
     )
+
+    _notify_instructor_of_review(course, decision="Approved", notes=notes)
+
     return course
 
 
@@ -164,6 +182,17 @@ def _return_to_draft(*, course: Course, by: User, action: str, notes: str, reque
         request=request,
         course_slug=course.slug,
     )
+
+    _notify_instructor_of_review(
+        course,
+        decision=(
+            "Changes requested"
+            if action == CourseReviewEvent.Action.CHANGES_REQUESTED
+            else "Rejected"
+        ),
+        notes=notes,
+    )
+
     return course
 
 
@@ -281,3 +310,93 @@ def reorder_lessons(*, section: Section, ordered_ids: Sequence[UUID]) -> None:
     each lesson belongs to and would silently move lessons between them.
     """
     _apply_order(queryset=Lesson.objects.filter(section=section), ordered_ids=ordered_ids)
+
+
+# Weights, and the reason each one is where it is. `A` is the strongest.
+#
+# Title A, skill areas B, description C. A learner searching "pronunciation"
+# wants the course *about* pronunciation above the one that mentions it in a
+# paragraph, and without weights those rank identically — a difference no
+# functional test can see, because both are returned either way.
+#
+# The instructor's name is deliberately not indexed. Searching for a person is
+# a different feature with different privacy questions, and adding the field
+# here would answer them by accident.
+SEARCH_WEIGHTS = (("title", "A"), ("skill_areas", "B"), ("description", "C"))
+
+
+def refresh_search_vector(*, course: Course) -> None:
+    """Rebuild one course's search vector. The only writer.
+
+    ADR-020 §3: a stored column written here rather than a database trigger.
+    The trade is that a writer bypassing this function leaves the vector stale,
+    which `test_a_direct_save_leaves_it_stale` provokes and pins rather than
+    describing in a comment.
+
+    Computed **in the database**, not in Python. `to_tsvector` is Postgres's
+    own parser and a Python reimplementation would drift from the one the
+    query side uses — matching would then depend on which half was written
+    last, which is the class of bug that only shows up as "search sometimes
+    misses things".
+
+    `skill_areas` is JSON, so it is cast to text before indexing. That indexes
+    the punctuation of the JSON array too; the tokeniser discards it, and the
+    alternative — unpacking the array in SQL — buys nothing a learner can see.
+
+    Uses `update()`, so `updated_at` does not move. Refreshing a derived column
+    is not an edit of the course, and a search reindex that made every course
+    look recently changed would corrupt any ordering built on that field.
+    """
+    vector = None
+    for field, weight in SEARCH_WEIGHTS:
+        part = SearchVector(Cast(field, TextField()), weight=weight, config="english")
+        vector = part if vector is None else vector + part
+
+    Course.objects.filter(pk=course.pk).update(search_vector=vector)
+
+
+def _notify_reviewers(course: Course) -> None:
+    """Tell every administrator a course is waiting.
+
+    On commit, always. `submit_for_review` is not wrapped in a transaction
+    today and this fires immediately there — but the guarantee has to belong to
+    the notification rather than to whichever caller happens to be atomic, or
+    it is a correctness property somebody can remove by adding a decorator
+    somewhere else.
+
+    One message per administrator, because the provider interface takes a
+    single recipient (`OutboundEmail.to`). A bcc list is how a transactional
+    message reaches somebody it was not about.
+    """
+    title = course.title
+    # The address, because there is no name to use: `User` has no name field at
+    # all (`display_name` lives on `StudentProfile`, which an instructor need
+    # not have). This message goes to administrators, who can already see
+    # addresses in diagnostics, so it is the honest identifier rather than a
+    # placeholder. See the T7 note about `PublicCourseSerializer`.
+    instructor_name = course.instructor.email
+
+    def notify() -> None:
+        for address in administrator_emails():
+            send_course_submitted_email(
+                to=address, course_title=title, instructor_name=instructor_name
+            )
+
+    transaction.on_commit(notify)
+
+
+def _notify_instructor_of_review(course: Course, *, decision: str, notes: str) -> None:
+    """Tell the instructor what a reviewer decided.
+
+    On commit, and here it matters: `approve` and `_return_to_draft` are
+    atomic, so an inline enqueue could deliver "your course was approved"
+    for a transaction that then rolled back.
+    """
+    address = course.instructor.email
+    title = course.title
+    cleaned = notes.strip()
+
+    def notify() -> None:
+        send_course_reviewed_email(to=address, course_title=title, decision=decision, notes=cleaned)
+
+    transaction.on_commit(notify)

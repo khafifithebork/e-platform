@@ -9,7 +9,11 @@ can act on the prefix without knowing anything about the views behind it.
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from apps.catalog.public_views import PublicCourseViewSet, PublicLanguageView
+from apps.catalog.public_views import (
+    CourseSearchView,
+    PublicCourseViewSet,
+    PublicLanguageView,
+)
 
 app_name = "catalogue"
 
@@ -17,6 +21,7 @@ router = DefaultRouter()
 router.register("courses", PublicCourseViewSet, basename="public-course")
 
 urlpatterns = [
+    path("search/", CourseSearchView.as_view(), name="course-search"),
     path("languages/", PublicLanguageView.as_view(), name="public-languages"),
     *router.urls,
 ]

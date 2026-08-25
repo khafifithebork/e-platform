@@ -30,6 +30,7 @@ from apps.catalog.services import (
     InvalidReorder,
     InvalidTransition,
     NotPermitted,
+    refresh_search_vector,
     reorder_lessons,
     reorder_sections,
     submit_for_review,
@@ -65,7 +66,16 @@ class InstructorCourseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Ownership from the session. `instructor` is read-only on the
         # serializer, so a value in the body reaches nothing.
-        serializer.save(instructor=self.request.user)
+        course = serializer.save(instructor=self.request.user)
+        refresh_search_vector(course=course)
+
+    def perform_update(self, serializer):
+        # The searchable fields — title, description, skill_areas — are all
+        # writable here, so this is the write path a learner's search depends
+        # on. ADR-020 §3 accepted that a writer bypassing the refresher drifts;
+        # this is the one that must not.
+        course = serializer.save()
+        refresh_search_vector(course=course)
 
     @extend_schema(
         request=None,
