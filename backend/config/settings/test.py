@@ -75,3 +75,20 @@ CACHES = {
 # Relaxing this here cannot hide a regression there, and the tests were
 # provoked against a PBKDF2-first base.py to confirm they still fail.
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+# Tasks run inline, because from M11 a request path enqueues one: registration
+# and password reset hand their email to Celery instead of sending it in the
+# view. Without this the suite needs a live broker to register an account.
+#
+# **This does not change how tasks are tested.** Every task test in this suite
+# calls `.apply()` explicitly, which was already inline; this only affects
+# `.delay()` reached through a view. The M5 finding still stands and is the
+# reason for that convention: inline execution runs retries inline too, so a
+# test watching for a `Retry` exception reports "did not raise" against code
+# that retries correctly.
+#
+# `task_eager_propagates` is left at its default of False on purpose. In
+# production `.delay()` returns before the task runs, so a failing email cannot
+# fail a registration; propagating here would make the suite disagree with
+# production about what a broken task does to the request that queued it.
+CELERY_TASK_ALWAYS_EAGER = True

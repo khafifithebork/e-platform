@@ -13,7 +13,6 @@ be able to learn which ones have accounts here.
 from typing import ClassVar
 
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.core.mail import send_mail
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_safe
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -45,6 +44,7 @@ from apps.accounts.services import (
     reset_password,
     verify_email,
 )
+from apps.notifications.services import send_transactional_email
 
 # One response for every registration outcome. Returned whether the account was
 # created, the address was already taken, or nothing happened at all.
@@ -60,24 +60,27 @@ RESEND_ACCEPTED = {
 def _send_verification_email(*, email: str, token: str) -> None:
     """Deliver the raw token.
 
-    Django's email framework rather than a provider adapter: this speaks SMTP,
-    which Mailpit serves locally and Resend serves in production, so invariant
-    4 is not engaged until we call a vendor's HTTP API.
+    **Queued, not sent here.** M11 T6 moved this off the request path: the
+    original called `send_mail` inline, so a learner's registration latency was
+    a function of an SMTP handshake and a slow mail server was a slow signup.
 
-    A plain-text body for now. Templates and branding arrive with the
-    notifications app.
+    The original docstring argued invariant 4 was not engaged because Django's
+    framework speaks SMTP and so does Resend. That argument still holds, and
+    the adapter was not built to overturn it — it was built because T7 adds
+    five more of these, and five call sites that each know how to send mail is
+    the shape that becomes a provider migration later.
+
+    A plain-text body for now. Templates and branding arrive with T7.
     """
-    send_mail(
+    send_transactional_email(
+        to=email,
         subject="Verify your email address",
-        message=(
+        body=(
             "Welcome. Use this token to verify your email address:\n\n"
             f"{token}\n\n"
             "It expires in 24 hours. If you did not create an account, "
             "you can ignore this message."
         ),
-        from_email=None,
-        recipient_list=[email],
-        fail_silently=False,
     )
 
 
@@ -290,17 +293,15 @@ PASSWORD_RESET_ACCEPTED = {"detail": "If that address has an account, a reset li
 
 
 def _send_password_reset_email(*, email: str, token: str) -> None:
-    send_mail(
+    send_transactional_email(
+        to=email,
         subject="Reset your password",
-        message=(
+        body=(
             "Use this token to set a new password:\n\n"
             f"{token}\n\n"
             "It expires in one hour. If you did not ask to reset your "
             "password, you can ignore this message — nothing has changed."
         ),
-        from_email=None,
-        recipient_list=[email],
-        fail_silently=False,
     )
 
 
