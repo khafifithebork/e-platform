@@ -33,7 +33,10 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 # asserts nothing under apps/ has pending migrations.
 # ---------------------------------------------------------------------------
 DJANGO_APPS = [
-    "django.contrib.admin",
+    # Not `django.contrib.admin`: this AppConfig swaps in an AdminSite that
+    # requires a verified OTP device (architecture.md §8). Listing it here is
+    # what makes 2FA unavoidable rather than per-ModelAdmin.
+    "apps.core.admin_apps.HardenedAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -45,6 +48,11 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "drf_spectacular",
     "axes",
+    # Two-factor authentication for the admin site (architecture.md §8). Only
+    # TOTP is enabled: static tokens are a recovery mechanism this project has
+    # no process for yet, and an unused recovery path is a second way in.
+    "django_otp",
+    "django_otp.plugins.otp_totp",
 ]
 
 LOCAL_APPS = [
@@ -69,6 +77,11 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Immediately after authentication, and the order is the control: it reads
+    # the session for a confirmed device and attaches `is_verified()` to the
+    # user. Before AuthenticationMiddleware there is no user to verify, and
+    # `is_verified()` would not exist for the admin site to consult.
+    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Last, as django-axes requires: it needs the authentication middleware to

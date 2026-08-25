@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.catalog.models import Course, CourseReviewEvent, CourseStatus, Lesson, Section
+from apps.core.audit import AdminAction, record_admin_action
 
 
 class InvalidTransition(Exception):
@@ -48,6 +49,15 @@ ALLOWED_TRANSITIONS: ClassVar[set[tuple[str, str]]] = {
     (CourseStatus.PUBLISHED, CourseStatus.ARCHIVED),
     # An archived course can be worked on again, but must be reviewed afresh.
     (CourseStatus.ARCHIVED, CourseStatus.DRAFT),
+}
+
+
+#: Which administrative action each review decision records. A dict rather
+#: than branching at the call site, so a new review decision that forgets its
+#: audit action fails with a KeyError here instead of silently writing nothing.
+_AUDIT_FOR_REVIEW_ACTION = {
+    CourseReviewEvent.Action.REJECTED: AdminAction.COURSE_REJECTED,
+    CourseReviewEvent.Action.CHANGES_REQUESTED: AdminAction.COURSE_CHANGES_REQUESTED,
 }
 
 
@@ -91,10 +101,16 @@ def submit_for_review(*, course: Course, by: User) -> Course:
 
 
 @transaction.atomic
-def approve(*, course: Course, by: User, notes: str = "") -> Course:
+def approve(*, course: Course, by: User, notes: str = "", request=None) -> Course:
     """An admin approves a submitted course, which publishes it.
 
     The only route to PUBLISHED in the system.
+
+    Writes two rows, and they are not duplicates (ADR-018 §8). The
+    `CourseReviewEvent` is the course's own history, shown to the instructor
+    who submitted it. The audit row is the administrative trail, read when
+    answering "what has this account done" — §8 lists course approval among
+    the actions that must appear there.
     """
     _require_admin(by)
     _require_transition(course, CourseStatus.PUBLISHED)
@@ -111,10 +127,22 @@ def approve(*, course: Course, by: User, notes: str = "") -> Course:
         action=CourseReviewEvent.Action.APPROVED,
         notes=notes,
     )
+    record_admin_action(
+        actor=by,
+        action=AdminAction.COURSE_APPROVED,
+        target=course,
+        # An approval usually carries no note, and M3 does not ask for one —
+        # unlike a rejection, where the instructor needs to know what to fix.
+        # Saying so plainly beats a template like "approved for publication",
+        # which would read as a justification nobody actually gave.
+        reason=notes.strip() or "Approved with no notes recorded",
+        request=request,
+        course_slug=course.slug,
+    )
     return course
 
 
-def _return_to_draft(*, course: Course, by: User, action: str, notes: str) -> Course:
+def _return_to_draft(*, course: Course, by: User, action: str, notes: str, request=None) -> Course:
     _require_admin(by)
     _require_transition(course, CourseStatus.DRAFT)
 
@@ -125,19 +153,34 @@ def _return_to_draft(*, course: Course, by: User, action: str, notes: str) -> Co
     course.save(update_fields=["status", "published_at", "updated_at"])
 
     CourseReviewEvent.objects.create(course=course, actor=by, action=action, notes=notes)
+    record_admin_action(
+        actor=by,
+        action=_AUDIT_FOR_REVIEW_ACTION[action],
+        target=course,
+        # Always the reviewer's own words here: M3 requires notes for both of
+        # these, because an instructor sent back with nothing to fix has been
+        # told nothing.
+        reason=notes.strip() or "Returned to draft with no notes recorded",
+        request=request,
+        course_slug=course.slug,
+    )
     return course
 
 
 @transaction.atomic
-def reject(*, course: Course, by: User, notes: str = "") -> Course:
+def reject(*, course: Course, by: User, notes: str = "", request=None) -> Course:
     """Send it back as unsuitable."""
     return _return_to_draft(
-        course=course, by=by, action=CourseReviewEvent.Action.REJECTED, notes=notes
+        course=course,
+        by=by,
+        action=CourseReviewEvent.Action.REJECTED,
+        notes=notes,
+        request=request,
     )
 
 
 @transaction.atomic
-def request_changes(*, course: Course, by: User, notes: str = "") -> Course:
+def request_changes(*, course: Course, by: User, notes: str = "", request=None) -> Course:
     """Send it back with something specific to fix.
 
     Same transition as rejection, different decision on the record — the
@@ -148,6 +191,7 @@ def request_changes(*, course: Course, by: User, notes: str = "") -> Course:
         by=by,
         action=CourseReviewEvent.Action.CHANGES_REQUESTED,
         notes=notes,
+        request=request,
     )
 
 

@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/v1/admin-api/subscriptions/{id}/refund/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a refund (not implemented until M8)
+         * @description Refund a subscription — the half of it that is ours.
+         *
+         *     architecture.md §6.10 names this route. M10 ships the permission boundary,
+         *     the validation and an honest refusal; the provider call is M8's, because
+         *     refund semantics belong to a provider nobody has chosen (§11 #1, ADR-018
+         *     §3).
+         *
+         *     Administrators only, `role == ADMIN`. Not `is_staff`: this route will move
+         *     money the day it works, and the boundary has to be right *before* that day,
+         *     not on it. Every negative case is tested now, so M8 inherits a guarded
+         *     surface rather than adding guards beside a live payments SDK.
+         *
+         *     Nothing is audited here, and nothing is audited in the service either —
+         *     a refund that refused did not happen, and a row describing an action that
+         *     did not happen is a false record.
+         */
+        post: operations["admin_api_subscriptions_refund_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin-api/users/{id}/access-override/": {
         parameters: {
             query?: never;
@@ -1825,6 +1859,23 @@ export interface components {
             readonly lessons: components["schemas"]["PublicLesson"][];
         };
         /**
+         * @description What an administrator sends to issue a refund.
+         *
+         *     **No amount, deliberately.** `Subscription` holds no money — providers/base
+         *     says so and gives the reason — and whether a provider supports partial
+         *     refunds, in what currency, within what window, is a provider fact this
+         *     project does not yet have (§11 #1). A field accepting an amount would be
+         *     asking for something nothing can honestly use, and would have to change
+         *     shape once M8 knows the answer. It arrives with the provider.
+         *
+         *     Which leaves the reason, which is ours and is required for the same reason
+         *     an override's is: the row exists to answer *why*, six weeks later, to
+         *     somebody who was not there.
+         */
+        RefundRequestRequest: {
+            reason: string;
+        };
+        /**
          * @description Registration input.
          *
          *     Two fields, and that is the security control. DRF ignores fields it does
@@ -2000,6 +2051,53 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_api_subscriptions_refund_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RefundRequestRequest"];
+                "multipart/form-data": components["schemas"]["RefundRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description No reason given. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not an administrator. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such subscription. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No payment provider is integrated yet. M8. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     admin_api_users_access_override_create: {
         parameters: {
             query?: never;

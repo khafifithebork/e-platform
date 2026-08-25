@@ -60,3 +60,18 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
+
+# MD5, and only here. Argon2 is memory-hard by design — that is the whole
+# reason base.py puts it first (§4.2) — and the suite creates an account in
+# most of its integration tests, so the property that makes it a good password
+# hasher is also what makes a full run take about an hour on a developer
+# machine. A slow suite is a suite people stop running, which costs more
+# security than this line does.
+#
+# **Nothing is given up.** The three assertions that Argon2 is configured,
+# retained above PBKDF2, and actually produces an `argon2$` hash now read
+# *production* settings in a clean interpreter — the same technique
+# test_settings.py uses, and the same reasoning as the CACHES relaxation above.
+# Relaxing this here cannot hide a regression there, and the tests were
+# provoked against a PBKDF2-first base.py to confirm they still fail.
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

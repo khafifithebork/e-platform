@@ -18,7 +18,7 @@ behaves differently the second time it is asked.
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import ClassVar
+from typing import ClassVar, NoReturn
 
 from django.conf import settings
 from django.db import transaction
@@ -301,3 +301,73 @@ def grant_access_override(
         )
 
     return override
+
+
+class InvalidRefund(Exception):
+    """A refund request that could not be recorded even if it could be made."""
+
+
+class RefundNotAvailable(Exception):
+    """There is no payment provider to refund from. Deliberately fatal.
+
+    §11 #1 leaves the payment provider and jurisdiction undecided, so there is
+    nothing to call and no honest way to fake one: refund semantics are the
+    provider's, not ours — whether partial refunds exist, whether there is a
+    window, whether an idempotency key is mandatory, whether the result is
+    synchronous or arrives later by webhook. ADR-018 §3 declined to invent
+    answers to those, because a test against an invented answer is confidence
+    in behaviour nobody has verified.
+
+    This reads as unfinished because it is. That is the point (spec §2.2).
+    """
+
+
+def issue_refund(
+    *,
+    actor: User | None,
+    subscription: Subscription,
+    reason: str,
+    request=None,
+) -> NoReturn:
+    """Refund a subscription. Raises, always, until M8 supplies an adapter.
+
+    **What this builds and why now.** The permission boundary, the validation
+    and the audit obligation are ours and are the parts that must not be bolted
+    on hastily beside a live payments integration (ADR-018 §3). Everything
+    checked above the refusal below is inherited by M8; anything left unchecked
+    is something M8 has to write while holding a provider's SDK in its other
+    hand.
+
+    **No audit row is written**, and that is a decision rather than an
+    omission. A refund that raised did not happen, and a row describing an
+    action that did not happen is a false record — the same line the suite
+    already holds for a refused course approval. ``REFUND_ISSUED`` stays in
+    ``AdminAction`` as the marker; M8 is what makes it reachable.
+
+    **No subscription state changes either.** Revoking access here would be a
+    half-done refund: the learner loses the content and keeps the charge. If
+    access should end when money is returned, that is one decision made in one
+    place once a provider exists, not two halves shipped a milestone apart.
+
+    ``subscription`` and ``request`` are accepted and not read, which is worth
+    saying plainly rather than leaving to be discovered: there is nothing yet
+    to refund them against and nothing yet to record an address on. They are in
+    the signature because M8 should be adding a provider call to a finished
+    service rather than a signature to a stub. ``actor`` *is* read — the check
+    below is real.
+    """
+    if actor is None or not getattr(actor, "pk", None):
+        # The rule `record_admin_action` will apply in M8, applied now so the
+        # refund service does not meet it for the first time next to a live
+        # provider.
+        raise InvalidRefund("A refund must name who issued it.")
+
+    if not reason or not reason.strip():
+        # Checked here as well as in the serializer: this is reachable from a
+        # management command, where no serializer runs.
+        raise InvalidRefund("A refund must record why it was issued.")
+
+    raise RefundNotAvailable(
+        "Refunds require a payment provider, which M8 integrates. "
+        "The subscription was not changed and nothing was recorded."
+    )

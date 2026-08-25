@@ -112,7 +112,10 @@ class CourseAdmin(admin.ModelAdmin):
         moved = 0
         for course in queryset:
             try:
-                transition(course=course, by=request.user, notes=notes)
+                # `request` is forwarded so the audit row can record the
+                # address the decision came from (§8). The service does the
+                # recording; this only supplies what only a view knows.
+                transition(course=course, by=request.user, notes=notes, request=request)
             except NotPermitted:
                 self.message_user(
                     request,

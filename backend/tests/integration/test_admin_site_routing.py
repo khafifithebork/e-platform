@@ -17,6 +17,7 @@ from django.test import override_settings
 from django.urls import clear_url_caches
 
 from apps.accounts.models import Role
+from tests.otp_helpers import verify_admin_session
 
 PASSWORD = "a-long-enough-passphrase"
 ADMIN_PATH = "staff-console-test"
@@ -120,13 +121,19 @@ class TestOnlyStaffGetIn:
 
     def test_staff_get_in(self, client, routed) -> None:
         """The positive twin. Without it, an admin site that refused everybody
-        would satisfy both tests above."""
+        would satisfy both tests above.
+
+        The second factor is passed here because T6 added it and this test is
+        about the *staff* gate — the 2FA gate has its own file. Before T6 this
+        line was not needed, which is precisely what changed.
+        """
         client.force_login(_user("staff@example.test", role=Role.ADMIN, staff=True))
+        verify_admin_session(client, "staff@example.test")
 
         response = client.get(f"/{routed}/")
 
         assert response.status_code == 200
-        assert b"site-name" in response.content or b"Site administration" in response.content
+        assert b"Operations" in response.content
 
     def test_an_inactive_staff_member_is_refused(self, client, routed) -> None:
         user = _user("gone@example.test", role=Role.ADMIN, staff=True)

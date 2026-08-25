@@ -98,3 +98,21 @@ class AccessOverrideGrantSerializer(serializers.Serializer):
                 f"An override runs at most {settings.ACCESS_OVERRIDE_MAX_DAYS} days."
             )
         return value
+
+
+class RefundRequestSerializer(serializers.Serializer):
+    """What an administrator sends to issue a refund.
+
+    **No amount, deliberately.** `Subscription` holds no money — providers/base
+    says so and gives the reason — and whether a provider supports partial
+    refunds, in what currency, within what window, is a provider fact this
+    project does not yet have (§11 #1). A field accepting an amount would be
+    asking for something nothing can honestly use, and would have to change
+    shape once M8 knows the answer. It arrives with the provider.
+
+    Which leaves the reason, which is ours and is required for the same reason
+    an override's is: the row exists to answer *why*, six weeks later, to
+    somebody who was not there.
+    """
+
+    reason = serializers.CharField(allow_blank=False, trim_whitespace=True)
