@@ -36,15 +36,28 @@ def _generous_throttles(settings):
     }
 
 
-def _user(email: str, *, role=None):
+def _user(email: str, *, role=None, verified: bool = True):
     """`User` carries no name field — `display_name` lives on
-    `StudentProfile`, which an instructor need not have."""
+    `StudentProfile`, which an instructor need not have.
+
+    Verified by default. `create_account` leaves an address unconfirmed, and
+    abuse case 7 refuses every message outside verification and password reset
+    to an unconfirmed one — so an unverified fixture would make these tests
+    about that rule rather than about the message under test. The rule itself
+    is tested in `test_email_abuse_cases.py`.
+    """
     from apps.accounts.services import create_account
 
     user = create_account(email=email, password=PASSWORD)
+    fields = []
     if role:
         user.role = role
-        user.save(update_fields=["role"])
+        fields.append("role")
+    if verified:
+        user.is_email_verified = True
+        fields.append("is_email_verified")
+    if fields:
+        user.save(update_fields=fields)
     return user
 
 
@@ -98,6 +111,8 @@ class TestTheAccountMessages:
         """A security notice that asks you to click something is a template
         anyone can copy."""
         from apps.notifications.emails import send_password_changed_email
+
+        _user("learner@example.test")
 
         send_password_changed_email(to="learner@example.test")
 
@@ -234,6 +249,8 @@ class TestRenderingCannotBeUsedAgainstUs:
         """
         from apps.notifications.emails import send_course_submitted_email
 
+        _user("admin@example.test")
+
         with pytest.raises(ValueError):
             send_course_submitted_email(
                 to="admin@example.test",
@@ -246,6 +263,8 @@ class TestRenderingCannotBeUsedAgainstUs:
         instructor called O'Brien is greeted as O&#x27;Brien — a bug nobody
         reports because it looks like a mail client problem."""
         from apps.notifications.emails import send_course_submitted_email
+
+        _user("admin@example.test")
 
         send_course_submitted_email(
             to="admin@example.test",

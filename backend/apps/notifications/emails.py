@@ -27,9 +27,13 @@ them now would be guessing at semantics that are not decided.
 
 from __future__ import annotations
 
+import logging
+
 from django.template.loader import render_to_string
 
 from apps.notifications.services import send_transactional_email
+
+logger = logging.getLogger(__name__)
 
 
 def _render(name: str, context: dict) -> tuple[str, str]:
@@ -43,9 +47,63 @@ def _render(name: str, context: dict) -> tuple[str, str]:
     return subject, body
 
 
+# The two messages whose whole purpose is to reach an address nobody has
+# confirmed yet. Everything else is held to abuse case 7.
+REACHES_UNVERIFIED = frozenset({"verification", "password_reset"})
+
+
 def _send(name: str, *, to: str, context: dict) -> None:
     subject, body = _render(name, context)
     send_transactional_email(to=to, subject=subject, body=body)
+
+
+def _send_to_account(name: str, *, to: str, context: dict) -> bool:
+    """Send, but only to an address the account has confirmed. Abuse case 7.
+
+    **Why the exemptions are not a loophole.** A verification email exists to
+    reach an unverified address; a password reset has to work for someone who
+    never confirmed theirs, or an unverified account becomes unrecoverable
+    rather than merely unverified. Both are listed by name, so adding a third
+    exemption is a visible edit rather than a forgotten check.
+
+    **What this actually prevents.** An unverified address is one nobody has
+    proved they control — it may be a typo for a real person's mailbox, or an
+    address someone else owns. Everything outside the two exemptions tells that
+    mailbox something about an account: that its password changed, that a
+    course was submitted. Sending those to an unproven address hands account
+    activity to a stranger, and does it in a way that looks like normal
+    behaviour.
+
+    **Skipped, not raised**, and that is a correction of this function's first
+    version. Raising made a *notification policy* fail the operation it
+    describes: a learner who had never confirmed their address got a 500 when
+    changing their password, because the notice about the change refused
+    itself. Approving a course would have failed the same way for an
+    unverified instructor.
+
+    A notification is secondary to the thing it reports. It may decline to go
+    out; it may not take the action down with it. The decline is logged so the
+    silence is findable, and `test_discovery_abuse_cases.py` asserts the
+    outbox stays empty rather than trusting the log.
+
+    Returns whether it sent, so a caller that genuinely needs to know can ask.
+    """
+    from apps.accounts.models import User
+
+    if not User.objects.filter(email=to, is_email_verified=True).exists():
+        # The address is not logged: it is personal data, and the message name
+        # plus the fact of the refusal is the operationally useful half.
+        logger.info(
+            "email_withheld_unverified_address",
+            # `template`, not `message`: `LogRecord` reserves `message` and
+            # raises "attempt to overwrite" — a logging call that breaks the
+            # request it was added to observe.
+            extra={"event": "email_withheld_unverified_address", "template": name},
+        )
+        return False
+
+    _send(name, to=to, context=context)
+    return True
 
 
 def send_verification_email(*, to: str, token: str) -> None:
@@ -57,7 +115,7 @@ def send_password_reset_email(*, to: str, token: str) -> None:
     _send("password_reset", to=to, context={"token": token})
 
 
-def send_password_changed_email(*, to: str) -> None:
+def send_password_changed_email(*, to: str) -> bool:
     """A notice, not a confirmation.
 
     It exists because the person who most needs to know a password changed is
@@ -65,31 +123,31 @@ def send_password_changed_email(*, to: str) -> None:
     and it carries no token: a "was this you?" link is a phishing template
     somebody else can copy.
     """
-    _send("password_changed", to=to, context={})
+    return _send_to_account("password_changed", to=to, context={})
 
 
-def send_course_submitted_email(*, to: str, course_title: str, instructor_name: str) -> None:
+def send_course_submitted_email(*, to: str, course_title: str, instructor_name: str) -> bool:
     """architecture.md:218 — an instructor submits, a reviewer is told.
 
     Addressed to one administrator per call. The interface takes a single
     recipient (`OutboundEmail.to`) precisely so a transactional message cannot
     quietly reach a list.
     """
-    _send(
+    return _send_to_account(
         "course_submitted",
         to=to,
         context={"course_title": course_title, "instructor_name": instructor_name},
     )
 
 
-def send_course_reviewed_email(*, to: str, course_title: str, decision: str, notes: str) -> None:
+def send_course_reviewed_email(*, to: str, course_title: str, decision: str, notes: str) -> bool:
     """The instructor learns what happened to their submission.
 
     One template for all three decisions rather than three near-identical
     files: the difference is a sentence, and three files drift into three
     different tones for what is one event.
     """
-    _send(
+    return _send_to_account(
         "course_reviewed",
         to=to,
         context={"course_title": course_title, "decision": decision, "notes": notes},

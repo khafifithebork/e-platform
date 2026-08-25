@@ -1,6 +1,6 @@
 # M11 — Discovery & Notifications
 
-**Status:** decisions settled 2026-08-25 (ADR-020). T2 approved to start.
+**Status:** complete. All eight tasks shipped; see `docs/STATUS.md`.
 **Branch:** `feat/m11-discovery`
 **Depends on:** M3 (catalogue, publication state), M2 (the two emails that already exist)
 
@@ -125,8 +125,17 @@ idempotent, chunked management command, not part of the migration.
 6. Search is throttled. It is the most expensive anonymous endpoint in the
    product.
 7. A transactional email is never sent to an address the account has not
-   verified.
-8. A retried email task does not send twice.
+   verified — **except** verification and password reset, which exist to reach
+   an unconfirmed address and are a closed, named list. A withheld message is
+   skipped and logged, never raised: a notification may decline to go out, it
+   may not take down the action it reports. (ADR-021 §4.)
+8. A retried email task **may** send twice, and nothing pretends otherwise.
+   (Reworded at T8. Delivery is at-least-once: `acks_late` redelivers a task
+   whose worker died after the provider accepted the message, and nothing can
+   distinguish that from one that never ran. At-most-once needs either the
+   table ADR-020 §8 declined or a provider idempotency key that does not exist
+   yet. `TestCaseEightIsNotMet` asserts the duplicate, because a missing test
+   and a satisfied one look identical in a summary. ADR-021 §5.)
 9. An email template never renders user-supplied content unescaped.
 10. The search vector cannot be written from an API surface.
 
