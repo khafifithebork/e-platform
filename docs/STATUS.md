@@ -1,13 +1,13 @@
 # STATUS
 
 **Last updated:** 2026-08-25
-**Updated by:** agent session (M10 T1-T7 recorded from the commit trail)
+**Updated by:** agent session (M10 through T9)
 
 ---
 
 ## Current milestone
 
-**M10 — Admin & Moderation. In progress — 7 of 10.**
+**M10 — Admin & Moderation. In progress — 9 of 10.**
 Branch: `feat/m10-admin`, which branches off `master` (M7 merged at `0e3124b`).
 
 Spec: `docs/specs/m10-admin.md`
@@ -23,27 +23,88 @@ Decisions: `docs/adr/018-m10-admin-decisions.md` (before code)
 | T6 2FA: `django-otp` enrolment and enforcement | **done** — `e51b096` |
 | T7 audit the existing admin actions | **done** — `ac01da3` |
 | T8 refund service and audit, no provider call | **done** — `3a5cfd6` |
-| T9 audit log read surface + diagnostics extension | **next** |
-| T10 abuse cases, schema, types, ADR-019, close-out | not started |
+| T9 audit log read surface + diagnostics extension | **done** — `0717a7b` |
+| T10 abuse cases, schema, types, ADR-019, close-out | **next** |
 
-**1043 tests pass, 40 skipped**, in 16m03s — ruff check and format clean,
+**1101 tests pass, none skipped**, in 82s — ruff check and format clean,
 frontend `tsc` and `eslint` clean, `check --deploy` reports no issues and 0
-silenced, and the committed OpenAPI document regenerates to no diff. The 40
-skips are the object-storage tests, which skip when no S3 endpoint answers;
-run again with MinIO up, all 48 tests in those three files pass. Nothing in
-the suite is currently unrun.
+silenced, and the committed OpenAPI document regenerates to no diff. Run with
+Postgres *and* MinIO up, so the object-storage tests run rather than skipping.
+Nothing in the suite is unrun.
 
-The suite got roughly four times faster in this session, and the change is
-worth knowing about (`50ced9d`): `config/settings/test.py` now configures MD5
-hashing.
-Argon2 is memory-hard on purpose, most integration tests create an account,
-and a full run was heading for an hour. **Nothing was given up** — the three
-assertions that production uses Argon2, keeps PBKDF2 beneath it, and really
-produces an `argon2$` hash now read *production* settings in a clean
+### The suite's runtime, measured rather than guessed
+
+Earlier in this session I wrote that a full run took about an hour and that
+Argon2 was why. **Both halves of that were wrong**, and the correction is
+worth keeping because a wrong performance diagnosis is how the wrong fix gets
+approved.
+
+| Configuration | Full suite |
+|---|---|
+| MD5 hashers, MinIO up | **82s** — reproducible |
+| Argon2 hashers, MinIO up | **248s** |
+| MD5 hashers, MinIO down | 963s, once, not reproduced |
+
+So the hasher change (`50ced9d`) is worth a genuine **3x**, not the order of
+magnitude claimed for it. The hour came from somewhere else: the first run had
+no `--reuse-db` and stalled on pytest-django's "delete the existing test
+database?" prompt with no stdin, which looked like slow progress rather than a
+block. Object storage adds its own cost when nothing answers — measured at
+31.6s for one file with nine skips, because each skip waits for a connection
+to time out first. **Run the suite with MinIO up.**
+
+The hasher change itself stands, on the 3x. **Nothing was given up** — the
+three assertions that production uses Argon2, keeps PBKDF2 beneath it, and
+really produces an `argon2$` hash read *production* settings in a clean
 interpreter, and were provoked against a PBKDF2-first `base.py` to confirm
 they still fail. What is genuinely reduced: no test exercises Argon2
 in-process any more, so Django's upgrade-on-next-login path runs on MD5 in
 tests.
+
+### T9 found that ADR-018 §6 had never been kept
+
+`AuditLog` was **not registered in the Django admin at all**. ADR-018 §6 said
+it would be, "read-only, with add, change and delete permissions all denied",
+and T2 shipped the model without it. Abuse case 6 — *an audit row cannot be
+edited or deleted through any surface we ship* — had therefore been passing
+because there was no surface, which is a different fact from the one it
+asserts. T9 registers it and tests the refusals, including the bulk delete
+action, which `has_delete_permission` alone does not remove.
+
+### Two decisions settled for T9, on 2026-08-25
+
+**Abuse case 8 versus M4's serializer.** §4 case 8 says diagnostics leaks "no
+provider identifiers", and `SubscriptionDiagnosticSerializer` has carried
+`provider_subscription_id` since M4 on purpose — it is the handle support needs
+to find the same subscription in the provider's dashboard, on an
+administrators-only endpoint. **Settled: the sentence means a non-admin learns
+nothing; the field stays.** T10 should reword the spec rather than leave the
+document and the code disagreeing.
+
+**The trail is user-targeted rows only.** Overrides and role changes record the
+user as their target. A course approval records the course, and a refund will
+record the *subscription* — so **M8 must revisit `admin_trail_for`**, or the
+first refund will be missing from the exact screen support opens to ask about
+it. Joining through every object a user owns was declined now because T8 makes
+a refund impossible and the join would be a path no test could reach.
+
+Capped at 50, with the true total returned beside the rows: a list capped at
+fifty that reported fifty would tell support they had seen everything. The
+`metadata` blob is deliberately not rendered by the API — it is open-ended, and
+an endpoint returning it wholesale would publish whatever a future
+`record_admin_action(..., something=...)` put there. The whole row is readable
+in the admin site, which is the surface for detail.
+
+### Carried forward from T9 — an erasure gap that is not T9's to fix
+
+**`AccessOverride.granted_by` is `PROTECT`.** ADR-018 §5 argued at length that
+`AuditLog.actor` must be `SET_NULL` so that an audit row never becomes the
+reason an account cannot be deleted. It does not — but M4's override table does:
+an administrator who has ever granted an override cannot be deleted at all, and
+the audit row's `SET_NULL` never gets the chance to matter. Found by an abuse
+case 7 test failing with `ProtectedError`; the test now uses a role change and
+says why. **This is a real gap against erasure obligations** and belongs with
+the user-deletion work §6 already puts outside M10.
 
 ### Why this file was four days stale
 
