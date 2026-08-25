@@ -308,6 +308,16 @@ class TestEveryMutatingAdminRouteIsAudited:
 
     AUDITED: frozenset[str] = frozenset({"users/<uuid:pk>/access-override/"})
 
+    # Mutating in shape, but it performs no mutation yet. §2.2 gives M10 the
+    # refund's permission check, validation and refusal, and gives M8 the
+    # provider call. It writes no audit row because nothing happened, and
+    # declaring it audited would put a false entry in this inventory — which
+    # is the one thing an inventory must not contain.
+    #
+    # M8 moves it into AUDITED. Until then this set is what turns "remember to
+    # audit the refund" into a failing test.
+    NOT_YET_CAPABLE: frozenset[str] = frozenset({"subscriptions/<uuid:pk>/refund/"})
+
     @staticmethod
     def _mutating_admin_routes() -> set[str]:
         found: set[str] = set()
@@ -333,7 +343,13 @@ class TestEveryMutatingAdminRouteIsAudited:
         return found
 
     def test_the_inventory_matches_what_is_routed(self) -> None:
-        assert self._mutating_admin_routes() == set(self.AUDITED)
+        assert self._mutating_admin_routes() == set(self.AUDITED | self.NOT_YET_CAPABLE)
+
+    def test_the_two_declarations_do_not_overlap(self) -> None:
+        """A route cannot be both audited and incapable of acting. If one ever
+        appears in both, the set that is wrong is not obvious from the failure
+        above, so it gets its own."""
+        assert not (self.AUDITED & self.NOT_YET_CAPABLE)
 
     def test_the_walk_finds_something(self) -> None:
         """The twin. An inventory of nothing matching a declaration of nothing
@@ -349,6 +365,31 @@ class TestEveryMutatingAdminRouteIsAudited:
         _grant(client, learner)
 
         assert AuditLog.objects.count() == 1
+
+    def test_and_a_route_declared_incapable_really_refuses(self, client, admin) -> None:
+        """The other half of the promise, and the half that is easy to let rot.
+        A route parked in NOT_YET_CAPABLE that quietly started succeeding would
+        be an unaudited administrative capability in production, which is the
+        exact failure ADR-018 §1 exists to prevent."""
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from apps.entitlements.models import Subscription
+
+        subscriber = _user("refundable@example.test")
+        call_command("billing", "start", email=subscriber.email, stdout=StringIO())
+        subscription = Subscription.objects.get(user=subscriber)
+
+        _sign_in(client, "admin@example.test")
+        response = client.post(
+            f"/api/v1/admin-api/subscriptions/{subscription.id}/refund/",
+            {"reason": "Double charged in July"},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 501
+        assert not AuditLog.objects.exists()
 
 
 class TestTheServiceAuditsRatherThanTheView:

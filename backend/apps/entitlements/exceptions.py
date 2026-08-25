@@ -47,3 +47,30 @@ class EntitlementDenied(APIException):
         self.decision = decision
         # Read by the Problem Details handler and merged into the document.
         self.extensions = {"reason": str(decision.reason), "cta": decision.cta}
+
+
+class RefundUnavailable(APIException):
+    """501 with a type a client can branch on.
+
+    **501, not 503.** A 503 tells the caller to try again shortly, and that is
+    false — no amount of waiting integrates a payment provider. 501 says this
+    server does not implement this, which is exactly true until M8.
+
+    **Its own problem type, not `about:blank`.** ADR-004: clients branch on the
+    type. A bare 501 would be indistinguishable from any other unimplemented
+    thing the server might later grow, and this one has a specific meaning an
+    admin interface may want to render — *the refund did not happen and nothing
+    was recorded*.
+
+    The domain exception is `services.RefundNotAvailable`. This is its HTTP
+    translation and nothing more; the service raises the first and the view
+    turns it into the second, which is the same seam `InvalidOverride` uses to
+    become a 400 (invariant 2).
+    """
+
+    status_code = status.HTTP_501_NOT_IMPLEMENTED
+    problem_type = "/problems/refund-not-available"
+    default_detail = (
+        "Refunds are not available until a payment provider is integrated. "
+        "Nothing was changed and nothing was recorded."
+    )

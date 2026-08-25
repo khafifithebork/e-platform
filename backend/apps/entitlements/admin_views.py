@@ -18,15 +18,24 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.entitlements.exceptions import RefundUnavailable
+from apps.entitlements.models import Subscription
 from apps.entitlements.permissions import IsAdministrator
 from apps.entitlements.resolver import resolve_account_access
 from apps.entitlements.selectors import diagnostics_for
 from apps.entitlements.serializers import (
     AccessOverrideGrantSerializer,
     AccessOverrideSerializer,
+    RefundRequestSerializer,
     UserDiagnosticsSerializer,
 )
-from apps.entitlements.services import InvalidOverride, grant_access_override
+from apps.entitlements.services import (
+    InvalidOverride,
+    InvalidRefund,
+    RefundNotAvailable,
+    grant_access_override,
+    issue_refund,
+)
 
 
 @extend_schema(tags=["admin"])
@@ -129,3 +138,61 @@ class UserAccessOverrideView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(AccessOverrideSerializer(override).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=["admin"])
+class SubscriptionRefundView(APIView):
+    """Refund a subscription — the half of it that is ours.
+
+    architecture.md §6.10 names this route. M10 ships the permission boundary,
+    the validation and an honest refusal; the provider call is M8's, because
+    refund semantics belong to a provider nobody has chosen (§11 #1, ADR-018
+    §3).
+
+    Administrators only, `role == ADMIN`. Not `is_staff`: this route will move
+    money the day it works, and the boundary has to be right *before* that day,
+    not on it. Every negative case is tested now, so M8 inherits a guarded
+    surface rather than adding guards beside a live payments SDK.
+
+    Nothing is audited here, and nothing is audited in the service either —
+    a refund that refused did not happen, and a row describing an action that
+    did not happen is a false record.
+    """
+
+    permission_classes = (IsAdministrator,)
+    throttle_scope = "user"
+
+    @extend_schema(
+        request=RefundRequestSerializer,
+        responses={
+            400: OpenApiResponse(description="No reason given."),
+            403: OpenApiResponse(description="Not an administrator."),
+            404: OpenApiResponse(description="No such subscription."),
+            501: OpenApiResponse(
+                description="No payment provider is integrated yet. M8.",
+            ),
+        },
+        summary="Issue a refund (not implemented until M8)",
+    )
+    def post(self, request, pk):
+        payload = RefundRequestSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        # After validation, so a malformed request is answered the same way
+        # whether or not the id exists. The control that stops anyone probing
+        # for ids is the permission class above, not this ordering.
+        subscription = get_object_or_404(Subscription.objects.all(), pk=pk)
+
+        try:
+            issue_refund(
+                actor=request.user,
+                subscription=subscription,
+                request=request,
+                **payload.validated_data,
+            )
+        except InvalidRefund as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except RefundNotAvailable as exc:
+            # Translated rather than propagated: the service speaks the domain
+            # and the view speaks HTTP (invariant 2).
+            raise RefundUnavailable(detail=str(exc)) from exc

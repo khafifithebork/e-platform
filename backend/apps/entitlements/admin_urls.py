@@ -7,7 +7,11 @@ which is reserved for the Django admin site when M10 routes it.
 
 from django.urls import path
 
-from apps.entitlements.admin_views import UserAccessOverrideView, UserDiagnosticsView
+from apps.entitlements.admin_views import (
+    SubscriptionRefundView,
+    UserAccessOverrideView,
+    UserDiagnosticsView,
+)
 
 app_name = "entitlements-admin"
 
@@ -21,5 +25,10 @@ urlpatterns = [
         "users/<uuid:pk>/access-override/",
         UserAccessOverrideView.as_view(),
         name="user-access-override",
+    ),
+    path(
+        "subscriptions/<uuid:pk>/refund/",
+        SubscriptionRefundView.as_view(),
+        name="subscription-refund",
     ),
 ]
