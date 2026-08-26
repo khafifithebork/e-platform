@@ -1,6 +1,6 @@
 # M12 — Hardening & Test Completion
 
-**Status:** decisions settled 2026-08-25 (ADR-022). T2 approved to start.
+**Status:** complete. All eight tasks shipped; see `docs/STATUS.md`.
 **Branch:** `feat/m12-hardening`
 **Depends on:** everything M0–M11 shipped
 
@@ -115,14 +115,24 @@ but the recommendation is the one with a text output that can be committed.
 ## 4. Abuse cases — these become the first tests
 
 1. A CSP directive that would break an existing page is caught **before**
-   enforcement, by a report-only period with somewhere to send reports.
+   enforcement. **Partly unmet, and recorded as such** (ADR-023 §8): the policy
+   is report-only, but there is nowhere to send reports — `report-uri` is read
+   from the environment and omitted when unset, because inventing an endpoint
+   would put a fabricated URL in every response. What replaced it locally is
+   the admin-markup inspection in case 2, which is stronger than nothing and
+   weaker than a report period. M13 owns the endpoint and the decision to
+   enforce.
 2. The admin site still works under CSP — it uses inline styles, and a policy
    without a nonce silently blanks it.
 3. A high-severity dependency advisory **fails CI**, and the check is provoked
    against a known-vulnerable pin rather than trusted because it printed
    "clean".
-4. The coverage gate fails when coverage drops, provoked by deleting a test —
-   a gate nobody has watched fail is ADR-006's inert control.
+4. The coverage gate fails when coverage drops. **Provoked, and the obvious
+   provocation did not work**: deleting a resolver test left coverage at 100%,
+   because other tests covered the same branches. The gate fired only when
+   genuinely uncovered code was added — 96.21%, build failed. Both halves are
+   worth keeping: the gate works, and 100% branch coverage is a claim about the
+   code rather than a claim that any particular test is necessary. ADR-023 §3.
 5. Load-test numbers are recorded with the hardware and concurrency that
    produced them; a number without its conditions is not a baseline.
 6. `check --deploy` stays clean with CSP added.

@@ -185,3 +185,54 @@ class TestBothTiersAreAudited:
             for step in _workflow()["jobs"][job]["steps"]:
                 if isinstance(step, dict) and "audit" in str(step.get("name", "")).lower():
                     assert not step.get("continue-on-error"), (job, step.get("name"))
+
+
+class TestDeploymentChecksRunInCi:
+    """`manage.py check --deploy` is in the definition of done and in CI.
+
+    Asserted for the same reason the audit steps above are: M12 found two
+    controls that architecture.md described and nobody had built, and the way
+    that happens is that a missing step is silent. This one *is* present — the
+    assertion exists so it stays that way.
+
+    It runs against **production** settings deliberately. Against the test
+    settings it would inspect a configuration that never serves a request, and
+    report clean while production had `DEBUG` on.
+    """
+
+    @staticmethod
+    def _backend_runs() -> list[str]:
+        return [
+            step["run"]
+            for step in _workflow()["jobs"]["backend"]["steps"]
+            if isinstance(step, dict) and "run" in step
+        ]
+
+    def test_the_deployment_check_runs(self) -> None:
+        assert any("check --deploy" in step for step in self._backend_runs())
+
+    def test_it_runs_against_production_settings(self) -> None:
+        """Read from the step's `env:` block, not from its `run:` string — the
+        first version of this test looked in the command and failed against a
+        workflow that was entirely correct. Where a setting is declared is part
+        of what a config assertion has to know."""
+        deploy_steps = [
+            step
+            for step in _workflow()["jobs"]["backend"]["steps"]
+            if isinstance(step, dict) and "check --deploy" in step.get("run", "")
+        ]
+
+        assert deploy_steps
+        for step in deploy_steps:
+            assert step.get("env", {}).get("DJANGO_SETTINGS_MODULE") == (
+                "config.settings.production"
+            ), step.get("name")
+
+    def test_the_resolver_coverage_gate_still_runs(self) -> None:
+        """M4's gate, and the one §8.1 target that fails the build. It has been
+        believed for eight milestones; T8 re-provoked it by adding an uncovered
+        branch to the resolver, which took coverage to 96.21% and failed."""
+        runs = self._backend_runs()
+
+        assert any("--cov-fail-under=100" in step for step in runs)
+        assert any("apps.entitlements.resolver" in step for step in runs)
