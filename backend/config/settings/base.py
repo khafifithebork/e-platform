@@ -11,6 +11,7 @@ a known secret key.
 from pathlib import Path
 
 import environ
+from csp.constants import NONE, SELF
 
 # backend/config/settings/base.py -> backend/
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -77,6 +78,12 @@ MIDDLEWARE = [
     # investigating, and it would otherwise be logged with no correlation id.
     "apps.core.middleware.RequestIDMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Immediately after SecurityMiddleware, which is where the rest of the
+    # response security headers are set. It only adds a header, so ordering is
+    # not a correctness question — keeping the header-setting middleware
+    # together is so the next person looking for "where are the headers" finds
+    # them in one place.
+    "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -512,3 +519,47 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": env("DJANGO_LOG_LEVEL", default="INFO")},
 }
+
+
+# ---------------------------------------------------------------------------
+# Content Security Policy
+#
+# **Report-only, in both tiers** (ADR-022 §4). There is no deployment
+# collecting reports until M13, so enforcing here would be enforcing a policy
+# nobody has ever observed in a browser — and CSP fails silently: a wrong
+# directive does not raise, it removes a stylesheet.
+#
+# The only HTML this tier serves is the Django admin. DRF is configured with
+# `JSONRenderer` alone, so there is no browsable API to accommodate — which is
+# why this policy can be tight without a long tail of exceptions.
+#
+# `report-uri` is read from the environment and omitted when unset. A
+# report-only policy with nowhere to report is a header that costs a few bytes
+# and teaches nobody anything; M13 sets the variable when there is an endpoint
+# to receive them.
+# ---------------------------------------------------------------------------
+CSP_REPORT_URI = env("CSP_REPORT_URI", default="")
+
+_CSP_DIRECTIVES: dict[str, list[str]] = {
+    "default-src": [SELF],
+    "script-src": [SELF],
+    "style-src": [SELF],
+    # `data:` because the admin's TOTP enrolment renders a QR code inline.
+    # Narrower than it looks: it permits data URIs for images only.
+    "img-src": [SELF, "data:"],
+    "font-src": [SELF],
+    "connect-src": [SELF],
+    # Clickjacking, belt and braces with X_FRAME_OPTIONS. `frame-ancestors` is
+    # the one browsers still honour when the two disagree.
+    "frame-ancestors": [NONE],
+    "form-action": [SELF],
+    # Without this, an injected `<base>` re-points every relative URL on the
+    # page — including the admin's own form actions.
+    "base-uri": [SELF],
+    "object-src": [NONE],
+}
+
+if CSP_REPORT_URI:
+    _CSP_DIRECTIVES["report-uri"] = [CSP_REPORT_URI]
+
+CONTENT_SECURITY_POLICY_REPORT_ONLY = {"DIRECTIVES": _CSP_DIRECTIVES}

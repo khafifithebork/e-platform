@@ -27,6 +27,11 @@ dependencies = [
     "qrcode==8.2",
     # Brute-force lockout on login.
     "django-axes==8.3.1",
+    # Content-Security-Policy (architecture.md §8, ADR-022 §4). Version read
+    # from the installed package, not recalled — django-csp 4.0 replaced the
+    # per-directive `CSP_*` settings with a single policy dict, so a version
+    # written from memory would configure nothing and fail silently.
+    "django-csp==4.0",
     # Presigned uploads against any S3-compatible store: MinIO in
     # development, Cloudflare R2 in production (ADR-012 §2).
     "boto3==1.43.74",

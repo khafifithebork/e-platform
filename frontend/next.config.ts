@@ -13,6 +13,44 @@ import type { NextConfig } from "next";
  */
 const apiOrigin = process.env.API_ORIGIN ?? "http://localhost:8000";
 
+/**
+ * Content Security Policy, report-only (ADR-022 section 4).
+ *
+ * Report-only in both tiers, and this is the browser-facing half. CSP fails
+ * silently — a wrong directive does not raise, it removes a stylesheet — so
+ * enforcing a policy nobody has observed in a real browser is how a login form
+ * stops working without anyone being told. M13 collects reports and M13
+ * decides when to enforce.
+ *
+ * `CSP_MEDIA_SRC` and `CSP_REPORT_URI` come from the environment because the
+ * CDN hostname and the report endpoint are deployment facts, not source. Both
+ * default to nothing: a policy that hardcoded a guessed CDN would be a
+ * fabricated infrastructure fact, and the whole point of report-only is that
+ * an empty `media-src` shows up as a report rather than a black video player.
+ *
+ * `unsafe-inline` appears for styles and nowhere else. Next.js injects inline
+ * `<style>` for critical CSS during streaming, and there is no nonce plumbed
+ * through it here; script-src stays strict, which is the half that matters for
+ * injection.
+ */
+const mediaSrc = process.env.CSP_MEDIA_SRC ?? "";
+const reportUri = process.env.CSP_REPORT_URI ?? "";
+
+const csp = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  `connect-src 'self'${mediaSrc ? ` ${mediaSrc}` : ""}`,
+  `media-src 'self'${mediaSrc ? ` ${mediaSrc}` : ""}`,
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  ...(reportUri ? [`report-uri ${reportUri}`] : []),
+].join("; ");
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -54,6 +92,20 @@ const nextConfig: NextConfig = {
    */
   turbopack: {
     root: import.meta.dirname,
+  },
+
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: csp,
+          },
+        ],
+      },
+    ];
   },
 
   async rewrites() {
