@@ -119,3 +119,69 @@ class TestTheBackendJobRunsInTheBackend:
         ]
 
         assert not overrides, f"{overrides} override the job default; put it in defaults instead"
+
+
+class TestBothTiersAreAudited:
+    """architecture.md §8.4: `pip-audit` and `npm audit` in CI.
+
+    A config assertion, and it earns its place the same way the
+    working-directory one above does: **the audit was specified in §8.4 and
+    simply never added.** CI ran two jobs for eleven milestones and neither
+    audited anything, and nothing reported that, because a missing step is
+    silent by construction.
+
+    The severities are asserted too, not just the presence of a step. `npm
+    audit` without `--audit-level` fails on `low`, which is the setting that
+    gets a `|| true` appended during an unrelated deadline — and a disabled
+    audit is the failure mode ADR-022 §3 is designed against.
+    """
+
+    @staticmethod
+    def _run_steps(job: str) -> list[str]:
+        return [
+            step["run"]
+            for step in _workflow()["jobs"][job]["steps"]
+            if isinstance(step, dict) and "run" in step
+        ]
+
+    def test_the_backend_audits_its_dependencies(self) -> None:
+        assert any(
+            "pip_audit" in step or "pip-audit" in step for step in self._run_steps("backend")
+        )
+
+    def test_the_frontend_audits_its_dependencies(self) -> None:
+        assert any("npm audit" in step for step in self._run_steps("frontend"))
+
+    def test_the_frontend_audit_is_not_left_on_the_default_level(self) -> None:
+        """`npm audit` with no level fails on `low`. That is the version that
+        gets disabled."""
+        audits = [step for step in self._run_steps("frontend") if "npm audit" in step]
+
+        assert audits
+        assert all("--audit-level=high" in step for step in audits)
+
+    def test_the_backend_audit_is_not_softened(self) -> None:
+        """pip-audit has no severity filter, so there is nothing to tune — the
+        only ways to soften it are `--ignore-vuln`, which is per-advisory and
+        reviewable, and `|| true`, which is not. This catches the second.
+
+        `--ignore-vuln` is deliberately *not* forbidden here: triaging a
+        specific advisory and writing down why is the behaviour we want. Making
+        it a code change that shows up in review is the control.
+        """
+        audits = [
+            step
+            for step in self._run_steps("backend")
+            if "pip_audit" in step or "pip-audit" in step
+        ]
+
+        assert audits
+        assert all("|| true" not in step and "continue-on-error" not in step for step in audits)
+
+    def test_neither_audit_step_is_marked_continue_on_error(self) -> None:
+        """The other way to neuter a gate: leave the command alone and tell the
+        runner to ignore its exit code."""
+        for job in ("backend", "frontend"):
+            for step in _workflow()["jobs"][job]["steps"]:
+                if isinstance(step, dict) and "audit" in str(step.get("name", "")).lower():
+                    assert not step.get("continue-on-error"), (job, step.get("name"))

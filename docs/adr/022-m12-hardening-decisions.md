@@ -69,6 +69,29 @@ during an unrelated deadline. The failure mode to design against is not "we
 missed a moderate advisory", it is "the audit was disabled and nobody
 remembers".
 
+> **Amended at T4: `pip-audit` cannot do this, and the decision above was made
+> without checking.** There is no `--severity` flag. The tool fails on any
+> known advisory, and the only escape is `--ignore-vuln ID` per advisory.
+>
+> So the two tiers are asymmetric, and the asymmetry has a reason rather than
+> being an oversight. `npm audit --audit-level=high` is exactly what §8.4
+> specifies, and npm advisories carry a severity, so filtering *classifies*.
+> OSV entries behind `pip-audit` frequently carry no CVSS at all, so filtering
+> there would **discard what it cannot classify** — a gate that silently
+> passes the unclassified is worse than one that is occasionally noisy.
+>
+> The backend gate is therefore stricter than what was approved. That is a
+> real change in how often the build can fail, and it is recorded here rather
+> than left to be discovered. `--ignore-vuln GHSA-...` with a comment naming
+> who triaged it is the intended release valve: deliberately more awkward than
+> raising a threshold, because raising a threshold is how a gate quietly stops
+> covering anything.
+>
+> Both were provoked. A vulnerable pin makes `pip-audit` exit 1 and a clean
+> tree exits 0; `npm audit --audit-level=high` exits 1 on a high advisory while
+> `--audit-level=critical` exits 0 on the same one, which is what proves the
+> threshold filters rather than being ignored.
+
 **Provoked, not trusted.** A clean audit and a broken audit both print nothing
 useful. The check is run against a deliberately vulnerable pin before it is
 believed — ADR-006, applied to CI configuration rather than application code.

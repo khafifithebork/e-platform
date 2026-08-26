@@ -102,6 +102,21 @@ jobs:
           MEDIA_STORAGE_SECRET_KEY: minioadmin
         run: pytest
 
+      # architecture.md §8.4: "pip-audit and npm audit in CI, CI fails on
+      # high-severity". This is the backend half, and it is **stricter than
+      # that line asks** because pip-audit has no severity filter — no
+      # `--severity` flag exists, so the choice is "fail on any known
+      # advisory" or "parse JSON and guess", and OSV entries frequently carry
+      # no CVSS at all. A gate that silently passes what it cannot classify is
+      # worse than one that is occasionally noisy.
+      #
+      # The escape hatch is per-advisory and reviewable: `--ignore-vuln GHSA-x`
+      # with a comment saying who triaged it and why. That is deliberately more
+      # awkward than raising a threshold, because raising a threshold is how a
+      # security gate quietly stops covering anything.
+      - name: Dependency audit
+        run: python -m pip_audit --strict --progress-spinner off
+
       # CLAUDE.md section 8 requires 100% branch coverage on the entitlement
       # resolver, and a target that is only reported is a target nothing
       # enforces. This fails the build rather than printing a number: a bug
@@ -176,6 +191,18 @@ jobs:
         run: |
           npm run types
           git diff --exit-code src/types/api.d.ts
+
+      # The frontend half of the §8.4 audit. `--audit-level=high` is exactly
+      # what that line specifies, and unlike pip-audit npm supports it
+      # directly — npm advisories carry a severity, so filtering on one
+      # classifies rather than discards.
+      #
+      # ADR-022 §3: not moderate. A gate that fires on things nobody will act
+      # on this quarter is a gate that gets `|| true` appended during an
+      # unrelated deadline, and the failure to design against is a disabled
+      # audit nobody remembers.
+      - name: Dependency audit
+        run: npm audit --audit-level=high
 
       - name: Type check
         run: npm run typecheck

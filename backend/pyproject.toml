@@ -50,6 +50,11 @@ dev = [
     "pytest==9.1.1",
     "pytest-django==4.14.0",
     "pytest-cov==7.1.0",
+    # architecture.md §8.4 asks for a dependency audit in CI and M12 T4 is
+    # where it arrives. Pinned like everything else: an audit tool that
+    # floats can start failing a build for a reason unrelated to this
+    # repository's dependencies.
+    "pip-audit==2.9.0",
 ]
 
 # This is an application, not a library. Nothing is importable from site-
