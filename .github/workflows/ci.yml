@@ -167,6 +167,20 @@ jobs:
       - name: Build the release image
         run: docker build --target runtime -t e-platform-backend:${{ github.sha }} .
 
+      # Boot that image against production settings and see whether it works.
+      # Not a repeat of the deployment check above: that one runs on the
+      # runner, against a virtualenv with the dev dependency set installed.
+      # This one runs inside the image, which is a different filesystem with a
+      # different dependency set — and it is the exact failure M12 T7 hit,
+      # where adding `django-csp` left every test green and the container dead
+      # with `No module named 'csp'`.
+      #
+      # Runs from the repository root because the script drives docker rather
+      # than Django, so it is one of the few things here that genuinely does
+      # not belong in `backend/`.
+      - name: Smoke the release image
+        run: cd .. && bash scripts/smoke_release.sh e-platform-backend:${{ github.sha }}
+
       - name: Deployment check
         env:
           DJANGO_SETTINGS_MODULE: config.settings.production

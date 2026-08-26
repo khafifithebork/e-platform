@@ -289,3 +289,46 @@ class TestTheReleaseImagesAreBuilt:
             for step in self._runs(job):
                 assert "docker push" not in step, job
                 assert "--push" not in step, job
+
+
+class TestTheReleaseImageIsSmoked:
+    """Building an image proves it builds. It does not prove it runs.
+
+    M12 T7 is the case: adding `django-csp` to pyproject left every test green
+    and every check clean, and the container then died with `No module named
+    'csp'` because the image predated the dependency. `check --deploy` in this
+    workflow cannot catch that — it runs on the runner, against a virtualenv
+    with the dev dependency set installed.
+    """
+
+    @staticmethod
+    def _runs(job: str) -> list[str]:
+        return [
+            step["run"]
+            for step in _workflow()["jobs"][job]["steps"]
+            if isinstance(step, dict) and "run" in step
+        ]
+
+    def test_the_smoke_check_runs(self) -> None:
+        assert any("smoke_release.sh" in step for step in self._runs("backend"))
+
+    def test_it_runs_after_the_image_is_built(self) -> None:
+        """Order matters and is easy to lose in a reshuffle: smoking an image
+        that does not exist yet fails for a reason that looks like the image
+        being broken."""
+        runs = self._runs("backend")
+        build = next(i for i, step in enumerate(runs) if "docker build" in step)
+        smoke = next(i for i, step in enumerate(runs) if "smoke_release.sh" in step)
+
+        assert build < smoke
+
+    def test_the_script_exists_and_is_executable_as_written(self) -> None:
+        """The workflow calls it with `bash`, so the file has to be there and
+        has to be a bash script. A renamed script fails at deploy-check time,
+        which is late."""
+        from pathlib import Path
+
+        script = Path(__file__).resolve().parents[3] / "scripts" / "smoke_release.sh"
+
+        assert script.exists()
+        assert script.read_text(encoding="utf-8").startswith("#!/usr/bin/env bash")
