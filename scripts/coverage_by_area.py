@@ -107,9 +107,7 @@ def main(report_path: str) -> int:
     )
     total = covered + missing
     measured = f"{100 * covered / total:.1f}%" if total else "n/a"
-    print(
-        f"{'Everything else':<38}{'not directly':<36}{measured:>10}{len(remaining):>7}"
-    )
+    print(f"{'Everything else':<38}{'not directly':<36}{measured:>10}{len(remaining):>7}")
 
     return 0
 
