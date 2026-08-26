@@ -12,7 +12,7 @@ from django.contrib import admin
 from django.urls import URLPattern, URLResolver, include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from apps.core.views import healthz
+from apps.core.views import csp_report, healthz
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/auth/", include("apps.accounts.urls")),
@@ -32,6 +32,10 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # Infrastructure, not product: outside /api/v1/ on purpose, so it is not
     # versioned, not in the OpenAPI schema, and not proxied as an API route.
     path("healthz", healthz, name="healthz"),
+    # Outside /api/v1/ deliberately: it is not part of the product API, no
+    # client calls it, and it must not appear in the OpenAPI schema — a
+    # published endpoint that accepts anonymous POSTs is an invitation.
+    path("csp-report/", csp_report, name="csp-report"),
     # The contract. Frontend types are generated from this (invariant 16), and
     # a test asserts the committed docs/openapi.yaml still matches the code.
     #
