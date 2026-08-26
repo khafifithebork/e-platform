@@ -63,7 +63,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ".[dev]"
+          # Editable, so `pip-audit` can tell this project apart from its
+          # dependencies. A non-editable install registers
+          # `language-platform-backend 0.0.0` as a distribution, and the audit
+          # then tries to look it up on PyPI — where it will never be, because
+          # pyproject says plainly that this is an application and `pip install`
+          # exists only to install the dependency set.
+          pip install -e ".[dev]"
 
       # scripts/ is linted with the same configuration: it is Python that runs
       # in the migrate path, so it holds the same bar as application code.
@@ -114,8 +120,16 @@ jobs:
       # with a comment saying who triaged it and why. That is deliberately more
       # awkward than raising a threshold, because raising a threshold is how a
       # security gate quietly stops covering anything.
+      #
+      # `--skip-editable` excludes exactly one package: this project, installed
+      # editable above. `--strict` is deliberately absent and its absence does
+      # **not** soften the vulnerability gate — it governs *dependency
+      # collection* failures only, and a found advisory still exits 1 either
+      # way (verified against a known-vulnerable pin). With `--strict` the two
+      # flags contradict each other: it fails on any skipped dependency,
+      # including the one `--skip-editable` was told to skip.
       - name: Dependency audit
-        run: python -m pip_audit --strict --progress-spinner off
+        run: python -m pip_audit --skip-editable --progress-spinner off
 
       # CLAUDE.md section 8 requires 100% branch coverage on the entitlement
       # resolver, and a target that is only reported is a target nothing
