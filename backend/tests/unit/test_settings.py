@@ -191,3 +191,50 @@ class TestAsgiOnly:
         )
 
         assert result.stdout.strip() == "config.asgi.application"
+
+
+class TestTheLoadTestSwitchCannotReachProduction:
+    """`DJANGO_DISABLE_THROTTLES_FOR_LOAD_TEST` turns off DRF throttling.
+
+    It exists because a load test from one host measures the rate limit rather
+    than the endpoint. It is read in `config/settings/local.py` and nowhere
+    else, and the claim that production is therefore unreachable by it is
+    exactly the kind of claim that needs a test rather than a comment — a flag
+    that disables a security control is the last place to rely on "it should be
+    fine".
+
+    Provoked the only way that means anything: by setting the variable and
+    checking production ignores it.
+    """
+
+    def test_production_still_throttles_with_the_switch_set(self) -> None:
+        env = _valid_environment()
+        env["DJANGO_DISABLE_THROTTLES_FOR_LOAD_TEST"] = "1"
+
+        result = _read_setting("config.settings.production", "REST_FRAMEWORK", env)
+
+        assert result.returncode == 0, result.stderr
+        assert "DEFAULT_THROTTLE_CLASSES" in result.stdout
+        assert "ScopedRateThrottle" in result.stdout
+
+    def test_and_the_rates_survive_too(self) -> None:
+        """An empty rates table with the classes still listed would throttle
+        nothing while looking configured."""
+        env = _valid_environment()
+        env["DJANGO_DISABLE_THROTTLES_FOR_LOAD_TEST"] = "1"
+
+        result = _read_setting("config.settings.production", "REST_FRAMEWORK", env)
+
+        assert "'search'" in result.stdout or '"search"' in result.stdout
+
+    def test_the_switch_is_declared_in_local_settings_only(self) -> None:
+        """Structural. If the read ever moves into `base.py`, production
+        inherits it and the guarantee above becomes a hope."""
+        settings_dir = BACKEND_ROOT / "config" / "settings"
+        readers = [
+            path.name
+            for path in settings_dir.glob("*.py")
+            if "DJANGO_DISABLE_THROTTLES_FOR_LOAD_TEST" in path.read_text(encoding="utf-8")
+        ]
+
+        assert readers == ["local.py"], readers

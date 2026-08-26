@@ -47,3 +47,29 @@ REST_FRAMEWORK = {
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = env("EMAIL_HOST", default="mailpit")
 EMAIL_PORT = env.int("EMAIL_PORT", default=1025)
+
+
+# ---------------------------------------------------------------------------
+# Throttles, relaxable for load testing — **development settings only**
+#
+# The public read surface is rate-limited per IP: 120/min for the catalogue,
+# 30/min for search. A load test runs from one host, so with those in force it
+# measures the throttle rather than the endpoint — every run would report the
+# same number, which is the limit, and nothing about how the service behaves
+# under concurrency. Real load arrives from many addresses.
+#
+# **This switch lives here and nowhere else, deliberately.** `local.py` is
+# never the settings module in production, so a way to disable throttling
+# cannot exist there by construction — which is a stronger guarantee than a
+# flag in `base.py` that production remembers to override. `test_settings.py`
+# asserts production is unaffected.
+#
+# Off unless explicitly asked for, and the name says what it does rather than
+# reading like a tuning knob.
+# ---------------------------------------------------------------------------
+if env.bool("DJANGO_DISABLE_THROTTLES_FOR_LOAD_TEST", default=False):
+    REST_FRAMEWORK = {
+        **REST_FRAMEWORK,
+        "DEFAULT_THROTTLE_CLASSES": [],
+        "DEFAULT_THROTTLE_RATES": {},
+    }

@@ -1,13 +1,126 @@
 # STATUS
 
 **Last updated:** 2026-08-25
-**Updated by:** agent session (M11 complete)
+**Updated by:** agent session (M12 complete)
 
 ---
 
 ## Current milestone
 
-**M11 — Discovery & Notifications. Complete — 8 of 8.**
+**M12 — Hardening & Test Completion. Complete — 8 of 8.**
+Branch: `feat/m12-hardening`, off `master` at `1dd0aa3` (M11 merged, PR #39).
+
+Spec: `docs/specs/m12-hardening.md`
+Decisions: `docs/adr/022-m12-hardening-decisions.md` (before code),
+`docs/adr/023-m12-hardening-implementation.md` (what implementation settled)
+
+| Task | State |
+|---|---|
+| T1 spec + four decisions | **done** — `4203aff` |
+| T2 measure §8.1 coverage | **done** — `1bd3df3` |
+| T3 cover the non-API backstops | **done** — `aeb1329` |
+| T4 `pip-audit` + `npm audit` in CI | **done** — `64551bd` |
+| T5 CSP, report-only, both tiers | **done** — `ea1368d` |
+| T6 security header sweep | **done** — `d6c1277` |
+| T7 load baseline, recorded | **done** — `8af4693` |
+| T8 abuse cases, ADR-023, close-out | **done** — `5e22a26` |
+
+**1280 tests pass, none skipped**, in 109s — ruff, `tsc`, `eslint` and
+`check --deploy` clean. Run with Postgres and MinIO up.
+
+### The milestone's premise was wrong, and that was the finding
+
+M12 was specified as maintenance: *close coverage gaps, tighten CSP,
+dependency audit clean*. **Three of those words were false.**
+
+- **No coverage gaps existed.** Every §8.1 target was already met — permissions
+  100% against ~95%, services 97.5% against ~85%. They had never been
+  *measured*, which is a different thing and is why the task existed.
+- **There was no CSP** anywhere: not in Django, not in middleware, not in
+  `next.config`.
+- **No dependency audit ran.** CI had two jobs and neither audited anything,
+  eleven milestones after architecture.md §8.4 specified both.
+
+ADR-019 §1 and ADR-021 §1 each found one control a document described and
+nobody built. M12 found two more in one milestone. **Three milestones, four
+instances — this is the default, not a run of bad luck.** ADR-023 §1: when
+objectives use maintenance verbs — *tighten, close, clean up* — check whether
+the thing exists before planning the work.
+
+### What the coverage numbers were good for
+
+Not the percentage. The 74 uncovered statements, three of which shared one
+shape: **a check written as a backstop, tested only through the path that makes
+it unreachable.** `grant_access_override`'s guards had tests — through the API,
+where the serializer rejects first. `accounts/axes.py`'s form fallback exists
+because Django Admin posts a form and every test posts JSON.
+
+Coverage as a percentage said everything was fine. Coverage as a list of lines
+said where to look.
+
+### 100% branch coverage is a claim about the code, not the tests
+
+Provoking the resolver gate by deleting a test **did not work** — coverage
+stayed at 100%, because other tests covered the same branches. The gate fired
+only when genuinely uncovered code was added: 96.21%, build failed. It works,
+re-verified after eight milestones. It does not mean any particular test is
+load-bearing.
+
+### The load baseline, and what it is not
+
+**1512 requests, 0 failures, 24.9 req/s at 10 VUs over 60s, 500 courses.**
+
+| Endpoint | p50 | p95 |
+|---|---|---|
+| catalogue list | 350ms | 518ms |
+| course detail | 364ms | 550ms |
+| search | 419ms | 712ms |
+
+Search is the most expensive by ~20% at p50 — the ordering M11 asserted when it
+gave search its own throttle scope, now measured.
+
+**These are not production numbers.** The run used the dev image with `DEBUG`
+on, where Django retains every executed query per request. `BASELINE.md` leads
+with that. Good for comparison against itself; M13 measures production.
+
+The first run reported a tidy 532ms p50 with **100% of checks failing** on
+`DisallowedHost` 400s. A load test where everything errors reports excellent
+latency — which is why the script's only check is a status code.
+
+### Two provocations lied before they told the truth
+
+A `| tail` reported the pipe's exit code instead of `pip-audit`'s, so a
+vulnerable pin looked like a pass. A header probe run outside pytest measured a
+400 page, so `X-Frame-Options` looked missing. Same family as M11's misfired
+`.replace()`: **the provocation is code too, and an incorrect one is
+indistinguishable from a working control.**
+
+### Worth a second opinion
+
+`DJANGO_DISABLE_THROTTLES_FOR_LOAD_TEST` disables DRF throttling so a load test
+measures the endpoint rather than the per-IP limit. It is read in
+`config/settings/local.py` and nowhere else, so production cannot see it — and
+that is a test, including a structural one, not a comment. It is still a flag
+that disables a security control.
+
+### What is next
+
+**M13 — Deployment & CI/CD**, and it inherits more from M12 than usual: the CSP
+report endpoint and the decision to enforce, `CREATE EXTENSION pg_trgm`
+verified on Neon rather than locally, a production-shaped load baseline, and
+Renovate and CodeQL.
+
+**The frontend still has no owner** (ADR-020 §2), and M12 is the **third
+milestone in a row** to drop an objective because of it. The `webapp-testing`
+skill is installed and the tooling question is settled; what is missing is a
+product to walk through. It belongs in CLAUDE.md §11.
+
+M8 and M9 remain blocked on the payment provider and the trial scoping rule,
+and M8 still inherits M10's two follow-ups.
+
+---
+
+## M11 — Discovery & Notifications. Complete — 8 of 8.
 Branch: `feat/m11-discovery`, off `master` at `ad80d18` (M10 merged, PR #37).
 
 Spec: `docs/specs/m11-discovery.md`
