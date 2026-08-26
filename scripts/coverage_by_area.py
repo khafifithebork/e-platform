@@ -45,12 +45,12 @@ AREAS: list[tuple[str, str, object]] = [
     (
         "Permissions / object scoping",
         "~95%",
-        lambda p: p.endswith("permissions.py") or p.endswith("selectors.py"),
+        lambda p: p.endswith(("permissions.py", "selectors.py")),
     ),
     (
         "Services layer",
         "~85%",
-        lambda p: p.endswith("services.py") or p.endswith("audit.py"),
+        lambda p: p.endswith(("services.py", "audit.py")),
     ),
     (
         "Media / transcription pipeline",
@@ -60,7 +60,7 @@ AREAS: list[tuple[str, str, object]] = [
     (
         "Serializers, views",
         "~70%",
-        lambda p: p.endswith("serializers.py") or p.endswith("views.py"),
+        lambda p: p.endswith(("serializers.py", "views.py")),
     ),
 ]
 
@@ -107,7 +107,9 @@ def main(report_path: str) -> int:
     )
     total = covered + missing
     measured = f"{100 * covered / total:.1f}%" if total else "n/a"
-    print(f"{'Everything else':<38}{'not directly':<36}{measured:>10}{len(remaining):>7}")
+    print(
+        f"{'Everything else':<38}{'not directly':<36}{measured:>10}{len(remaining):>7}"
+    )
 
     return 0
 
