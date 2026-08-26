@@ -236,3 +236,56 @@ class TestDeploymentChecksRunInCi:
 
         assert any("--cov-fail-under=100" in step for step in runs)
         assert any("apps.entitlements.resolver" in step for step in runs)
+
+
+class TestTheReleaseImagesAreBuilt:
+    """CI builds the images that would deploy, not only the source.
+
+    Everything else in the backend job tests the source on a GitHub runner:
+    a different Python, different OS packages, an editable install and the dev
+    dependency set. None of it exercises `--target runtime`. A Dockerfile that
+    stopped building would be invisible until a deploy, which is the worst
+    moment to find out — and this repository has now found four controls that
+    a document described and nobody built, so "surely someone would notice" is
+    not a control.
+
+    **Not pushed anywhere.** Pushing needs a registry, a registry needs an
+    account, and CLAUDE.md §11 #4 has not chosen a platform. Building without
+    pushing is the half that is already decided, and the assertion below says
+    so — a `docker push` appearing here would mean a hosting decision was made
+    in a workflow file rather than by the owner.
+    """
+
+    @staticmethod
+    def _runs(job: str) -> list[str]:
+        return [
+            step["run"]
+            for step in _workflow()["jobs"][job]["steps"]
+            if isinstance(step, dict) and "run" in step
+        ]
+
+    def test_the_backend_runtime_image_is_built(self) -> None:
+        builds = [step for step in self._runs("backend") if "docker build" in step]
+
+        assert builds
+        assert any("--target runtime" in step for step in builds)
+
+    def test_the_frontend_runtime_image_is_built(self) -> None:
+        builds = [step for step in self._runs("frontend") if "docker build" in step]
+
+        assert builds
+        assert any("--target runtime" in step for step in builds)
+
+    def test_the_dev_target_is_not_what_ships(self) -> None:
+        """`--target dev` carries the reloader and the dev dependency set. A
+        build that quietly used it would pass this file's other assertions."""
+        for job in ("backend", "frontend"):
+            for step in self._runs(job):
+                if "docker build" in step:
+                    assert "--target dev" not in step, job
+
+    def test_nothing_is_pushed(self) -> None:
+        for job in ("backend", "frontend"):
+            for step in self._runs(job):
+                assert "docker push" not in step, job
+                assert "--push" not in step, job

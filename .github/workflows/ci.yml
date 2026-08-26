@@ -149,6 +149,24 @@ jobs:
           --cov-fail-under=100
           --cov-report=term-missing
 
+      # The image that would actually deploy, built for the first time in CI.
+      # Everything above this line tests the *source* on a GitHub runner:
+      # different Python, different OS packages, an editable install and the
+      # dev dependency set. None of that exercises `--target runtime`, so a
+      # Dockerfile that stopped building would be invisible until a deploy —
+      # which is the worst moment to find out.
+      #
+      # Tagged with the commit SHA and **not pushed**. Pushing needs a
+      # registry, a registry needs an account, and §11 #4 has not chosen a
+      # platform yet. Building without pushing is the half that is decided.
+      # Context is `.` because the job already runs in `backend/` — the
+      # job-level `defaults.run.working-directory` that a test in this
+      # repository exists to protect. A step-level override here would be the
+      # exact thing that guard forbids, and it caught the first version of
+      # this step.
+      - name: Build the release image
+        run: docker build --target runtime -t e-platform-backend:${{ github.sha }} .
+
       - name: Deployment check
         env:
           DJANGO_SETTINGS_MODULE: config.settings.production
@@ -229,3 +247,13 @@ jobs:
       # next.config.ts and would fail on an invalid rewrite.
       - name: Build
         run: npm run build
+
+      # And again inside the image, which is not the same build. `npm run
+      # build` above runs on the runner with the full dependency tree; the
+      # image builds on node:22-slim, installs with `npm ci --omit=dev`, and
+      # ships `.next/standalone`. A difference between those two is exactly
+      # the class of failure that only appears at deploy time.
+      #
+      # Not pushed, for the reason the backend job gives.
+      - name: Build the release image
+        run: docker build --target runtime -t e-platform-frontend:${{ github.sha }} .
