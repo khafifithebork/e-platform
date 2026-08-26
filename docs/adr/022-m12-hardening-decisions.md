@@ -91,6 +91,24 @@ remembers".
 > tree exits 0; `npm audit --audit-level=high` exits 1 on a high advisory while
 > `--audit-level=critical` exits 0 on the same one, which is what proves the
 > threshold filters rather than being ignored.
+>
+> **Amended again after CI.** `--strict` had to go, and its absence does not
+> soften the vulnerability gate: it governs *dependency collection* failures
+> only, and a found advisory exits 1 either way — verified against a
+> known-vulnerable pin both with and without it.
+>
+> What forced it: `pip install ".[dev]"` registers this project as a
+> distribution, and the audit then tries to resolve
+> `language-platform-backend 0.0.0` on PyPI, where it will never be. CI now
+> installs editable and passes `--skip-editable`, which excludes exactly one
+> package — this one. `--strict` cannot coexist with that, because it fails on
+> *any* skipped dependency including the one `--skip-editable` was told to
+> skip.
+>
+> This passed locally and failed in CI because the local virtualenv had never
+> had the project installed into it at all. The verification environment
+> differed from the one that matters, which is the same mistake as measuring a
+> header on a 400 page (ADR-023 §5) — in a third costume.
 
 **Provoked, not trusted.** A clean audit and a broken audit both print nothing
 useful. The check is run against a deliberately vulnerable pin before it is
