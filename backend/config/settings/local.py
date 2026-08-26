@@ -73,3 +73,19 @@ if env.bool("DJANGO_DISABLE_THROTTLES_FOR_LOAD_TEST", default=False):
         "DEFAULT_THROTTLE_CLASSES": [],
         "DEFAULT_THROTTLE_RATES": {},
     }
+
+
+# Report violations to our own endpoint while developing, so a directive that
+# would break a page shows up in the console log rather than in silence.
+# Production sets CSP_REPORT_URI explicitly; this is only a convenience for
+# the compose stack, where the browser and Django share an origin through the
+# Next.js rewrite.
+CSP_REPORT_URI = env("CSP_REPORT_URI", default="/csp-report/")
+
+if CSP_REPORT_URI:
+    CONTENT_SECURITY_POLICY_REPORT_ONLY = {
+        "DIRECTIVES": {
+            **CONTENT_SECURITY_POLICY_REPORT_ONLY["DIRECTIVES"],
+            "report-uri": [CSP_REPORT_URI],
+        }
+    }
