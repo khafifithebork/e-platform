@@ -1,6 +1,7 @@
 # Spike — running this Next.js app on Cloudflare Workers (OpenNext)
 
 **Date:** 2026-08-27
+**Result:** the adapter builds this application. One prerequisite, one unknown.
 **Requested by:** ADR-002 §3 Move 2 — *"Validate this with a spike in M0 before
 committing — an hour of work that de-risks the decision."*
 **Blocks:** CLAUDE.md §11 #4 (hosting target), and therefore M13 T7–T10.
@@ -105,8 +106,9 @@ deliberately rather than discovering.
 ## Finding 4 — the adapter's dependency footprint is larger than it looks
 
 Installing `@opennextjs/cloudflare` pulls `@opennextjs/aws` and, through it,
-AWS SDK packages including `@aws-sdk/client-dynamodb` — the install failed once
-while fetching exactly that.
+AWS SDK packages including `@aws-sdk/client-dynamodb` — one of the failed
+installs died fetching exactly that. The successful run added **670 packages
+and took 23 minutes** on this connection.
 
 This is not a defect; OpenNext's Cloudflare adapter is built on its AWS
 implementation. But it is a fact worth knowing before adopting it: the
@@ -114,34 +116,67 @@ dependency tree is not small, and `npm audit` runs against it in CI (M12 T4).
 
 ---
 
-## The build attempt
+## The build — it works
 
-**Not completed on this machine, and the reason is local rather than
-architectural.**
+**`opennextjs-cloudflare build` succeeds on this application.** Completed on
+2026-08-27 after three failed installs; the fourth took 23 minutes and 670
+packages, and the network, not the adapter, was what took the time.
 
-Three separate installs failed against the npm registry with `ECONNRESET` and
-`ETIMEDOUT` — the same network unreliability that also defeated two Docker
-builds of the frontend image during M13 T4, where CI then built the same image
-without trouble. The adapter and its tree were still installing when this was
-written.
-
-**What that means for the decision: nothing.** Findings 1–3 are static facts
-about this repository and the adapter's published metadata; none of them
-depends on a successful build. What a completed build would add is confirmation
-that the rewrite in Finding 3 behaves, which is the one open question.
-
-### To finish it, on a machine with a reliable connection
-
-```bash
-cp -r frontend /tmp/spike && cd /tmp/spike
-npm install next@16.3.3 @opennextjs/cloudflare wrangler
-npx opennextjs-cloudflare build
-npx wrangler dev            # then exercise /api/* against a running Django
+```
+next@16.3.3 + @opennextjs/cloudflare@1.20.4
+$ npx opennextjs-cloudflare migrate   # generates open-next.config.ts + wrangler.jsonc
+$ npx opennextjs-cloudflare build     # exit 0
+...
+Worker saved in `.open-next/worker.js`
 ```
 
-The check that matters is not that it builds. It is that a request to
-`/api/v1/auth/me/` through `wrangler dev` reaches Django **and returns the
-session cookie unchanged**.
+**The route table is the most useful thing it produced:**
+
+```
+┌ ○ /                      ○ (Static)   prerendered
+├ ○ /_not-found            ○ (Static)
+├ ○ /forgot-password       ○ (Static)
+├ ƒ /learn/[lessonId]      ƒ (Dynamic)  server-rendered on demand
+├ ○ /login                 ○ (Static)
+├ ○ /register              ○ (Static)
+└ ○ /reset-password        ○ (Static)
+```
+
+**Six of seven routes are already static.** Only the lesson page renders on
+demand. That is Finding 2 restated by the build itself, and it bears directly
+on ADR-002 Move 1 — *"make the public surface static"*, which that ADR calls
+not optional either way. The public surface substantially **already is**;
+what is missing is the marketing and catalogue pages that do not exist yet.
+
+Build output is 24 MB in `.open-next/`, dominated by Next's own compiled
+server runtime rather than by application code.
+
+### Two things the build said that are worth quoting
+
+**OpenNext warns it is not fully compatible with Windows.** Verbatim, on every
+invocation:
+
+> `WARN OpenNext is not fully compatible with Windows.`
+> `WARN For optimal performance, it is recommended to use Windows Subsystem for Linux (WSL).`
+> `WARN While OpenNext may function on Windows, it could encounter unpredictable failures during runtime.`
+
+It built anyway, and the warning is about the *build host*, not the deploy
+target — Workers run the output regardless. But this project is developed on
+Windows, so anyone adopting B-lite should expect to build releases in WSL or
+in CI rather than natively. **CI is Linux, so the deploy path is unaffected.**
+
+**`migrate` writes two files** — `open-next.config.ts` and `wrangler.jsonc` —
+and both would need to be committed. Its closing note flags that the cache
+needs configuring separately, which is unexplored here and is the next thing
+to look at if B-lite is chosen.
+
+### Still not verified: the rewrite through a running Worker
+
+The build produces a Worker; it does not prove the `/api/*` proxy behaves.
+That needs `wrangler dev` running against a live Django, and the check is not
+that a request arrives but that **the session cookie survives the round trip
+in both directions**. Perhaps thirty minutes, and it is the one remaining
+unknown.
 
 ---
 
@@ -160,5 +195,8 @@ condition:
 - **One question remains open** — the external rewrite — and it is testable in
   minutes by anyone with a working npm connection.
 
-**B-lite is not de-risked to zero, but it is no longer blocked on an unknown.**
-It is blocked on a decision, a spend approval, and one thirty-minute check.
+**B-lite is no longer blocked on an unknown.** The adapter builds this
+application, six of its seven routes are already static, and the only
+prerequisite found is a two-patch Next upgrade. What remains is a decision, a
+spend approval, one thirty-minute cookie check, and the knowledge that release
+builds want a Linux host — which CI already is.
