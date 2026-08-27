@@ -1,0 +1,20 @@
+Nightly entitlement reconciliation found drift.
+{% if granting %}
+GRANTING ACCESS — these subscriptions are still serving paid content:
+{% for finding in granting_findings %}
+  {{ finding.code }} — {{ finding.count }}
+  {{ finding.description }}
+  Subscription ids: {{ finding.examples|join:", " }}
+{% endfor %}{% endif %}{% if stale_findings %}
+Stale rows — access is already refused, nothing is being given away:
+{% for finding in stale_findings %}
+  {{ finding.code }} — {{ finding.count }}
+  {{ finding.description }}
+  Subscription ids: {{ finding.examples|join:", " }}
+{% endfor %}{% endif %}
+Ids are capped per category. To see the full picture:
+
+  python manage.py reconcile_entitlements
+
+That command reports and does not repair, and neither does this alert. Deciding
+what to do about a lapsed subscription is a billing decision, not a cron job.

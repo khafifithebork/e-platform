@@ -64,11 +64,11 @@ else. The reconciliation job was never written.
 
 Approved to build now. None of it needs a platform, an account, or a bill.
 
-| # | Task | Why it does not need M13 |
-|---|---|---|
-| T2 | Close the `request_id` chain, both missing hops | Application code |
-| T3 | Entitlement reconciliation, as a command | Application code |
-| T4 | Business alerts on what T3 finds | Uses M11's email adapter |
+| # | Task | Why it does not need M13 | State |
+|---|---|---|---|
+| T2 | Close the `request_id` chain, both missing hops | Application code | **done** |
+| T3 | Entitlement reconciliation, as a command | Application code | **done** |
+| T4 | Business alerts on what T3 finds | Uses M11's email adapter | **done** |
 
 **T4's scheduling is not blocked, and the first version of this spec said it
 was.** It cited CLAUDE.md §11 #3 as unanswered. **ADR-001 §2.2 settled it** —
@@ -84,6 +84,12 @@ periodic task.** So this milestone is where Beat actually gets wired.
 
 What remains is a **§5 dependency approval** for `django-celery-beat`, not an
 architectural decision. It brings models and migrations.
+
+**Approved 2026-08-27, and wired in T4.** It brought three transitive
+dependencies — `cron-descriptor`, `django-timezone-field`, `python-crontab` —
+all pinned, and nineteen migrations of its own. Verified against the live
+stack: Beat starts inside the worker, the schedule is a row in Postgres, and
+nothing lands on local disk.
 
 ---
 
@@ -115,8 +121,8 @@ Not required for T2–T4; required before T5 onward.
 |---|---|
 | 5.1 | **Sentry** — a new service and a spend cap is a billing decision. §5 gate |
 | 5.2 | **Uptime monitor** — UptimeRobot or Better Stack; both have free tiers, both are §5 |
-| 5.3 | **`django-celery-beat` as a dependency** — §5 gate. *Placement* is not open: ADR-001 §2.2 settled it, and T4 is the first periodic task, so this is where it lands |
-| 5.4 | **Alert delivery** — email through M11's adapter is the obvious answer; anything else is a new dependency |
+| 5.3 | ~~**`django-celery-beat` as a dependency**~~ — **answered yes, 2026-08-27.** Wired in T4 |
+| 5.4 | ~~**Alert delivery**~~ — **answered:** email through M11's adapter, to `OPERATIONS_ALERT_EMAIL`. Empty by default; the job logs and sends nothing rather than guessing at an address |
 
 ---
 
@@ -139,10 +145,28 @@ Not required for T2–T4; required before T5 onward.
 
 ---
 
+## 6.1 What the abuse cases actually caught
+
+Every control was provoked before it was believed, per ADR-006. Two of them
+were not catching what their names claimed:
+
+- **`test_the_worker_starts_beat` passed with `--beat` removed.** It read the
+  whole compose service block, and the *comment* above the command says
+  `--beat`. A test that passes on a comment guards a comment. Now reads the
+  `command:` line alone.
+- **`test_the_scheduled_path_resolves_to_a_real_task` passed while the schedule
+  pointed at a task that did not exist.** It asserted a constant defined at the
+  top of the test file rather than the schedule's own string. Now resolves
+  every entry in `CELERY_BEAT_SCHEDULE` against the task registry.
+
+Both were found by provocation, not by review.
+
+---
+
 ## 7. Not in M14's unblocked half
 
-- **No scheduler wired without approval.** The placement is settled;
-  `django-celery-beat` is a dependency and needs a §5 answer first.
+- ~~**No scheduler wired without approval.**~~ Approved 2026-08-27 and wired in
+  T4; the placement was never open (ADR-001 §2.2).
 - **No Sentry**, no uptime monitors, no metrics endpoint — all need accounts.
 - **No repair path in reconciliation.** §6 case 3.
 - **No launch checklist.** It would be a checklist over a product with no
