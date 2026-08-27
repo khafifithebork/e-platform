@@ -21,6 +21,9 @@ import type { components } from "@/types/api";
  */
 
 export type PublicCourse = components["schemas"]["PublicCourse"];
+export type PublicCourseDetail = components["schemas"]["PublicCourseDetail"];
+export type PublicSection = components["schemas"]["PublicSection"];
+export type PublicLesson = components["schemas"]["PublicLesson"];
 export type Language = components["schemas"]["Language"];
 
 /**
@@ -50,6 +53,21 @@ export class CatalogueUnavailable extends Error {
   }
 }
 
+/**
+ * The API answered 404.
+ *
+ * Extends `CatalogueUnavailable` deliberately: on a list endpoint a 404 means
+ * somebody renamed a route and the build should stop, which is the inherited
+ * behaviour. On a single course it means that course is no longer published,
+ * which is a page that should 404 rather than a build that should fail.
+ */
+export class CatalogueNotFound extends CatalogueUnavailable {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "CatalogueNotFound";
+  }
+}
+
 /** DRF's paginated envelope. Cursor-free — this API uses page numbers. */
 interface Page<T> {
   next: string | null;
@@ -71,6 +89,15 @@ async function readCatalogue<T>(url: string): Promise<T> {
     // site with an empty catalogue. The empty site is the dangerous outcome:
     // it deploys, it looks fine, and every course silently disappeared.
     throw new CatalogueUnavailable(cause instanceof Error ? cause.message : String(cause));
+  }
+
+  if (response.status === 404) {
+    // A subclass, so every existing caller that treats 404 as a broken
+    // catalogue still does. Only the code that asks for one course by slug
+    // cares about the difference, and for that one it is the whole question:
+    // "this course is not published" and "the API is broken" want opposite
+    // responses, and a single error type cannot tell them apart.
+    throw new CatalogueNotFound(`${response.status} ${response.statusText}`);
   }
 
   if (!response.ok) {
@@ -137,4 +164,34 @@ export async function allPublishedCourses(): Promise<PublicCourse[]> {
 /** The languages that have published courses, for the filter control. */
 export async function catalogueLanguages(): Promise<Language[]> {
   return readAllPages<Language>("/languages/");
+}
+
+/**
+ * Every published slug, for `generateStaticParams`.
+ *
+ * Reads the same listing the catalogue page does. That is one extra request
+ * per build rather than a dedicated slugs endpoint, and it is the right trade:
+ * a second endpoint would be a second definition of "published", and the two
+ * would eventually disagree about a course somebody just unpublished.
+ */
+export async function publishedCourseSlugs(): Promise<string[]> {
+  const courses = await allPublishedCourses();
+  return courses.map((course) => course.slug);
+}
+
+/**
+ * One course, with its curriculum and its related courses.
+ *
+ * `related` is embedded in this response rather than fetched separately — the
+ * serializer says why, and says it in these terms: public pages are statically
+ * generated, so a second round trip is paid at build time for data the first
+ * response already knows.
+ *
+ * Throws `CatalogueNotFound` when the course is not published. The caller
+ * turns that into a 404; anything else is still a build-stopping failure.
+ */
+export async function publishedCourse(slug: string): Promise<PublicCourseDetail> {
+  return readCatalogue<PublicCourseDetail>(
+    `${apiOrigin}/api/v1/catalogue/courses/${encodeURIComponent(slug)}/`,
+  );
 }

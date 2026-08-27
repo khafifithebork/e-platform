@@ -19,7 +19,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CatalogueUnavailable, allPublishedCourses } from "@/lib/catalogue/courses";
+import {
+  CatalogueNotFound,
+  CatalogueUnavailable,
+  allPublishedCourses,
+  publishedCourse,
+  publishedCourseSlugs,
+} from "@/lib/catalogue/courses";
 
 function page(results: unknown[], next: string | null = null) {
   return new Response(JSON.stringify({ next, previous: null, results }), {
@@ -158,5 +164,86 @@ describe("abuse case 6 — the build stops rather than shipping an empty site", 
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(page([]));
 
     await expect(allPublishedCourses()).resolves.toEqual([]);
+  });
+});
+
+describe("one course by slug", () => {
+  it("asks for that slug", async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ slug: "spanish-a1" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await publishedCourse("spanish-a1");
+    const [url] = vi.mocked(globalThis.fetch).mock.calls[0];
+
+    expect(String(url)).toMatch(/\/catalogue\/courses\/spanish-a1\/$/);
+  });
+
+  it("escapes a slug rather than pasting it into a URL", async () => {
+    // Slugs come from the API today, so this is not a live injection — it is
+    // the assumption that would silently stop holding if a slug ever came from
+    // anywhere else, and encoding costs nothing.
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+      new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+
+    await publishedCourse("a b/../etc");
+    const [url] = vi.mocked(globalThis.fetch).mock.calls[0];
+
+    expect(String(url)).not.toContain(" ");
+    expect(String(url)).not.toContain("/../");
+  });
+
+  it("throws CatalogueNotFound for a course that is not published", async () => {
+    // The page turns this into a 404. Anything else is a build-stopping
+    // failure, and telling the two apart is the whole reason for the subclass.
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(new Response("", { status: 404 }));
+
+    await expect(publishedCourse("draft")).rejects.toBeInstanceOf(CatalogueNotFound);
+  });
+
+  it("throws plain CatalogueUnavailable for a 500", async () => {
+    // The negative that makes the case above mean something: if every failure
+    // were CatalogueNotFound, a broken API would quietly turn the whole
+    // catalogue into 404 pages and the build would succeed with a site where
+    // nothing exists.
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(new Response("", { status: 500 }));
+
+    const failure = await publishedCourse("spanish-a1").catch((error) => error);
+
+    expect(failure).toBeInstanceOf(CatalogueUnavailable);
+    expect(failure).not.toBeInstanceOf(CatalogueNotFound);
+  });
+
+  it("keeps CatalogueNotFound a CatalogueUnavailable, for list callers", async () => {
+    // A 404 on a *list* endpoint means somebody renamed a route, and the
+    // existing assertion that it stops the build must keep holding.
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(new Response("", { status: 404 }));
+
+    await expect(allPublishedCourses()).rejects.toBeInstanceOf(CatalogueUnavailable);
+  });
+});
+
+describe("the slugs generateStaticParams builds from", () => {
+  it("come from the same listing the catalogue page uses", async () => {
+    // One definition of "published". A dedicated slugs endpoint would be a
+    // second, and the two would eventually disagree about a course somebody
+    // just unpublished.
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+      page([{ slug: "a" }, { slug: "b" }]),
+    );
+
+    await expect(publishedCourseSlugs()).resolves.toEqual(["a", "b"]);
+  });
+
+  it("include every page, not only the first", async () => {
+    vi.mocked(globalThis.fetch)
+      .mockResolvedValueOnce(page([{ slug: "a" }], "http://api.test/api/v1/catalogue/courses/?page=2"))
+      .mockResolvedValueOnce(page([{ slug: "b" }]));
+
+    await expect(publishedCourseSlugs()).resolves.toEqual(["a", "b"]);
   });
 });

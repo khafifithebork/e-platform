@@ -211,6 +211,43 @@ describe("invariant 15 — nothing here renders at request time", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("every dynamic segment refuses params it did not generate", () => {
+    /**
+     * **The load-bearing line in `courses/[slug]/page.tsx`.**
+     *
+     * By default a dynamic segment visited with a slug `generateStaticParams`
+     * did not produce is rendered *on demand* — a server invocation per
+     * request, which is precisely what invariant 15 forbids. It is also abuse
+     * case 2's mechanism: without it, the first request for
+     * `/courses/some-draft` calls the API at request time to find out whether
+     * that course exists.
+     *
+     * One line, easy to delete while debugging a build, and nothing about the
+     * site looks different afterwards until a stranger guesses a slug.
+     *
+     * **Observed, not assumed: `next build` cannot tell you it is missing.**
+     * Building with the line removed produces a byte-identical route table —
+     * the known slug is still marked SSG, because the difference only shows up
+     * for slugs `generateStaticParams` did not return, and those are rendered
+     * on demand at request time rather than at build time. So the build output
+     * is not a check for this, and this test is the only thing that is.
+     */
+    const dynamicSegments = sourceFilesIn(GROUP).filter((path) => /\[[^\]]+\]/.test(path));
+
+    const unguarded = dynamicSegments.filter(
+      (path) =>
+        !/export\s+const\s+dynamicParams\s*=\s*false/.test(codeOnly(readFileSync(path, "utf8"))),
+    );
+
+    expect(unguarded).toEqual([]);
+  });
+
+  it("and there is a dynamic segment to check", () => {
+    // The twin, again. The assertion above passes trivially the day somebody
+    // renames the folder and the filter matches nothing.
+    expect(sourceFilesIn(GROUP).filter((path) => /\[[^\]]+\]/.test(path))).not.toEqual([]);
+  });
+
   it("and the check can actually see the files it is checking", () => {
     // The twin. Every assertion above passes trivially against an empty list,
     // so a wrong path or a bad glob would look like compliance forever. This
