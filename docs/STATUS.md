@@ -1,13 +1,66 @@
 # STATUS
 
-**Last updated:** 2026-08-26
-**Updated by:** agent session (M13 unblocked half complete)
+**Last updated:** 2026-08-27
+**Updated by:** agent session (M14 unblocked half complete)
 
 ---
 
 ## Current milestone
 
-**M13 — Deployment & CI/CD. In progress — 6 of 10.**
+**M14 — Observability & Launch. In progress — 3 of 10.**
+Branch: `feat/m14-observability`, off `master` after M13's unblocked half merged.
+
+Spec: `docs/specs/m14-observability.md`
+
+| Task | State |
+|---|---|
+| T1 spec, measuring what exists rather than assuming | **done** — `154f219` |
+| T2 close the `request_id` chain, both missing hops | **done** — `5e1fc51` |
+| T3 entitlement reconciliation, reporting only | **done** — `1762165` |
+| T4 nightly drift alert; Beat wired | **done** |
+| T5 Sentry across three services, with a spend cap | **blocked** — account, §5 gate |
+| T6 metrics: queue depth, transcription age, webhook lag | **blocked** — needs T5 |
+| T7 uptime monitors on `/healthz` | **blocked** — needs a deployment |
+| T8 backups: Neon PITR **and** weekly `pg_dump` to R2 | **blocked** — M13 platform |
+| T9 restore drill, **executed** | **blocked** — needs T8 |
+| T10 runbooks beyond rollback; launch checklist | **blocked** — all of the above |
+
+**1387 tests pass**, ruff/`check --deploy`/pip-audit clean.
+
+### What T3 and T4 found, which is the point of them
+
+`resolver._decide_for` allows an ACTIVE subscription **without checking its
+period**, on the explicit grounds that *"a stale ACTIVE row past its period is
+the expiry sweep's job"*. That reasoning is correct, and it assumes a sweep
+exists. **None does, and none is scheduled before M8.** A subscription whose
+renewal never arrived serves paid content indefinitely.
+
+T3 reports it and T4 mails it. **Neither repairs it** — invariant 3 has exactly
+one writer of subscription state, and a nightly job that quietly corrected rows
+would erase the evidence of the upstream fault while looking like health.
+
+### Beat is wired, and this is where ADR-001 §2.2 said it would be
+
+`django-celery-beat` was approved under §5 on 2026-08-27. ADR-001 §2.2 settled
+the placement at M0 — inside the worker, exactly one replica, schedule in
+Postgres — and said it *"lands with the first periodic task, not in M0"*. T4 is
+that task, fourteen milestones later.
+
+Verified against the live stack rather than asserted: Beat starts, the schedule
+is a row in Postgres, **nothing is written to local disk**, and injected drift
+produced a real message in Mailpit carrying subscription ids and no email
+addresses.
+
+Three M0 tests that asserted Beat was *deferred* were **converted, not
+deleted** — into assertions about the constraint the deferral protected
+(invariant 5). Each docstring names what it replaced. That file already had one
+such conversion, from when the first task arrived at M5.
+
+---
+
+## Previous milestone
+
+**M13 — Deployment & CI/CD. Unblocked half complete — 6 of 10.**
 Branch: `feat/m13-deployment`, off `master` at `30960c8` (M12 merged, PR #41).
 Merged as PRs #42 (T1–T5) and #43 (T6).
 

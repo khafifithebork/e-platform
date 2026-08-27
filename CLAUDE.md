@@ -178,10 +178,23 @@ These are unresolved. If a task depends on one, stop and ask.
 | # | Decision | Blocks |
 |---|---|---|
 | 1 | Payment provider and operating jurisdiction (Stripe is unavailable to Moroccan merchants; a merchant of record may be required) | M4 schema, M8 entirely |
-| 2 | Same-origin routing: Next.js rewrites vs Cloudflare Worker path routing | M2 |
-| 3 | Celery Beat placement: inside the worker at one replica, vs platform cron | M0, M13 |
-| 4 | Hosting target: Render vs Cloudflare Workers + Hetzner/Dokploy | M13 only — containerise so it stays late-binding |
-| 5 | Whether live classes are on the roadmap | Nothing yet; affects M5 modelling if yes |
+| 2 | Whether live classes are on the roadmap | Nothing yet; affects M5 modelling if yes |
+| 3 | **Hosting target: Render (B) vs Cloudflare Workers + Hetzner/Dokploy (B-lite)** — the *approach* is settled (ADR-001 §2.3: containerise for both, decide at M13 on evidence). The choice itself is **due now**. See `docs/spikes/opennext-on-workers.md` | M13 T7–T10 |
+| 4 | The BFF-vs-path-routing shape — ADR-001 §2.1 settled the sequence (Next rewrites now, Cloudflare Worker before launch); what a Worker taking over `/api/*` implies is still open | M13, launch |
+| 5 | The private-network assumption under B-lite — architecture.md §3.2 has Server Components fetching Django over a private network, which B-lite does not have (ADR-001 §2.3). **Currently moot: no Server Component fetches Django**, and static generation keeps build-time fetches in CI. Revisit if a request-time server fetch is ever added | M13, and any frontend work that adds one |
+
+**Struck 2026-08-27**, on ADR-001 §3's own instruction — *"CLAUDE.md §11 should
+be updated to strike decisions 2, 3 and 4, retain 1 and 5, and add the two
+questions above"* — which was written when ADR-001 was accepted and never
+carried out. Three rows were listed as open for eleven milestones after being
+decided:
+
+- **Same-origin routing** — settled by ADR-001 §2.1.
+- **Celery Beat placement** — settled by ADR-001 §2.2: Beat embedded in the
+  worker at exactly one replica, with `django-celery-beat` keeping the schedule
+  in Postgres. It lands with the first periodic task, which is M14 T4.
+- **Hosting** — the deferral was the decision; the choice is now due, and rows
+  4 and 5 are the two questions ADR-001 asked to be added in its place.
 
 ---
 

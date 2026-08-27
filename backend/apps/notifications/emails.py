@@ -140,6 +140,46 @@ def send_course_submitted_email(*, to: str, course_title: str, instructor_name: 
     )
 
 
+def send_entitlement_drift_alert(*, to: str, findings) -> None:
+    """The one operational message in a module of transactional ones.
+
+    **It deliberately does not go through `_send_to_account`.** Every other
+    message here is addressed to a person who holds an account, and abuse case
+    7 stops those reaching an address nobody has proved they control. This one
+    is addressed to whoever `OPERATIONS_ALERT_EMAIL` names — an operator, quite
+    possibly not a user of the platform at all. Holding it to the
+    verified-account rule would mean the alert silently never sends, which is
+    the failure mode an alert exists to prevent.
+
+    The address is configured by the operator rather than supplied by anybody,
+    so the threat the rule guards against is not present.
+
+    **Findings are split in the body, not just counted.** M14 §6 case 6 wants
+    an alert that names what it found; ADR-002 §4 wants one somebody reads. A
+    message saying "5 findings" makes the reader run the command to learn
+    whether any of them matter, and one that lumps a lapsed ACTIVE row in with
+    a stale CANCELED one trains them to assume it does not.
+
+    **Subscription ids, never email addresses.** The ids come from T3's
+    selector, which reads primary keys precisely so this message can carry
+    something identifying without carrying personal data into a mailbox nobody
+    audits.
+    """
+    granting_findings = [finding for finding in findings if finding.grants_access]
+    stale_findings = [finding for finding in findings if not finding.grants_access]
+
+    _send(
+        "entitlement_drift",
+        to=to,
+        context={
+            "granting": len(granting_findings),
+            "total": len(findings),
+            "granting_findings": granting_findings,
+            "stale_findings": stale_findings,
+        },
+    )
+
+
 def send_course_reviewed_email(*, to: str, course_title: str, decision: str, notes: str) -> bool:
     """The instructor learns what happened to their submission.
 

@@ -180,6 +180,51 @@ unknown.
 
 ---
 
+## Two decision inputs found after the spike, in ADR-001
+
+Both were written down at M0 and neither was carried into the M13 planning
+until 2026-08-27.
+
+### The ops-time estimate is contested by a factor of three
+
+ADR-001 §2.3 flags it explicitly, and it is the axis ADR-002 §6 calls the
+tiebreaker:
+
+> *"the two documents disagree about that cost by a factor of three
+> (`deployment-strategy.md` §12 rates VPS ops at 8–15 h/month; ADR-002 §5 rates
+> a comparable setup at 3–6 h/month). That disagreement is unresolved and is
+> exactly the input the decision needs."*
+
+**M13's spec quoted only ADR-002's 3–6 figure**, in a table, as though it were
+settled. It is not. If B-lite's real cost is 8–15 hours a month, that is a
+different decision from the one the $6/month price gap suggests — and nothing
+in this spike measures it, because it cannot be measured without running it.
+
+### ADR-001 named a B-lite blocker this spike did not set out to check
+
+> *"`architecture.md` §3.2 has Next.js Server Components fetching Django 'over
+> the private network'. B-lite puts Next.js on Cloudflare Workers and Django on
+> Hetzner — different providers, no private network. Server-side fetches would
+> cross the public internet and need their own authentication. ADR-002 does not
+> address this. It is not an M0 problem; it is an M13 blocker and it is written
+> down here so it is not discovered then."*
+
+**Checked, and it is currently moot.** No Server Component fetches Django. The
+only `await` in a server file is Next's async `params`, which is not a network
+call — every fetch in the application is client-side, from the browser, through
+the same-origin rewrite.
+
+Two caveats worth keeping:
+
+- **Static generation keeps it moot.** A catalogue page built with
+  `generateStaticParams` fetches at *build* time, which happens in CI, not on
+  Workers. ADR-002 Move 1 and this blocker resolve each other.
+- **It stops being moot the moment a request-time server fetch is added.** That
+  is now recorded in CLAUDE.md §11 as a standing condition rather than a
+  one-time check.
+
+---
+
 ## What this means for the hosting decision
 
 **The spike does not decide it, and was never going to.** ADR-002 §6 is

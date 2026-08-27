@@ -11,6 +11,7 @@ a known secret key.
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 from csp.constants import NONE, SELF
 
 # backend/config/settings/base.py -> backend/
@@ -57,6 +58,10 @@ THIRD_PARTY_APPS = [
     # no process for yet, and an unused recovery path is a second way in.
     "django_otp",
     "django_otp.plugins.otp_totp",
+    # Beat's schedule, in Postgres rather than in a local file (ADR-001 §2.2 and
+    # invariant 5). Brings models and migrations, which is why it arrives with
+    # the first periodic task rather than at M0.
+    "django_celery_beat",
 ]
 
 LOCAL_APPS = [
@@ -394,8 +399,9 @@ SPECTACULAR_SETTINGS = {
 # ---------------------------------------------------------------------------
 # Celery
 #
-# Broker configuration only. M0 defines no tasks and no schedule; Beat is not
-# wired until the first periodic task exists (ADR-001 section 2.2).
+# Beat is wired here as of M14 T4, which is the first periodic task — the point
+# ADR-001 §2.2 said it would arrive. Until then this block was broker
+# configuration only.
 # ---------------------------------------------------------------------------
 CELERY_BROKER_URL = env("REDIS_URL")
 CELERY_RESULT_BACKEND = None
@@ -403,6 +409,51 @@ CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Let Django's LOGGING configuration apply inside the worker.
+#
+# Celery replaces the root logger's handlers on startup by default, which
+# silently undoes everything `LOGGING` sets up: the worker then writes plain
+# text, without the JSON formatter and — the part that matters — without the
+# `RequestIDFilter`. architecture.md §3.7 asks for structured JSON carrying a
+# `request_id` propagated from Next.js through Django to Celery, and with the
+# hijack in place the third hop is invisible even when it works.
+#
+# Found exactly that way in M14 T2: the id was verified present in the queued
+# message, and absent from every worker log line, because the worker was not
+# using our formatter at all.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+
+# Beat keeps its schedule in Postgres, not on disk.
+#
+# Celery's default `PersistentScheduler` writes `celerybeat-schedule` to the
+# local filesystem, which invariant 5 forbids: the app tier is stateless, and a
+# container that loses that file loses its record of when each job last ran.
+# `DatabaseScheduler` puts it in the database, where it survives a redeploy and
+# is inspectable from Django Admin.
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# The schedule lives in settings even though the scheduler reads the database.
+#
+# `DatabaseScheduler` syncs `beat_schedule` into its tables on startup, so this
+# dict is the source of truth and the database is its projection. The
+# alternative — creating `PeriodicTask` rows through Admin — means the schedule
+# exists only in production, is not in code review, and is not in the backup
+# anybody thought to test.
+CELERY_BEAT_SCHEDULE = {
+    "entitlement-drift-alert": {
+        "task": "apps.entitlements.tasks.alert_on_entitlement_drift",
+        # 06:00 UTC daily. ADR-002 §4 calls this "nightly"; an hour where a
+        # European operator is awake beats one where the alert waits eight
+        # hours to be read, and the job is a handful of counting queries so
+        # there is no load argument for the small hours.
+        "schedule": crontab(hour="6", minute="0"),
+    },
+}
+
+# Where operational alerts go. Empty by default, and the alert task treats that
+# as "not configured" rather than guessing at an address — see M14 T4.
+OPERATIONS_ALERT_EMAIL = env("OPERATIONS_ALERT_EMAIL", default="")
 
 # ---------------------------------------------------------------------------
 # Password hashing

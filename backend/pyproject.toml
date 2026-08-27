@@ -9,9 +9,11 @@ description = "Curated language-learning subscription platform — Django backen
 requires-python = ">=3.12"
 
 # Exact pins. Every version here is what pip actually resolved, not a guess.
-# M0 deliberately does NOT include DRF, drf-spectacular, django-celery-beat,
-# django-axes or argon2-cffi: no M0 deliverable requires them, and CLAUDE.md
-# section 5 gates dependencies on the milestone that needs them.
+# M0 deliberately did NOT include DRF, drf-spectacular, django-celery-beat,
+# django-axes or argon2-cffi: no M0 deliverable required them, and CLAUDE.md
+# section 5 gates dependencies on the milestone that needs them. Each has since
+# arrived with the milestone that needed it; django-celery-beat was the last,
+# at M14 T4.
 dependencies = [
     "django==5.2.17",
     "djangorestframework==3.18.0",
@@ -43,6 +45,20 @@ dependencies = [
     "uvicorn-worker==0.4.0",
     "celery==5.6.3",
     "redis==8.1.0",
+    # Beat's schedule, kept in Postgres. ADR-001 §2.2 settled the placement at
+    # M0 and said it "lands with the first periodic task, not in M0" — M14 T4
+    # is that task. Celery's own scheduler persists to a local file, which
+    # invariant 5 forbids on a stateless app tier; this replaces it, and the
+    # schedule becomes inspectable from Django Admin as a side effect.
+    #
+    # It brings three transitive dependencies of its own — cron-descriptor,
+    # django-timezone-field and python-crontab — pinned here because they are
+    # now part of what CI audits, and a floating transitive is a build that
+    # fails for a reason nobody changed. Versions read from pip, not recalled.
+    "django-celery-beat==2.9.0",
+    "cron-descriptor==1.4.5",
+    "django-timezone-field==7.2.2",
+    "python-crontab==3.3.0",
 ]
 
 [project.optional-dependencies]

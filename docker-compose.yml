@@ -150,15 +150,15 @@ services:
     build:
       context: ./backend
       target: dev
-    # No --beat. ADR-001 section 2.2: Beat runs in the worker at a single
-    # replica, but arrives with the first periodic task and django-celery-beat,
-    # because Celery's default scheduler writes its schedule to local disk and
-    # invariant 5 forbids that.
+    # --beat, as of M14 T4 — the first periodic task, which is exactly when
+    # ADR-001 section 2.2 said Beat would arrive. The scheduler is
+    # django-celery-beat's DatabaseScheduler, so the schedule lives in Postgres
+    # rather than in a local file that invariant 5 forbids.
     #
-    # WHEN --beat IS ADDED, THIS SERVICE MUST NEVER SCALE PAST ONE REPLICA.
-    # Two beats means every scheduled job runs twice: double emails, double
-    # charges, double expiry sweeps.
-    command: celery -A config worker --loglevel=info
+    # THIS SERVICE MUST NEVER SCALE PAST ONE REPLICA. Two beats means every
+    # scheduled job runs twice: double emails, double charges, double expiry
+    # sweeps. That warning predates the flag; the flag is what made it live.
+    command: celery -A config worker --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
     environment: *django-env
     volumes:
       - ./backend:/app

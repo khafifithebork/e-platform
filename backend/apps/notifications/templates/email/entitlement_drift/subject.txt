@@ -1,0 +1,1 @@
+{% if granting %}Entitlement drift: {{ granting }} finding{{ granting|pluralize }} granting access{% else %}Entitlement drift: {{ total }} stale finding{{ total|pluralize }}{% endif %}

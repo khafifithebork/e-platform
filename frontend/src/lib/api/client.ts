@@ -94,6 +94,38 @@ async function toProblem(response: Response): Promise<ProblemDetails> {
   }
 }
 
+/**
+ * The header Django reads, generates when absent, and echoes back.
+ *
+ * architecture.md section 3.7: the id is propagated from Next.js to Django to
+ * Celery, and "without this, debugging is archaeology". Django's half has
+ * existed since M0; this is the hop that was missing, so until now a browser
+ * action and the request it caused could not be joined up in a log query.
+ */
+const REQUEST_ID_HEADER = "X-Request-ID";
+
+/**
+ * One id per request, generated in the browser.
+ *
+ * `crypto.randomUUID` is available in every browser this app supports and in
+ * Workers, but not over plain HTTP on a non-localhost origin — where the whole
+ * `crypto` object is absent. The fallback is deliberately not a weaker UUID:
+ * it is a clearly-marked value that says where it came from, because a
+ * plausible-looking id that is not actually unique is worse for debugging than
+ * an obviously improvised one.
+ *
+ * Django validates whatever arrives against a narrow character class and mints
+ * its own if it does not match, so nothing here can inject into a log line.
+ * That is the server's job and it already does it; this is not relying on it,
+ * it is not duplicating it.
+ */
+function newRequestId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 async function request<T>(
   path: string,
   init: RequestInit & { json?: unknown } = {},
@@ -101,6 +133,12 @@ async function request<T>(
   const { json, ...rest } = init;
   const method = rest.method ?? (json ? "POST" : "GET");
   const headers = new Headers(rest.headers);
+
+  // Set rather than appended, and never overwritten if a caller supplied one:
+  // a caller that already has an id is continuing a trace, not starting one.
+  if (!headers.has(REQUEST_ID_HEADER)) {
+    headers.set(REQUEST_ID_HEADER, newRequestId());
+  }
 
   if (json !== undefined) headers.set("Content-Type", "application/json");
   if (method !== "GET" && method !== "HEAD") {
