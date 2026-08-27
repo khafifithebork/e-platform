@@ -25,6 +25,24 @@ import MarketingLayout from "./layout";
 
 const GROUP = join(process.cwd(), "src", "app", "(marketing)");
 
+/**
+ * A file's code, with its comments removed.
+ *
+ * **This is a correction, and the bug was subtle in both directions.** The
+ * checks below grep source text, and every one of them was matching prose:
+ * `courses/page.tsx` carries a docstring explaining *why* it does not read
+ * `searchParams`, and that sentence made the "does not read searchParams"
+ * assertion fail against entirely correct code. Documenting a rule made the
+ * rule's own test fail.
+ *
+ * The opposite failure is the one that matters more: a check that people learn
+ * to satisfy by rewording a comment is a check that stops meaning anything.
+ * Stripping comments first is what keeps these about code.
+ */
+function codeOnly(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
 function sourceFilesIn(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const path = join(dir, entry);
@@ -124,7 +142,7 @@ describe("the marketing shell", () => {
   });
 });
 
-describe("invariant 15 — nothing here fetches at request time", () => {
+describe("invariant 15 — nothing here renders at request time", () => {
   /**
    * Structural, and it has to be.
    *
@@ -137,12 +155,44 @@ describe("invariant 15 — nothing here fetches at request time", () => {
    * It matters beyond page-load time. Under B-lite, Next runs on Cloudflare
    * Workers and Django on Hetzner with no private network between them, so a
    * request-time fetch here would cross the public internet and need its own
-   * authentication. This assertion is what keeps CLAUDE.md §11 #5 moot rather
-   * than something to rediscover at deploy.
+   * authentication. These assertions are what keep CLAUDE.md §11 #5 moot
+   * rather than something to rediscover at deploy.
    */
-  it("no page or layout in the group calls fetch", () => {
+
+  it("no page or layout in the group reads searchParams", () => {
+    // **This is the real one.** Reading `searchParams` in a server component
+    // opts the route into dynamic rendering — no build-time prerender, a
+    // server invocation per request. It is also the obvious way to build the
+    // filters T4 added, which is exactly why it is asserted by name.
     const offenders = sourceFilesIn(GROUP).filter((path) =>
-      /\bfetch\s*\(/.test(readFileSync(path, "utf8")),
+      /searchParams/.test(codeOnly(readFileSync(path, "utf8"))),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("no page or layout opts out of static rendering", () => {
+    // `export const dynamic = "force-dynamic"` and `revalidate = 0` are the
+    // explicit versions of the same thing. Nobody writes these by accident,
+    // but they are what somebody reaches for when a page will not build.
+    const offenders = sourceFilesIn(GROUP).filter((path) =>
+      /export\s+const\s+(dynamic|revalidate|fetchCache)\s*=/.test(
+        codeOnly(readFileSync(path, "utf8")),
+      ),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("no page or layout calls fetch directly", () => {
+    // Blunter than the two above, and it enforces layering rather than timing:
+    // a build-time fetch is perfectly legal under invariant 15, so this is not
+    // "no fetching" but "not from here". Data access lives in
+    // `src/lib/catalogue/`, the way reads live in `selectors.py` on the
+    // backend, and a page that fetches inline is the first step toward one
+    // that fetches at the wrong time.
+    const offenders = sourceFilesIn(GROUP).filter((path) =>
+      /[^A-Za-z.]fetch\s*\(/.test(codeOnly(readFileSync(path, "utf8"))),
     );
 
     expect(offenders).toEqual([]);
@@ -153,7 +203,7 @@ describe("invariant 15 — nothing here fetches at request time", () => {
     // being empty. It is that interactivity in this group means hydration
     // before the content is usable, and abuse case 7 says a public page must
     // show its content without JavaScript. Interactive pieces belong in a
-    // child component, not in the page itself.
+    // child component — `CourseCatalogue` is one — not in the page itself.
     const offenders = sourceFilesIn(GROUP).filter((path) =>
       /^["']use client["']/m.test(readFileSync(path, "utf8")),
     );
@@ -162,9 +212,9 @@ describe("invariant 15 — nothing here fetches at request time", () => {
   });
 
   it("and the check can actually see the files it is checking", () => {
-    // The twin. Both assertions above pass trivially against an empty list, so
-    // a wrong path or a bad glob would look like compliance forever. This is
-    // the only thing standing between "no violations" and "no files".
+    // The twin. Every assertion above passes trivially against an empty list,
+    // so a wrong path or a bad glob would look like compliance forever. This
+    // is the only thing standing between "no violations" and "no files".
     expect(sourceFilesIn(GROUP).length).toBeGreaterThan(0);
   });
 });

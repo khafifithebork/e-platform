@@ -207,6 +207,54 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+
+    # Postgres, because the frontend build now needs a live API.
+    #
+    # M15 T4 makes the public catalogue statically generated (invariant 15):
+    # `next build` reads every published course from Django and bakes it into
+    # the HTML, so a visitor's page load touches no API at all. The cost is
+    # that the *build* does, and this is where it gets one.
+    #
+    # The alternative was mocking the fetch in CI, which would mean the build
+    # never exercises the thing invariant 15 exists to guarantee — and abuse
+    # case 6 is specifically that an unreachable API must fail the build rather
+    # than silently ship a site with an empty catalogue. A mock cannot fail
+    # that way.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          # Ephemeral and reachable only from this runner, like the backend
+          # job's. It grants access to nothing and is not a secret.
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      # Redis, because the catalogue endpoints are throttled and DRF keeps
+      # throttle counters in the default cache — which is Redis. Without it the
+      # first catalogue request raises a connection error and the build fails
+      # for a reason that has nothing to do with the catalogue.
+      #
+      # Found by importing settings with no .env file rather than by watching
+      # CI fail: locally every one of these variables was being supplied by
+      # backend/.env, which CI does not have.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: frontend
@@ -267,10 +315,69 @@ jobs:
       - name: Test
         run: npm run test
 
-      # The build is still a behavioural check in its own right — it executes
+      # The API the build reads from.
+      #
+      # Deliberately after the tests and the audit: those need no database, and
+      # standing Django up in front of them would make a unit-test failure wait
+      # on a migration run.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install the API
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          # No [dev]: this install exists to *run* the API, not to test it.
+          # The backend job owns the test dependencies.
+          pip install -e .
+
+      - name: Start the API
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.local
+          # Not a credential and not reused: a throwaway value for a server
+          # that exists for the length of one build and signs nothing anybody
+          # will ever present again. `base.py` reads DJANGO_SECRET_KEY with no
+          # default, and locally that is satisfied by backend/.env — which CI
+          # does not have, so without this the API fails to start with
+          # ImproperlyConfigured.
+          DJANGO_SECRET_KEY: not-a-secret-this-server-lives-for-one-build
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          REDIS_URL: redis://localhost:6379/0
+          REDIS_CACHE_URL: redis://localhost:6379/1
+          # Object storage is never touched by the catalogue endpoints, but
+          # settings read these at import time and fail fast without them.
+          # Pointing at a port with nothing on it is honest: if a build ever
+          # starts needing storage, it fails here rather than silently working
+          # against something it should not be using.
+          MEDIA_STORAGE_ENDPOINT: http://localhost:9000
+          MEDIA_STORAGE_BUCKET: media-ci
+          MEDIA_STORAGE_ACCESS_KEY: not-a-credential
+          MEDIA_STORAGE_SECRET_KEY: not-a-credential
+        run: |
+          python manage.py migrate --noinput
+          python manage.py runserver 0.0.0.0:8000 --noreload &
+          # Poll rather than sleep, the same reasoning as the backend job's
+          # object storage: a fixed wait is either flaky or wasted.
+          for attempt in $(seq 30); do
+            if curl -fsS http://localhost:8000/healthz >/dev/null; then
+              echo "api ready after ${attempt}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "api did not become ready"; exit 1
+
+      # The build is also a behavioural check in its own right — it executes
       # next.config.ts and would fail on an invalid rewrite, which no unit test
-      # covers.
+      # covers. As of M15 T4 it is more than that: it reads the catalogue and
+      # fails if it cannot, which is abuse case 6 enforced by the pipeline
+      # rather than by a comment.
       - name: Build
+        env:
+          API_ORIGIN: http://localhost:8000
         run: npm run build
 
       # And again inside the image, which is not the same build. `npm run
