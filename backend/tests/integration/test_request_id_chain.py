@@ -219,9 +219,16 @@ class TestTheLogFilter:
 class TestTheFrontendSendsOne:
     """Structural, and it is the hop that was missing.
 
-    A behavioural test would need a browser; what can be asserted here is that
-    the API client sets the header on every request rather than on some of
-    them, which is the property that decayed silently for eleven milestones.
+    **Superseded by `frontend/src/lib/api/client.test.ts` as of M15 T2**, and
+    kept rather than deleted because the two check different things. These read
+    the file as text, so they pass if the header appears in a comment and pass
+    if it is set and then removed two lines later. The Vitest suite exercises
+    the real `request` function against a stubbed `fetch` and asserts what a
+    server would actually receive.
+
+    What survives here is the cross-repository claim: that the *backend's* idea
+    of this contract still matches a file in `frontend/`. A frontend test cannot
+    fail when somebody deletes the client entirely; this can.
     """
 
     @staticmethod

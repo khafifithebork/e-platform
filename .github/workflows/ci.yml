@@ -256,9 +256,20 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # There is no test runner yet — Vitest arrives with the first component
-      # in M2. Until then the build is the behavioural check: it executes
-      # next.config.ts and would fail on an invalid rewrite.
+      # Vitest, which this comment promised at M2 and which arrived at M15 T2.
+      # For twelve milestones it said "there is no test runner yet — Vitest
+      # arrives with the first component in M2", while six client components
+      # shipped without one. That is the pattern ADR-023 §1 names, and the
+      # comment itself was the thing keeping it invisible.
+      #
+      # Before the build, deliberately: a failing unit test should not wait on
+      # a Next production build to be reported.
+      - name: Test
+        run: npm run test
+
+      # The build is still a behavioural check in its own right — it executes
+      # next.config.ts and would fail on an invalid rewrite, which no unit test
+      # covers.
       - name: Build
         run: npm run build
 
