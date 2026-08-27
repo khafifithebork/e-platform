@@ -1,13 +1,111 @@
 # STATUS
 
-**Last updated:** 2026-08-25
-**Updated by:** agent session (M12 complete)
+**Last updated:** 2026-08-26
+**Updated by:** agent session (M13 unblocked half complete)
 
 ---
 
 ## Current milestone
 
-**M12 — Hardening & Test Completion. Complete — 8 of 8.**
+**M13 — Deployment & CI/CD. In progress — 6 of 10.**
+Branch: `feat/m13-deployment`, off `master` at `30960c8` (M12 merged, PR #41).
+Merged as PRs #42 (T1–T5) and #43 (T6).
+
+Spec: `docs/specs/m13-deployment.md`
+Decisions: **ADR-024 is not written**, because four of the five decisions the
+spec puts to the owner are still open. Writing it now would record answers
+nobody has given.
+
+| Task | State |
+|---|---|
+| T1 spec, and stopping before the blocked part | **done** — `63e7ab1` |
+| T2 CSP report endpoint | **done** — `76dba14` |
+| T3 pre-deploy step (migrations, advisory lock) | **done** — `22a642a` |
+| T4 release image built and tagged in CI | **done** — `039c856` |
+| T5 release image smoke check | **done** — `92d7368` |
+| T6 rollback runbook, written | **done** — `4130648` |
+| T7 platform configuration | **blocked** — hosting undecided |
+| T8 staging on a Neon branch; `pg_trgm` verified there | **blocked** — needs an account |
+| T9 deploy on merge; production as one approved action | **blocked** — hosting undecided |
+| T10 rollback **rehearsed**; production load baseline | **blocked** — no environment |
+
+**1315 tests pass**, ruff/tsc/eslint/`check --deploy` clean, both dependency
+audits clean, and CI builds *and smokes* the release image on every push.
+
+### M13 stopped where it should, rather than where it could
+
+The objective names `render.yaml`. **ADR-002 §6 recommends against Render**,
+and ADR-002 is the later document, which §2 says wins. §11 #4 lists the hosting
+target as open. Writing `render.yaml` would have made that decision in a YAML
+file rather than by the owner, so T7–T10 were not started — and T4's release
+images are deliberately **not pushed** anywhere for the same reason.
+
+What *was* buildable turned out to be substantial, and two of the six closed
+real gaps rather than adding polish.
+
+### The two that closed real gaps
+
+**CI had only ever tested the source.** T4 builds `--target runtime` — the
+image that would actually deploy — for the first time. T5 then boots it against
+production settings and asks it questions, which is a different check from the
+`check --deploy` that already ran: that one runs on the GitHub runner against a
+virtualenv with dev dependencies installed. **The failure this catches is M12
+T7's**, where adding `django-csp` left every test green and the container dead
+with `No module named 'csp'`. Provoked: an image with the package removed fails
+the smoke check at exit 1 with exactly that error.
+
+**M12's CSP handover is closed.** The policy shipped report-only with nowhere
+to report; T2 is that endpoint. It is bounded, logs four fields rather than the
+report, truncates URLs, stores nothing, and answers 204 to everything —
+because it is an unauthenticated POST body from anyone on the internet.
+
+### Three things the tasks found in passing
+
+- **The runtime image runs as a non-root user who cannot modify
+  site-packages.** Noticed because the first attempt to build a deliberately
+  broken image was refused with a permission error. A good property nobody had
+  verified.
+- **`catalog.0005_search_vector` reverses cleanly**, observed by doing it
+  against a live Postgres in T3 and re-applying. So reversal is not its hazard;
+  a part-way failure leaving an `INVALID` index is.
+- **The pre-deploy step needed to be a management command, not a script.** The
+  backend image builds from `backend/` as its context, so nothing in `scripts/`
+  is inside it — a deploy step living there could be called by CI and by
+  nothing else.
+
+### The rollback runbook says what it cannot do
+
+T6 is written and **not rehearsed**, and §6 of it says the rehearsal is not
+merely undone but currently impossible: no environment to roll back, nothing to
+roll back to. Its §2 also carries a blocker inline — T4 does not push images,
+so the images it tells you to redeploy exist nowhere outside the CI runner that
+built them. A runbook whose first step cannot be performed is worse than none.
+
+### Four decisions block T7–T10, none of them an agent's
+
+| # | Question |
+|---|---|
+| 1 | **Hosting: B ($50/mo), B-lite ($44/mo) or B-HA?** ADR-002 §6 recommends B-lite and says plainly the tiebreaker is how you want to spend your time, not the $6 |
+| 2 | **Approve the monthly spend**, naming the option — §5 gate before any provisioning |
+| 3 | **The OpenNext spike** ADR-002 §3 required "in M0 before committing" and nobody ran. B-lite and B-HA both depend on it |
+| 4 | **Celery Beat placement** — §11 #3 |
+
+Decision 3 is the cheapest to close and the only one an agent can largely do.
+
+### The frontend has now been deferred four times
+
+M7 flagged it. M11 dropped its accessibility pass and mobile QA. M12 dropped
+its Playwright journeys. M13 leaves ADR-002 Move 1 — the static public surface,
+which that ADR calls *"not optional either way"* — out of scope for the same
+reason. **M14's launch checklist will hit it too**: a launch checklist over a
+product that is auth pages plus one lesson page is not a checklist.
+
+ADR-020 §2 lays out three options and takes none. It belongs in CLAUDE.md §11,
+which is the owner's file.
+
+---
+
+## M12 — Hardening & Test Completion. Complete — 8 of 8.
 Branch: `feat/m12-hardening`, off `master` at `1dd0aa3` (M11 merged, PR #39).
 
 Spec: `docs/specs/m12-hardening.md`
