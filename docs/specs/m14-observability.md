@@ -70,11 +70,20 @@ Approved to build now. None of it needs a platform, an account, or a bill.
 | T3 | Entitlement reconciliation, as a command | Application code |
 | T4 | Business alerts on what T3 finds | Uses M11's email adapter |
 
-**T4 has a seam in it.** The *command* that computes and reports drift is
-unblocked. Putting it on a **schedule** is not: CLAUDE.md §11 #3 — Celery Beat
-inside the worker at one replica, or platform cron — is unanswered, and it is
-scoped to M0 and M13. So T4 builds something a scheduler can call, and does not
-choose the scheduler.
+**T4's scheduling is not blocked, and the first version of this spec said it
+was.** It cited CLAUDE.md §11 #3 as unanswered. **ADR-001 §2.2 settled it** —
+Beat embedded in the Celery worker at exactly one replica, with
+`django-celery-beat` keeping the schedule in Postgres rather than in a local
+file that invariant 5 forbids. §11 was never updated to strike the row, so it
+read as open for eleven milestones; `CLAUDE.md` was corrected on 2026-08-27,
+on ADR-001 §3's own instruction.
+
+That matters here specifically, because ADR-001 §2.2 says `django-celery-beat`
+*"lands with the first periodic task, not in M0"* — and **T4 is the first
+periodic task.** So this milestone is where Beat actually gets wired.
+
+What remains is a **§5 dependency approval** for `django-celery-beat`, not an
+architectural decision. It brings models and migrations.
 
 ---
 
@@ -106,7 +115,7 @@ Not required for T2–T4; required before T5 onward.
 |---|---|
 | 5.1 | **Sentry** — a new service and a spend cap is a billing decision. §5 gate |
 | 5.2 | **Uptime monitor** — UptimeRobot or Better Stack; both have free tiers, both are §5 |
-| 5.3 | **Celery Beat placement** — §11 #3. Blocks scheduling T4, not building it |
+| 5.3 | **`django-celery-beat` as a dependency** — §5 gate. *Placement* is not open: ADR-001 §2.2 settled it, and T4 is the first periodic task, so this is where it lands |
 | 5.4 | **Alert delivery** — email through M11's adapter is the obvious answer; anything else is a new dependency |
 
 ---
@@ -132,7 +141,8 @@ Not required for T2–T4; required before T5 onward.
 
 ## 7. Not in M14's unblocked half
 
-- **No scheduler.** §11 #3, above.
+- **No scheduler wired without approval.** The placement is settled;
+  `django-celery-beat` is a dependency and needs a §5 answer first.
 - **No Sentry**, no uptime monitors, no metrics endpoint — all need accounts.
 - **No repair path in reconciliation.** §6 case 3.
 - **No launch checklist.** It would be a checklist over a product with no
