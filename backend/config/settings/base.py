@@ -404,6 +404,20 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
+# Let Django's LOGGING configuration apply inside the worker.
+#
+# Celery replaces the root logger's handlers on startup by default, which
+# silently undoes everything `LOGGING` sets up: the worker then writes plain
+# text, without the JSON formatter and — the part that matters — without the
+# `RequestIDFilter`. architecture.md §3.7 asks for structured JSON carrying a
+# `request_id` propagated from Next.js through Django to Celery, and with the
+# hijack in place the third hop is invisible even when it works.
+#
+# Found exactly that way in M14 T2: the id was verified present in the queued
+# message, and absent from every worker log line, because the worker was not
+# using our formatter at all.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+
 # ---------------------------------------------------------------------------
 # Password hashing
 #
