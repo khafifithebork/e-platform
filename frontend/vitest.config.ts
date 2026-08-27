@@ -15,7 +15,7 @@
  */
 
 import react from "@vitejs/plugin-react";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -25,7 +25,10 @@ export default defineConfig({
     // tsconfig paths, so without this every `@/lib/...` import resolves to
     // nothing and the failure looks like a missing module rather than a
     // missing configuration line.
-    alias: { "@": resolve(__dirname, "./src") },
+    // `fileURLToPath(new URL(...))` rather than `__dirname`: this file uses
+    // ESM syntax, `__dirname` is CommonJS, and Vite warns that mixing them
+    // breaks under the native config loader it plans to default to.
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
     // jsdom, not happy-dom: `document.cookie` and `Headers` behaviour are
