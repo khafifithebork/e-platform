@@ -359,6 +359,23 @@ jobs:
           MEDIA_STORAGE_SECRET_KEY: not-a-credential
         run: |
           python manage.py migrate --noinput
+          # A catalogue with courses in it, because a build against an empty
+          # database generates no course pages at all — so `/courses/[slug]`
+          # would be a route that answers 404 to everything, and T5's whole
+          # `generateStaticParams` path would go untested by this pipeline.
+          # `verify:static` caught exactly that on the first run of this job.
+          #
+          # 25 rather than a handful, and the number is the point: DRF's
+          # PAGE_SIZE is 20, so this crosses the page boundary and exercises
+          # the paginated read. An earlier version of that loader took only the
+          # first page — which works perfectly against a development database
+          # with one course, and silently publishes a catalogue of exactly
+          # twenty the day the twenty-first is approved.
+          #
+          # The command is idempotent, refuses to run with DEBUG off, and
+          # writes under a recognisable slug prefix. It was written for M12's
+          # load-test baseline and is reused here rather than duplicated.
+          python manage.py seed_catalogue --courses 25 --languages 4
           python manage.py runserver 0.0.0.0:8000 --noreload &
           # Poll rather than sleep, the same reasoning as the backend job's
           # object storage: a fixed wait is either flaky or wasted.
