@@ -49,6 +49,18 @@ has exposed since M3 now has a caller.
 All fixed, and all now checked in CI: contrast computed from the design tokens,
 document structure read from the built HTML.
 
+### Hosting answered — B-lite, 2026-08-28
+
+§11 #3 is closed. Cloudflare Workers for Next.js, Hetzner CX33 with Dokploy for
+Django/Celery/Redis, Neon for Postgres. ADR-025 records it, the prerequisites
+the spike found, and the one unknown that remains — the `/api/*` rewrite has
+never been proven through a running Worker, and what matters there is whether
+the session cookie survives the round trip in both directions.
+
+**Spend is a separate approval and is still outstanding.** M13 T7–T10 and
+M14 T7–T10 are unblocked by the decision and still blocked by the bill. Nothing
+may be provisioned yet.
+
 ### Half of invariant 15 is still not built
 
 *"Public routes are statically generated"* — done, and now verified against

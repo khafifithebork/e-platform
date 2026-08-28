@@ -188,7 +188,7 @@ These are unresolved. If a task depends on one, stop and ask.
 |---|---|---|
 | 1 | Payment provider and operating jurisdiction (Stripe is unavailable to Moroccan merchants; a merchant of record may be required) | M4 schema, M8 entirely |
 | 2 | Whether live classes are on the roadmap | Nothing yet; affects M5 modelling if yes |
-| 3 | **Hosting target: Render (B) vs Cloudflare Workers + Hetzner/Dokploy (B-lite)** — the *approach* is settled (ADR-001 §2.3: containerise for both, decide at M13 on evidence). The choice itself is **due now**. See `docs/spikes/opennext-on-workers.md` | M13 T7–T10 |
+| 3 | ~~**Hosting target**~~ — **answered 2026-08-28: B-lite.** Cloudflare Workers for Next.js, Hetzner CX33 with Dokploy for Django/Celery/Redis, Neon for Postgres. ADR-025. **Spend is a separate approval and is still outstanding** — choosing the option is not authorising the bill | was M13 T7–T10 |
 | 4 | The BFF-vs-path-routing shape — ADR-001 §2.1 settled the sequence (Next rewrites now, Cloudflare Worker before launch); what a Worker taking over `/api/*` implies is still open | M13, launch |
 | 5 | The private-network assumption under B-lite — architecture.md §3.2 has Server Components fetching Django over a private network, which B-lite does not have (ADR-001 §2.3). **Currently moot: no Server Component fetches Django**, and static generation keeps build-time fetches in CI. Revisit if a request-time server fetch is ever added | M13, and any frontend work that adds one |
 
