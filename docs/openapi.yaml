@@ -565,6 +565,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/CourseSearchResults'
           description: ''
+  /api/v1/courses/{course_slug}/lessons/{lesson_slug}/:
+    get:
+      operationId: courses_lessons_retrieve
+      description: |-
+        The same lesson, addressed the way architecture.md §6.2 says it is.
+
+        ``GET courses/{course_slug}/lessons/{lesson_slug}/``, specified at M0 and
+        never built — M7 shipped ``/lessons/{id}/`` instead. **The schema was shaped
+        for this route and has been waiting for it.** ADR-007 §1 put a redundant
+        ``course`` foreign key on ``Lesson`` for exactly one stated reason:
+
+            "§6.2 routes /courses/{slug}/lessons/{lesson_slug}/, which resolves to
+            one lesson only if the slug is unique per course — and a constraint
+            spanning two joins is not something Django can express."
+
+        That constraint — ``lesson_slug_unique_per_course`` — is what makes this
+        lookup return one row rather than an arbitrary one. Until now it guarded a
+        URL nothing served.
+
+        **Every gate is inherited, not restated.** The queryset is
+        ``lessons_visible_to`` and the permission is ``IsEntitledToLesson``, both
+        identical to ``LessonViewSet``. Invariant 3 has one resolver, and a second
+        way to reach a lesson is exactly where a second access rule would grow.
+
+        **Mounted at the API root rather than under ``/catalogue/``.**
+        architecture.md's table lists this under "Catalogue", but that table
+        predates the ``catalogue/`` prefix, which ``public_urls.py`` introduced so
+        that "the boundary between 'anyone may read this' and 'only the owner may'
+        is visible in the URL". This route serves gated content, so putting it
+        behind that prefix would make the prefix lie.
+      summary: Read a lesson, addressed by course and lesson slug
+      parameters:
+      - in: path
+        name: course_slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: lesson_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - learning
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatedLesson'
+          description: ''
+        '403':
+          description: Entitlement denied. Problem Details with a stable `reason`
+            and `cta` — see /problems/entitlement-denied.
+        '404':
+          description: No such lesson in that course, or not published.
   /api/v1/instructor/courses/:
     get:
       operationId: instructor_courses_list

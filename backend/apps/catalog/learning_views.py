@@ -16,8 +16,9 @@ having never been asked about publication. Without the second, everyone reads
 everything.
 """
 
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import mixins, viewsets
+from rest_framework import generics, mixins, viewsets
 from rest_framework.permissions import AllowAny
 
 from apps.catalog.models import Lesson
@@ -78,3 +79,79 @@ class LessonViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
+
+@extend_schema(tags=["learning"])
+class LessonBySlugView(generics.RetrieveAPIView):
+    """The same lesson, addressed the way architecture.md §6.2 says it is.
+
+    ``GET courses/{course_slug}/lessons/{lesson_slug}/``, specified at M0 and
+    never built — M7 shipped ``/lessons/{id}/`` instead. **The schema was shaped
+    for this route and has been waiting for it.** ADR-007 §1 put a redundant
+    ``course`` foreign key on ``Lesson`` for exactly one stated reason:
+
+        "§6.2 routes /courses/{slug}/lessons/{lesson_slug}/, which resolves to
+        one lesson only if the slug is unique per course — and a constraint
+        spanning two joins is not something Django can express."
+
+    That constraint — ``lesson_slug_unique_per_course`` — is what makes this
+    lookup return one row rather than an arbitrary one. Until now it guarded a
+    URL nothing served.
+
+    **Every gate is inherited, not restated.** The queryset is
+    ``lessons_visible_to`` and the permission is ``IsEntitledToLesson``, both
+    identical to ``LessonViewSet``. Invariant 3 has one resolver, and a second
+    way to reach a lesson is exactly where a second access rule would grow.
+
+    **Mounted at the API root rather than under ``/catalogue/``.**
+    architecture.md's table lists this under "Catalogue", but that table
+    predates the ``catalogue/`` prefix, which ``public_urls.py`` introduced so
+    that "the boundary between 'anyone may read this' and 'only the owner may'
+    is visible in the URL". This route serves gated content, so putting it
+    behind that prefix would make the prefix lie.
+    """
+
+    serializer_class = GatedLessonSerializer
+    # Identical to LessonViewSet, and for the identical reason: the resolver
+    # allows a preview before it asks who is calling, so IsAuthenticated here
+    # would refuse anonymous visitors before that branch ran.
+    permission_classes = (AllowAny, IsEntitledToLesson)
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Lesson.objects.none()
+        return lessons_visible_to(user=self.request.user)
+
+    def get_object(self):
+        """Resolve on two slugs, then apply the object permission.
+
+        ``check_object_permissions`` is called explicitly because overriding
+        ``get_object`` skips the base implementation that would have done it —
+        and skipping it would serve gated bodies to anyone who could guess a
+        slug. The base class cannot express a two-field lookup, so the call has
+        to be made by hand, which is precisely the kind of thing a test has to
+        prove rather than a docstring assert.
+        """
+        lesson = get_object_or_404(
+            self.get_queryset(),
+            course__slug=self.kwargs["course_slug"],
+            slug=self.kwargs["lesson_slug"],
+        )
+        self.check_object_permissions(self.request, lesson)
+        return lesson
+
+    @extend_schema(
+        responses={
+            200: GatedLessonSerializer,
+            403: OpenApiResponse(
+                description=(
+                    "Entitlement denied. Problem Details with a stable `reason` "
+                    "and `cta` — see /problems/entitlement-denied."
+                )
+            ),
+            404: OpenApiResponse(description="No such lesson in that course, or not published."),
+        },
+        summary="Read a lesson, addressed by course and lesson slug",
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)

@@ -206,6 +206,24 @@ export const api = {
   lesson: (lessonId: string) => request<GatedLesson>(`/lessons/${lessonId}/`),
 
   /**
+   * The same lesson, addressed the way architecture.md §6.2 says it is.
+   *
+   * `courses/{slug}/lessons/{lesson_slug}/` was specified at M0 and built at
+   * M16 T3; `Lesson` has carried a redundant `course` foreign key and a
+   * `lesson_slug_unique_per_course` constraint since M3 to make it resolve to
+   * one row (ADR-007 §1).
+   *
+   * Both slugs are encoded. They come from the API today, so this is not a
+   * live injection — it is the assumption that would stop holding the moment a
+   * slug came from a URL a person typed, which on this route is exactly where
+   * they come from.
+   */
+  lessonBySlug: (courseSlug: string, lessonSlug: string) =>
+    request<GatedLesson>(
+      `/courses/${encodeURIComponent(courseSlug)}/lessons/${encodeURIComponent(lessonSlug)}/`,
+    ),
+
+  /**
    * Where this learner got to, or `null` if they have never started.
    *
    * The 204 becomes `null` here rather than in each caller: `request` returns
