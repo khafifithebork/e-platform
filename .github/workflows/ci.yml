@@ -434,5 +434,14 @@ jobs:
       # the class of failure that only appears at deploy time.
       #
       # Not pushed, for the reason the backend job gives.
+      # `--network=host` so the build container can reach the Django this job
+      # started, and `--build-arg` so the builder stage knows where to look.
+      #
+      # The image bakes the catalogue in at build time — that is what invariant
+      # 15 asks for — so building it needs the API exactly as the earlier
+      # `npm run build` step does. Without both flags the build fails inside
+      # Docker with CatalogueUnavailable, which is the check working rather
+      # than a defect, in a context nobody had given an API to.
       - name: Build the release image
-        run: docker build --target runtime -t e-platform-frontend:${{ github.sha }} .
+        run: |
+          docker build --network=host             --build-arg API_ORIGIN=http://localhost:8000             --target runtime -t e-platform-frontend:${{ github.sha }} .

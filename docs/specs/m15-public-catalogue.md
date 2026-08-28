@@ -131,6 +131,42 @@ What can be said precisely, so nobody has to rediscover it:
 None of that is buildable before the platform is chosen. It is listed here so
 that M13 T7–T10 pick it up rather than discovering it at launch.
 
+### 4.3 The API origin is baked into the image, and that is a deployment blocker
+
+Found on 2026-08-28, fixing the release-image build. **Not introduced by M15 —
+M15 is what made it visible.**
+
+`next.config.ts` proxies `/api/*` to Django with an `afterFiles` rewrite, which
+is ADR-001 §2.1's same-origin routing. **Next serializes rewrites into the
+build output.** `routes-manifest.json` from a local build reads:
+
+```json
+{ "source": "/api/:path(.*)", "destination": "http://localhost:8000/api/:path" }
+```
+
+An absolute URL, fixed at build time. Two consequences:
+
+- **Setting `API_ORIGIN` at runtime does nothing.** The container reads it for
+  nothing; the destination is already decided.
+- **One image cannot be promoted across environments.** The image CI builds
+  proxies `/api/*` to the CI runner's Django. Deploying that image anywhere
+  else gives a site whose every API call goes to a host that does not exist.
+
+Nothing is broken today, because M13 T4 deliberately builds the release image
+and does not push it. It is a landmine rather than a fire.
+
+**It bears directly on two open questions.** §11 #4 (hosting) now has a
+constraint attached: whatever builds the release image must reach the API at
+build time, and must build one image per environment — or the API must be at a
+stable public origin known at build time. §11 #2 (BFF vs path routing) is the
+other half: **a Cloudflare Worker routing `/api/*` at the edge does not have
+this property at all**, because the routing lives in the Worker rather than in
+the Next build. That is a genuine argument for path routing that nobody had
+when §11 #2 was written.
+
+Not fixed here. The fix is a hosting decision, not a code change, and picking
+one unilaterally is exactly what §5 forbids.
+
 ---
 
 ## 5. Decisions, answered 2026-08-27
