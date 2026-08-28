@@ -1,13 +1,68 @@
 # STATUS
 
-**Last updated:** 2026-08-27
-**Updated by:** agent session (M14 unblocked half complete)
+**Last updated:** 2026-08-28
+**Updated by:** agent session (M15 complete)
 
 ---
 
 ## Current milestone
 
-**M14 — Observability & Launch. In progress — 3 of 10.**
+**M15 — Public catalogue. Complete — 10 of 10.**
+Branch: `feat/m15-public-catalogue`, off `master` after M14's unblocked half
+merged (PR #45).
+
+Spec: `docs/specs/m15-public-catalogue.md` · Decisions: `docs/adr/024-public-catalogue-stays-static.md`
+
+| Task | State |
+|---|---|
+| T1 spec, and four decisions answered up front | **done** — `3dfb100` |
+| T2 Vitest + Testing Library, wired into CI | **done** — `d1d15a9` |
+| T3 the `(marketing)` route group and its shell | **done** — `528b445` |
+| T4 course listing with filters; CI gains a live API | **done** — `b34f1f5` |
+| T5 course pages by slug, `generateStaticParams` | **done** — `6d7b030` |
+| T6 search over the M11 endpoint | **done** — `ce9efba` |
+| T7 landing page | **done** — `3098c01` |
+| T8 pricing page, without a price | **done** — `8cd81c5` |
+| T9 invariant 15 checked against the build | **done** — `9e35705` |
+| T10 accessibility pass, ADR, close-out | **done** |
+
+**200 frontend tests**, 1387 backend, ruff/tsc/eslint clean, and CI now
+verifies static generation and document structure against the built output.
+
+### The product is visible to somebody who has not signed up
+
+It was not, before this. A visitor could reach a login form and nothing else,
+and the homepage was still create-next-app's template — a Vercel logo and links
+to its gallery — fifteen milestones in. Every catalogue endpoint the backend
+has exposed since M3 now has a caller.
+
+### What the accessibility pass found, none of it visible before
+
+- **White on the accent measured 2.50:1 in dark mode.** Every primary button on
+  the site was unreadable for anyone with dark mode on. `globals.css` claimed
+  the accent was "dark enough for white text at AA" and nothing checked it.
+- **Border colours measured 1.69:1** in both schemes — form fields had no
+  perceivable boundary.
+- **Two pages skipped from `h1` to `h3`**, and `/reset-password` prerendered
+  with no heading at all.
+
+All fixed, and all now checked in CI: contrast computed from the design tokens,
+document structure read from the built HTML.
+
+### Half of invariant 15 is still not built
+
+*"Public routes are statically generated"* — done, and now verified against
+Next's own manifests rather than by grepping source. *"rebuilt on publish"* —
+**not done.** A course approved in Django stays invisible until somebody runs a
+build. It is blocked on §11 #4, because a rebuild trigger is a deploy hook and
+that hook differs entirely between the hosting candidates. Spec §4.2 records
+where it belongs so M13 T7–T10 pick it up rather than discovering it.
+
+---
+
+## Previous milestone
+
+**M14 — Observability & Launch. Unblocked half complete — 4 of 10.**
 Branch: `feat/m14-observability`, off `master` after M13's unblocked half merged.
 
 Spec: `docs/specs/m14-observability.md`

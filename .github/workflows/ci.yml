@@ -207,6 +207,54 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+
+    # Postgres, because the frontend build now needs a live API.
+    #
+    # M15 T4 makes the public catalogue statically generated (invariant 15):
+    # `next build` reads every published course from Django and bakes it into
+    # the HTML, so a visitor's page load touches no API at all. The cost is
+    # that the *build* does, and this is where it gets one.
+    #
+    # The alternative was mocking the fetch in CI, which would mean the build
+    # never exercises the thing invariant 15 exists to guarantee — and abuse
+    # case 6 is specifically that an unreachable API must fail the build rather
+    # than silently ship a site with an empty catalogue. A mock cannot fail
+    # that way.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          # Ephemeral and reachable only from this runner, like the backend
+          # job's. It grants access to nothing and is not a secret.
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      # Redis, because the catalogue endpoints are throttled and DRF keeps
+      # throttle counters in the default cache — which is Redis. Without it the
+      # first catalogue request raises a connection error and the build fails
+      # for a reason that has nothing to do with the catalogue.
+      #
+      # Found by importing settings with no .env file rather than by watching
+      # CI fail: locally every one of these variables was being supplied by
+      # backend/.env, which CI does not have.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: frontend
@@ -256,11 +304,128 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # There is no test runner yet — Vitest arrives with the first component
-      # in M2. Until then the build is the behavioural check: it executes
-      # next.config.ts and would fail on an invalid rewrite.
+      # Vitest, which this comment promised at M2 and which arrived at M15 T2.
+      # For twelve milestones it said "there is no test runner yet — Vitest
+      # arrives with the first component in M2", while six client components
+      # shipped without one. That is the pattern ADR-023 §1 names, and the
+      # comment itself was the thing keeping it invisible.
+      #
+      # Before the build, deliberately: a failing unit test should not wait on
+      # a Next production build to be reported.
+      - name: Test
+        run: npm run test
+
+      # The API the build reads from.
+      #
+      # Deliberately after the tests and the audit: those need no database, and
+      # standing Django up in front of them would make a unit-test failure wait
+      # on a migration run.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install the API
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          # No [dev]: this install exists to *run* the API, not to test it.
+          # The backend job owns the test dependencies.
+          pip install -e .
+
+      - name: Start the API
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.local
+          # Not a credential and not reused: a throwaway value for a server
+          # that exists for the length of one build and signs nothing anybody
+          # will ever present again. `base.py` reads DJANGO_SECRET_KEY with no
+          # default, and locally that is satisfied by backend/.env — which CI
+          # does not have, so without this the API fails to start with
+          # ImproperlyConfigured.
+          DJANGO_SECRET_KEY: not-a-secret-this-server-lives-for-one-build
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          REDIS_URL: redis://localhost:6379/0
+          REDIS_CACHE_URL: redis://localhost:6379/1
+          # Object storage is never touched by the catalogue endpoints, but
+          # settings read these at import time and fail fast without them.
+          # Pointing at a port with nothing on it is honest: if a build ever
+          # starts needing storage, it fails here rather than silently working
+          # against something it should not be using.
+          MEDIA_STORAGE_ENDPOINT: http://localhost:9000
+          MEDIA_STORAGE_BUCKET: media-ci
+          MEDIA_STORAGE_ACCESS_KEY: not-a-credential
+          MEDIA_STORAGE_SECRET_KEY: not-a-credential
+        run: |
+          python manage.py migrate --noinput
+          # A catalogue with courses in it, because a build against an empty
+          # database generates no course pages at all — so `/courses/[slug]`
+          # would be a route that answers 404 to everything, and T5's whole
+          # `generateStaticParams` path would go untested by this pipeline.
+          # `verify:static` caught exactly that on the first run of this job.
+          #
+          # 25 rather than a handful, and the number is the point: DRF's
+          # PAGE_SIZE is 20, so this crosses the page boundary and exercises
+          # the paginated read. An earlier version of that loader took only the
+          # first page — which works perfectly against a development database
+          # with one course, and silently publishes a catalogue of exactly
+          # twenty the day the twenty-first is approved.
+          #
+          # The command is idempotent, refuses to run with DEBUG off, and
+          # writes under a recognisable slug prefix. It was written for M12's
+          # load-test baseline and is reused here rather than duplicated.
+          python manage.py seed_catalogue --courses 25 --languages 4
+          python manage.py runserver 0.0.0.0:8000 --noreload &
+          # Poll rather than sleep, the same reasoning as the backend job's
+          # object storage: a fixed wait is either flaky or wasted.
+          for attempt in $(seq 30); do
+            if curl -fsS http://localhost:8000/healthz >/dev/null; then
+              echo "api ready after ${attempt}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "api did not become ready"; exit 1
+
+      # The build is also a behavioural check in its own right — it executes
+      # next.config.ts and would fail on an invalid rewrite, which no unit test
+      # covers. As of M15 T4 it is more than that: it reads the catalogue and
+      # fails if it cannot, which is abuse case 6 enforced by the pipeline
+      # rather than by a comment.
       - name: Build
+        env:
+          API_ORIGIN: http://localhost:8000
         run: npm run build
+
+      # Invariant 15, checked against the build rather than the source.
+      #
+      # The Vitest suite greps page files for `searchParams`, a `fetch` call or
+      # a `dynamic` export. Those are proxies and proxies are all they can be:
+      # they cannot see a route that went dynamic for a reason nobody wrote
+      # down — a dependency reading headers, a Next default changing in a minor
+      # release, a `cookies()` call three components deep.
+      #
+      # Next records what it actually did, and this compares
+      # app-path-routes-manifest against prerender-manifest. It is the only
+      # check here that cannot be fooled by how the code is written, and it
+      # catches the one case `next build` reports identically either way:
+      # removing `dynamicParams = false` leaves the printed route table
+      # unchanged and flips `fallback` from false to null.
+      - name: Public routes are static
+        run: npm run verify:static
+
+      # Document structure, on the HTML a visitor receives.
+      #
+      # The component tests query the accessibility tree, which is the right
+      # place for "is this control labelled". They cannot see what only exists
+      # once a page is assembled: two components each rendering an <h1>, a
+      # heading level skipped because a section moved, a landmark duplicated by
+      # a layout change. All three survive a green component suite, and M15 T10
+      # found all three — /courses and /pricing jumped h1 to h3, and
+      # /reset-password prerendered with no heading at all because its content
+      # sits behind a Suspense boundary.
+      - name: Document structure
+        run: npm run verify:a11y
 
       # And again inside the image, which is not the same build. `npm run
       # build` above runs on the runner with the full dependency tree; the

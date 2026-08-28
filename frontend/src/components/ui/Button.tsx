@@ -9,7 +9,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANTS = {
   primary:
-    "bg-accent text-white hover:bg-accent-hover disabled:hover:bg-accent",
+    "bg-accent text-on-accent hover:bg-accent-hover disabled:hover:bg-accent",
   secondary:
     "bg-surface text-ink border border-line-strong hover:border-ink-subtle",
 } as const;

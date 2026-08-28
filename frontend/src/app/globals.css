@@ -23,12 +23,37 @@
   --color-surface-sunken: #f2efe9;
 
   --color-line: #e3ddd3;
-  --color-line-strong: #cec6b8;
+  /*
+   * WCAG 1.4.11 wants a non-text boundary at 3:1 against what it sits on. The
+   * original #cec6b8 measured 1.69 — a border a sighted user reads as "there
+   * is a field here" and somebody with low vision does not see at all. This is
+   * 3.52.
+   */
+  --color-line-strong: #948770;
 
-  /* Ochre. Warm enough to sit on paper, dark enough for white text at AA. */
-  --color-accent: #a8621b;
+  /*
+   * Ochre.
+   *
+   * Darkened from #a8621b, which measured 4.47 against paper — under AA by a
+   * margin too small to see and large enough to fail. The comment that used to
+   * sit here claimed it was "dark enough for white text at AA"; that was true
+   * of white-on-accent (4.74) and untrue of accent-as-text, and nothing
+   * checked either. `contrast.test.ts` now does.
+   */
+  --color-accent: #9d5b18;
   --color-accent-hover: #8c4f13;
   --color-accent-subtle: #fdf3e7;
+
+  /*
+   * What goes *on* the accent, which is not simply white.
+   *
+   * In dark mode the accent is a bright orange, and white text on it measures
+   * 2.50 — every primary button on the site was unreadable for anyone with
+   * dark mode on, which on a reading surface is a lot of people. The fix is
+   * not to darken the dark-mode accent, which is doing its job as a highlight,
+   * but to put dark text on it: 7.29.
+   */
+  --color-on-accent: #ffffff;
 
   --color-danger: #9f1e39;
   --color-danger-subtle: #fdf0f2;
@@ -63,12 +88,15 @@
     --color-surface-sunken: #14120d;
 
     --color-line: #332e25;
-    --color-line-strong: #4a4437;
+    /* 1.74 before, 3.24 now. Same reasoning as the light scheme. */
+    --color-line-strong: #756c5b;
 
     /* Lifted for contrast against the dark surface. */
     --color-accent: #e0932f;
     --color-accent-hover: #f0a743;
     --color-accent-subtle: #2b2114;
+    /* Dark ink on a bright accent, not white on it. See the light block. */
+    --color-on-accent: #17150f;
 
     --color-danger: #e8798f;
     --color-danger-subtle: #2c1319;

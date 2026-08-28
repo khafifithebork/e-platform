@@ -120,7 +120,24 @@ export default function ResetPasswordPage() {
   // useSearchParams needs a Suspense boundary, or the whole route opts out of
   // static rendering.
   return (
-    <Suspense fallback={<p className="text-ink-muted">Loading…</p>}>
+    <Suspense
+      fallback={
+        // The fallback carries the heading, not just a spinner word.
+        //
+        // `useSearchParams` forces this subtree to render on the client, so
+        // **this is the entire prerendered page** — and until M15 T10 it was
+        // the word "Loading…" alone, giving the statically served document no
+        // `<h1>` at all. A page with no heading has no title in the heading
+        // outline, which is how a screen-reader user establishes where they
+        // are before anything has hydrated.
+        <>
+          <h1 className="font-display text-3xl tracking-tight text-ink">
+            Choose a new password
+          </h1>
+          <p className="mt-6 text-ink-muted">Loading…</p>
+        </>
+      }
+    >
       <ResetPasswordForm />
     </Suspense>
   );
