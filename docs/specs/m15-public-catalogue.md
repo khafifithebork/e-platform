@@ -71,7 +71,7 @@ answered in this spec rather than deferred again.
 | T6 | Search UI over the M11 endpoint | no |
 | T7 | Landing page | no |
 | T8 | Pricing page | **partly** — see §6 |
-| T9 | Build-time static generation; CI gains a live API | no |
+| T9 | Build-time static generation; CI gains a live API | **partly** — see §4.2 |
 | T10 | Accessibility pass, close-out, ADR | no |
 
 ---
@@ -101,6 +101,35 @@ neither — it is `npm ci`, typecheck, lint, audit, build, with no services.
 That is a real change to the pipeline and it is T9's actual work. The
 alternative — mocking the fetch in CI — would mean the build never exercises
 the thing invariant 15 exists to guarantee.
+
+### 4.2 "Rebuilt on publish" is not built, and cannot be here
+
+Invariant 15 has two halves. *"Public routes are statically generated"* is done
+and now verified against the build manifest rather than the source. *"rebuilt on
+publish"* is **not done**, and T9 is where that becomes visible rather than
+where it gets fixed.
+
+Today a course approved in Django is invisible to the public site until
+somebody runs a build. Nothing triggers one.
+
+**It is blocked on §11 #4**, and not incidentally. A rebuild trigger is a
+deploy hook, and what that hook *is* differs entirely between the two hosting
+candidates — a Render deploy hook URL, or a Cloudflare Workers build triggered
+from CI. Building one now means building it twice.
+
+What can be said precisely, so nobody has to rediscover it:
+
+- The trigger belongs in `catalog.services.approve`, which is the one place a
+  course becomes public.
+- It must be a queued task rather than an inline call. Invariant 8's reasoning
+  applies: an approval that fails because a build service is down is an
+  approval that fails for an unrelated reason.
+- It must debounce. Approving five courses in a minute should produce one
+  build, not five, and the natural implementation — a task per approval — does
+  the wrong thing by default.
+
+None of that is buildable before the platform is chosen. It is listed here so
+that M13 T7–T10 pick it up rather than discovering it at launch.
 
 ---
 

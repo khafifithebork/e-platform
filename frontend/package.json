@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "types": "openapi-typescript ../docs/openapi.yaml -o src/types/api.d.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:static": "node scripts/assert-static-marketing.mjs"
   },
   "dependencies": {
     "next": "16.3.1",

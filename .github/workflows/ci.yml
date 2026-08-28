@@ -380,6 +380,23 @@ jobs:
           API_ORIGIN: http://localhost:8000
         run: npm run build
 
+      # Invariant 15, checked against the build rather than the source.
+      #
+      # The Vitest suite greps page files for `searchParams`, a `fetch` call or
+      # a `dynamic` export. Those are proxies and proxies are all they can be:
+      # they cannot see a route that went dynamic for a reason nobody wrote
+      # down — a dependency reading headers, a Next default changing in a minor
+      # release, a `cookies()` call three components deep.
+      #
+      # Next records what it actually did, and this compares
+      # app-path-routes-manifest against prerender-manifest. It is the only
+      # check here that cannot be fooled by how the code is written, and it
+      # catches the one case `next build` reports identically either way:
+      # removing `dynamicParams = false` leaves the printed route table
+      # unchanged and flips `fallback` from false to null.
+      - name: Public routes are static
+        run: npm run verify:static
+
       # And again inside the image, which is not the same build. `npm run
       # build` above runs on the runner with the full dependency tree; the
       # image builds on node:22-slim, installs with `npm ci --omit=dev`, and
