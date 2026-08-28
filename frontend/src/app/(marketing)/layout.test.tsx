@@ -26,6 +26,22 @@ import MarketingLayout from "./layout";
 const GROUP = join(process.cwd(), "src", "app", "(marketing)");
 
 /**
+ * Everything a visitor can be shown before signing in.
+ *
+ * The invariant-15 checks stay scoped to the route group, because they are
+ * about *route* files — only a page or a layout can opt a route into dynamic
+ * rendering. The copy guards below are not: a price or a trial promise can
+ * land in a component just as easily, and one nearly did. `PricingPlans.tsx`
+ * is where the unannounced state lives, and a hardcoded figure there would
+ * have been invisible to a group-scoped check.
+ */
+const PUBLIC_SURFACE = [GROUP, join(process.cwd(), "src", "components")];
+
+function publicSourceFiles(): string[] {
+  return PUBLIC_SURFACE.flatMap(sourceFilesIn);
+}
+
+/**
  * A file's code, with its comments removed.
  *
  * **This is a correction, and the bug was subtle in both directions.** The
@@ -266,7 +282,7 @@ describe("invariant 15 — nothing here renders at request time", () => {
     // Both orderings. An earlier version matched only "9 EUR" and let
     // "EUR 9" through — found by provoking it with exactly that string, which
     // is the more natural way to write it in English anyway.
-    const priced = sourceFilesIn(GROUP).filter((path) =>
+    const priced = publicSourceFiles().filter((path) =>
       /[$£€]\s?\d|\d+\s?(?:USD|EUR|GBP|MAD)|(?:USD|EUR|GBP|MAD)\s?\d/i.test(
         codeOnly(readFileSync(path, "utf8")),
       ),
@@ -285,11 +301,18 @@ describe("invariant 15 — nothing here renders at request time", () => {
      *
      * Delete this test when M8 gives a visitor a way to start one.
      */
-    const promising = sourceFilesIn(GROUP).filter((path) =>
+    const promising = publicSourceFiles().filter((path) =>
       /free\s+trial|start\s+(?:your\s+)?trial/i.test(codeOnly(readFileSync(path, "utf8"))),
     );
 
     expect(promising).toEqual([]);
+  });
+
+  it("and the copy guards see the components too", () => {
+    // The twin for the widened scope. Both copy guards pass trivially against
+    // an empty list, and the components directory is the half that was added
+    // after a provocation slipped past them.
+    expect(publicSourceFiles().length).toBeGreaterThan(sourceFilesIn(GROUP).length);
   });
 
   it("and the check can actually see the files it is checking", () => {
