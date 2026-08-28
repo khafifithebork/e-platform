@@ -248,6 +248,50 @@ describe("invariant 15 — nothing here renders at request time", () => {
     expect(sourceFilesIn(GROUP).filter((path) => /\[[^\]]+\]/.test(path))).not.toEqual([]);
   });
 
+  it("no page states a price", () => {
+    /**
+     * CLAUDE.md §11 #1 is unresolved: the payment provider and the operating
+     * jurisdiction are undecided, Stripe is unavailable to Moroccan merchants,
+     * and a merchant of record may be required — which changes what a pricing
+     * page may legally say. §6 forbids inventing one.
+     *
+     * This is aimed squarely at a future copy edit. "From €9/month" is the
+     * single most natural sentence to add to a landing page, it would be a
+     * commitment nobody made, and it would read as finished work rather than
+     * as a guess.
+     *
+     * Comments are stripped first, so the pages may explain the absence — and
+     * `page.tsx` does, at length.
+     */
+    // Both orderings. An earlier version matched only "9 EUR" and let
+    // "EUR 9" through — found by provoking it with exactly that string, which
+    // is the more natural way to write it in English anyway.
+    const priced = sourceFilesIn(GROUP).filter((path) =>
+      /[$£€]\s?\d|\d+\s?(?:USD|EUR|GBP|MAD)|(?:USD|EUR|GBP|MAD)\s?\d/i.test(
+        codeOnly(readFileSync(path, "utf8")),
+      ),
+    );
+
+    expect(priced).toEqual([]);
+  });
+
+  it("no page offers a trial nobody can start", () => {
+    /**
+     * A trial exists in the data model and `manage.py billing start
+     * --trial-days` can begin one. **There is no self-serve path to it.** A
+     * "Start your free trial" button would be a promise the product cannot
+     * keep, and unlike a missing feature it fails at the moment somebody
+     * decides to pay.
+     *
+     * Delete this test when M8 gives a visitor a way to start one.
+     */
+    const promising = sourceFilesIn(GROUP).filter((path) =>
+      /free\s+trial|start\s+(?:your\s+)?trial/i.test(codeOnly(readFileSync(path, "utf8"))),
+    );
+
+    expect(promising).toEqual([]);
+  });
+
   it("and the check can actually see the files it is checking", () => {
     // The twin. Every assertion above passes trivially against an empty list,
     // so a wrong path or a bad glob would look like compliance forever. This
