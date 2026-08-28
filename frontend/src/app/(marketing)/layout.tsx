@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { AuthMenu } from "@/components/auth/AuthMenu";
+
 /**
  * The public shell — everything a visitor sees before signing in.
  *
@@ -72,13 +74,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 {item.label}
               </Link>
             ))}
-            <Link
-              href="/login"
-              className="rounded-[--radius-sm] border border-line-strong px-3 py-1.5
-                text-ink hover:border-ink-subtle"
-            >
-              Sign in
-            </Link>
+            {/*
+             * The one personalised thing in an otherwise static shell.
+             *
+             * A client component, so the prerendered HTML stays identical for
+             * everyone and invariant 15 holds. It resolves who you are in the
+             * browser and renders "Sign in" or your account — starting from
+             * neither, because rendering the signed-out state as a placeholder
+             * flashes "Sign in" at somebody who is signed in.
+             */}
+            <AuthMenu />
           </nav>
         </div>
       </header>

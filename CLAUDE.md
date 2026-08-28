@@ -165,7 +165,15 @@ A change is not done until all of these are true and you have **run them**, not 
 
 Work strictly in order. The current milestone is recorded in `docs/STATUS.md` — read it at the start of every session and update it at the end.
 
-`M0` Foundations · `M1` Backend foundation · `M2` Auth & accounts · `M3` Catalogue domain · `M4` **Entitlements** · `M5` Media pipeline · `M6` Transcription · `M7` Learning experience · `M8` Real billing · `M9` Trial · `M10` Admin & moderation · `M11` Discovery & notifications · `M12` Hardening · `M13` Deployment & CI/CD · `M14` Observability & launch
+`M0` Foundations · `M1` Backend foundation · `M2` Auth & accounts · `M3` Catalogue domain · `M4` **Entitlements** · `M5` Media pipeline · `M6` Transcription · `M7` Learning experience · `M8` Real billing · `M9` Trial · `M10` Admin & moderation · `M11` Discovery & notifications · `M12` Hardening · `M13` Deployment & CI/CD · `M14` Observability & launch · `M15` Public catalogue · `M16` Learner surface
+
+**M15 and M16 were added after M14 was written**, and they are not a change of
+plan — they are the frontend half that M3 and M7 left behind. M3 built the
+catalogue domain and M7 the learning experience, both API-only; nothing ever
+called either. M15 gave the product a public face, M16 gives it an
+authenticated one. Numbering them after M14 rather than retro-fitting them into
+M3 and M7 keeps STATUS.md's history honest about when the work actually
+happened.
 
 **M4 comes before M8 deliberately.** Entitlements are built and fully tested against a fake billing provider *before* a real payment provider is integrated. If you find yourself writing access rules inside a webhook handler, you have gone wrong — stop.
 

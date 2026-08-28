@@ -145,7 +145,7 @@ describe("the marketing shell", () => {
     expect(screen.getByRole("navigation", { name: "Footer" })).toBeInTheDocument();
   });
 
-  it("links to the catalogue, pricing and sign-in", () => {
+  it("links to the catalogue and pricing", () => {
     render(
       <MarketingLayout>
         <p>Some content</p>
@@ -154,7 +154,32 @@ describe("the marketing shell", () => {
 
     const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
 
-    expect(hrefs).toEqual(expect.arrayContaining(["/courses", "/pricing", "/login"]));
+    expect(hrefs).toEqual(expect.arrayContaining(["/courses", "/pricing"]));
+  });
+
+  it("renders no sign-in link of its own", () => {
+    /**
+     * A behaviour change in M16 T2, and the reason for it is invariant 15.
+     *
+     * This layout used to carry a static "Sign in" link. It cannot any more:
+     * the header has to say *"My courses"* to somebody who is signed in, and
+     * this HTML is generated once at build time and served to everyone. So the
+     * auth-aware part moved into `AuthMenu`, a client component that resolves
+     * after hydration.
+     *
+     * This asserts the shell itself stays impersonal. A sign-in link
+     * reappearing here would be somebody re-baking a signed-out assumption
+     * into a page served to subscribers.
+     */
+    render(
+      <MarketingLayout>
+        <p>Some content</p>
+      </MarketingLayout>,
+    );
+
+    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+
+    expect(hrefs).not.toContain("/login");
   });
 });
 
