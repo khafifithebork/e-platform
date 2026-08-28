@@ -112,7 +112,7 @@ where it gets fixed.
 Today a course approved in Django is invisible to the public site until
 somebody runs a build. Nothing triggers one.
 
-**It is blocked on §11 #4**, and not incidentally. A rebuild trigger is a
+**It is blocked on §11 #3 (hosting target)**, and not incidentally. A rebuild trigger is a
 deploy hook, and what that hook *is* differs entirely between the two hosting
 candidates — a Render deploy hook URL, or a Cloudflare Workers build triggered
 from CI. Building one now means building it twice.
@@ -155,14 +155,14 @@ An absolute URL, fixed at build time. Two consequences:
 Nothing is broken today, because M13 T4 deliberately builds the release image
 and does not push it. It is a landmine rather than a fire.
 
-**It bears directly on two open questions.** §11 #4 (hosting) now has a
+**It bears directly on two open questions.** §11 #3 (hosting target) now has a
 constraint attached: whatever builds the release image must reach the API at
 build time, and must build one image per environment — or the API must be at a
-stable public origin known at build time. §11 #2 (BFF vs path routing) is the
+stable public origin known at build time. §11 #4 (BFF vs path routing) is the
 other half: **a Cloudflare Worker routing `/api/*` at the edge does not have
 this property at all**, because the routing lives in the Worker rather than in
 the Next build. That is a genuine argument for path routing that nobody had
-when §11 #2 was written.
+when §11 #4 was written.
 
 Not fixed here. The fix is a hosting decision, not a code change, and picking
 one unilaterally is exactly what §5 forbids.
@@ -181,7 +181,7 @@ one unilaterally is exactly what §5 forbids.
 **5.3 is the one with a consequence attached.** ISR would have been simpler and
 would have un-mooted §11 #5 under B-lite. The rebuild-webhook option needs the
 hosting decision first, which is still open. Build-time generation is the only
-one of the three that works without answering §11 #4 — and it is what the
+one of the three that works without answering §11 #3 — and it is what the
 OpenNext spike already validated.
 
 ---

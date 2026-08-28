@@ -145,7 +145,7 @@ DRF keeps throttle counters in the cache.
 
 **A course approved in Django is invisible until somebody runs a build.**
 Invariant 15's second half — *"rebuilt on publish"* — is **not implemented**,
-and is blocked on §11 #4: a rebuild trigger is a deploy hook, and that hook
+and is blocked on §11 #3 (hosting target): a rebuild trigger is a deploy hook, and that hook
 differs entirely between Render and Cloudflare Workers. `docs/specs/m15-public-catalogue.md`
 §4.2 records what is known about where it belongs.
 

@@ -175,6 +175,15 @@ Work strictly in order. The current milestone is recorded in `docs/STATUS.md` �
 
 These are unresolved. If a task depends on one, stop and ask.
 
+> **Cite these by name, not only by number.** This table was renumbered on
+> 2026-08-27 when three settled rows were struck. Any document written before
+> that date uses the old numbering — `docs/specs/m10-admin.md`,
+> `docs/adr/018-*`, `docs/spikes/opennext-on-workers.md` and
+> `docs/specs/m13-deployment.md` all do — so a bare `§11 #4` in an older file
+> does not mean row 4 here. Several references written *after* the renumber
+> were also wrong and were corrected on 2026-08-28; they now carry the row name
+> alongside the number so the next renumber cannot silently invalidate them.
+
 | # | Decision | Blocks |
 |---|---|---|
 | 1 | Payment provider and operating jurisdiction (Stripe is unavailable to Moroccan merchants; a merchant of record may be required) | M4 schema, M8 entirely |

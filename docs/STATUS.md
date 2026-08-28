@@ -54,7 +54,7 @@ document structure read from the built HTML.
 *"Public routes are statically generated"* — done, and now verified against
 Next's own manifests rather than by grepping source. *"rebuilt on publish"* —
 **not done.** A course approved in Django stays invisible until somebody runs a
-build. It is blocked on §11 #4, because a rebuild trigger is a deploy hook and
+build. It is blocked on §11 #3 (hosting target), because a rebuild trigger is a deploy hook and
 that hook differs entirely between the hosting candidates. Spec §4.2 records
 where it belongs so M13 T7–T10 pick it up rather than discovering it.
 
@@ -143,7 +143,7 @@ audits clean, and CI builds *and smokes* the release image on every push.
 ### M13 stopped where it should, rather than where it could
 
 The objective names `render.yaml`. **ADR-002 §6 recommends against Render**,
-and ADR-002 is the later document, which §2 says wins. §11 #4 lists the hosting
+and ADR-002 is the later document, which §2 says wins. §11 #3 lists the hosting
 target as open. Writing `render.yaml` would have made that decision in a YAML
 file rather than by the owner, so T7–T10 were not started — and T4's release
 images are deliberately **not pushed** anywhere for the same reason.

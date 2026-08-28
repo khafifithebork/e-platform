@@ -2,7 +2,7 @@
 
 **Status: written, NOT rehearsed.** M13's objective asks for a rollback
 procedure "documented **and** rehearsed". Rehearsing needs a running
-environment, and CLAUDE.md §11 #4 has not chosen one. Until somebody has
+environment, and CLAUDE.md §11 #3 (hosting target) has not chosen one. Until somebody has
 actually done this against a real deployment, treat every step below as a
 plan rather than a tested procedure — the difference has bitten this project
 before, and ADR-023 §1 is about exactly that.
@@ -50,7 +50,7 @@ The safe path.
 
 > **Blocker, today: there is no registry.** M13 T4 builds and tags the release
 > image in CI and deliberately does **not** push it — pushing needs a registry,
-> a registry needs an account, and §11 #4 has not chosen a platform. So the
+> a registry needs an account, and §11 #3 has not chosen a platform. So the
 > images this section tells you to redeploy **do not exist anywhere outside the
 > CI runner that built them**. Until T7–T10 land, a "rollback" means rebuilding
 > the previous commit from source, which is slower and needs CI to be healthy.
@@ -61,7 +61,7 @@ The safe path.
    (`e-platform-backend:<sha>`), so the previous release is the SHA of the
    commit before the merge.
 2. **Point the platform at that tag** and redeploy. *(Platform-specific — fill
-   in when §11 #4 is answered. On Render this is "Rollback to this deploy"; on
+   in when §11 #3 is answered. On Render this is "Rollback to this deploy"; on
    Dokploy it is redeploying the previous tag.)*
 3. **Verify with the same check CI uses**, rather than by looking at the page:
 
