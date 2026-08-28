@@ -45,6 +45,28 @@ CMD ["npm", "run", "dev"]
 FROM node:22-slim AS builder
 
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Where Django is *while this image is being built*.
+#
+# Not a runtime setting. M15 made the public catalogue statically generated
+# (invariant 15), so `next build` reads every published course and bakes it
+# into the HTML — which means the build needs a reachable API, and this image's
+# build is a build like any other. Without this the builder inherits the
+# localhost default, finds nothing listening inside the container, and
+# `CatalogueUnavailable` stops it. That is abuse case 6 behaving exactly as
+# designed, in a context that had not been given an API.
+#
+# Supplied by CI with `--network=host`, so `localhost` here is the runner's
+# localhost, where the job has already started Django.
+#
+# **This is a deployment constraint, not just a CI one.** Whatever builds the
+# release image — Render, a Workers pipeline, a laptop — must be able to reach
+# the API at build time. There is no fallback by design: a build that cannot
+# read the catalogue must fail rather than ship a site where every course
+# silently disappeared.
+ARG API_ORIGIN
+ENV API_ORIGIN=${API_ORIGIN}
+
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
