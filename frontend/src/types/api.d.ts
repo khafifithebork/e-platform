@@ -435,6 +435,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/courses/{course_slug}/lessons/{lesson_slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a lesson, addressed by course and lesson slug
+         * @description The same lesson, addressed the way architecture.md §6.2 says it is.
+         *
+         *     ``GET courses/{course_slug}/lessons/{lesson_slug}/``, specified at M0 and
+         *     never built — M7 shipped ``/lessons/{id}/`` instead. **The schema was shaped
+         *     for this route and has been waiting for it.** ADR-007 §1 put a redundant
+         *     ``course`` foreign key on ``Lesson`` for exactly one stated reason:
+         *
+         *         "§6.2 routes /courses/{slug}/lessons/{lesson_slug}/, which resolves to
+         *         one lesson only if the slug is unique per course — and a constraint
+         *         spanning two joins is not something Django can express."
+         *
+         *     That constraint — ``lesson_slug_unique_per_course`` — is what makes this
+         *     lookup return one row rather than an arbitrary one. Until now it guarded a
+         *     URL nothing served.
+         *
+         *     **Every gate is inherited, not restated.** The queryset is
+         *     ``lessons_visible_to`` and the permission is ``IsEntitledToLesson``, both
+         *     identical to ``LessonViewSet``. Invariant 3 has one resolver, and a second
+         *     way to reach a lesson is exactly where a second access rule would grow.
+         *
+         *     **Mounted at the API root rather than under ``/catalogue/``.**
+         *     architecture.md's table lists this under "Catalogue", but that table
+         *     predates the ``catalogue/`` prefix, which ``public_urls.py`` introduced so
+         *     that "the boundary between 'anyone may read this' and 'only the owner may'
+         *     is visible in the URL". This route serves gated content, so putting it
+         *     behind that prefix would make the prefix lie.
+         */
+        get: operations["courses_lessons_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instructor/courses/": {
         parameters: {
             query?: never;
@@ -2633,6 +2678,42 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CourseSearchResults"];
                 };
+            };
+        };
+    };
+    courses_lessons_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_slug: string;
+                lesson_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatedLesson"];
+                };
+            };
+            /** @description Entitlement denied. Problem Details with a stable `reason` and `cta` — see /problems/entitlement-denied. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such lesson in that course, or not published. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

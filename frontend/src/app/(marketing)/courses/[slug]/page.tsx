@@ -128,7 +128,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
         <h2 id="curriculum" className="font-display text-2xl text-ink">
           What is in the course
         </h2>
-        <Curriculum sections={course.sections} />
+        <Curriculum sections={course.sections} courseSlug={course.slug} />
       </section>
 
       {course.related.length > 0 && (

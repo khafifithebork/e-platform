@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { PublicSection } from "@/lib/catalogue/courses";
 
 /**
@@ -14,7 +16,14 @@ import type { PublicSection } from "@/lib/catalogue/courses";
  * backend maintains for exactly this — relying on array order would mean the
  * outline silently reshuffles the day the API changes its default ordering.
  */
-export function Curriculum({ sections }: { sections: PublicSection[] }) {
+export function Curriculum({
+  sections,
+  courseSlug,
+}: {
+  sections: PublicSection[];
+  /** Needed to build lesson links — a lesson URL is course-scoped. */
+  courseSlug: string;
+}) {
   if (sections.length === 0) {
     // An approved course with no sections is possible and looks like a bug to
     // a visitor. Saying so is better than an empty heading with nothing
@@ -45,7 +54,26 @@ export function Curriculum({ sections }: { sections: PublicSection[] }) {
               .sort((a, b) => a.position - b.position)
               .map((lesson) => (
                 <li key={lesson.id} className="flex items-baseline gap-2 text-sm">
-                  <span className="text-ink-muted">{lesson.title}</span>
+                  {/*
+                   * Lessons are links as of M16 T3, and they were deliberately
+                   * not links before.
+                   *
+                   * The original reasoning was that "a link here would invite
+                   * a signed-out visitor into an entitlement refusal". That
+                   * held while a refusal was a bare 403 with nowhere to go.
+                   * It no longer does: a preview lesson plays for somebody
+                   * with no account at all, and every refusal now lands on a
+                   * page that says what happened and offers a way forward.
+                   *
+                   * A curriculum whose lessons cannot be opened is a table of
+                   * contents for a book nobody can reach.
+                   */}
+                  <Link
+                    href={`/courses/${courseSlug}/lessons/${lesson.slug}`}
+                    className="text-ink-muted hover:text-ink"
+                  >
+                    {lesson.title}
+                  </Link>
 
                   {/*
                    * A preview lesson is watchable without a subscription, and
