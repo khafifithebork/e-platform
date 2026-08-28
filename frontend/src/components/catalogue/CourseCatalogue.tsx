@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 
 import { CourseCard } from "@/components/catalogue/CourseCard";
+import { CourseSearch } from "@/components/catalogue/CourseSearch";
 import type { Language, PublicCourse } from "@/lib/catalogue/courses";
+import type { CourseSearchResults } from "@/lib/catalogue/search";
 
 /**
  * The listing, with its filters.
@@ -44,6 +46,16 @@ export function CourseCatalogue({
   const [language, setLanguage] = useState(ANY);
   const [level, setLevel] = useState(ANY);
 
+  // Search results replace the browse listing while a query is active, rather
+  // than being combined with the filters. Combining them would mean two
+  // narrowing mechanisms with different semantics — one ranked and fuzzy on
+  // the server, one exact and client-side — and a visitor who filtered to
+  // French then searched "spanish" would get an empty page they could not
+  // explain. `searching` is tracked separately from `results` so the moment
+  // between typing and the first response does not flash the full catalogue.
+  const [results, setResults] = useState<CourseSearchResults | null>(null);
+  const [searching, setSearching] = useState(false);
+
   // Levels come from the data rather than a hard-coded CEFR list: a catalogue
   // with no C2 courses should not offer a C2 filter that always yields
   // nothing. Sorted, because Set iteration order is insertion order and that
@@ -63,8 +75,19 @@ export function CourseCatalogue({
     [courses, language, level],
   );
 
+  if (searching) {
+    return (
+      <div className="flex flex-col gap-8">
+        <CourseSearch onResults={setResults} onQueryChange={(q) => setSearching(q.length > 0)} />
+        <SearchResults results={results} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
+      <CourseSearch onResults={setResults} onQueryChange={(q) => setSearching(q.length > 0)} />
+
       {/*
        * `<section>` with a label rather than a bare div: filters are a
        * navigable region, and a screen-reader user landing on the page should
@@ -114,6 +137,44 @@ export function CourseCatalogue({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * What a search found.
+ *
+ * `null` means the search has not answered yet — which is why this says
+ * nothing rather than "no courses found". Rendering an empty state while a
+ * request is in flight tells the visitor their query failed a moment before it
+ * succeeds.
+ */
+function SearchResults({ results }: { results: CourseSearchResults | null }) {
+  if (results === null) return null;
+
+  if (results.results.length === 0) {
+    return <p className="text-ink-muted">Nothing matched. Try fewer words.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <p aria-live="polite" className="text-sm text-ink-muted">
+        {results.count} {results.count === 1 ? "result" : "results"}
+        {/*
+         * The API says when it capped the list, and saying so is the honest
+         * thing: a visitor who sees fifty results and assumes that is all of
+         * them has been told something untrue by omission.
+         */}
+        {results.truncated && ` (showing the first ${results.limit})`}
+      </p>
+
+      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {results.results.map((course) => (
+          <li key={course.slug}>
+            <CourseCard course={course} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
