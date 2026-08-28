@@ -78,7 +78,10 @@ export function CourseCatalogue({
   if (searching) {
     return (
       <div className="flex flex-col gap-8">
-        <CourseSearch onResults={setResults} onQueryChange={(q) => setSearching(q.length > 0)} />
+        <CourseSearch
+          onResults={setResults}
+          onQueryChange={(q) => setSearching(q.length > 0)}
+        />
         <SearchResults results={results} />
       </div>
     );
@@ -86,7 +89,10 @@ export function CourseCatalogue({
 
   return (
     <div className="flex flex-col gap-8">
-      <CourseSearch onResults={setResults} onQueryChange={(q) => setSearching(q.length > 0)} />
+      <CourseSearch
+        onResults={setResults}
+        onQueryChange={(q) => setSearching(q.length > 0)}
+      />
 
       {/*
        * `<section>` with a label rather than a bare div: filters are a
@@ -99,7 +105,10 @@ export function CourseCatalogue({
           value={language}
           onChange={setLanguage}
           anyLabel="All languages"
-          options={languages.map((item) => ({ value: item.code, label: item.name }))}
+          options={languages.map((item) => ({
+            value: item.code,
+            label: item.name,
+          }))}
         />
         <Select
           label="Level"
@@ -132,7 +141,8 @@ export function CourseCatalogue({
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((course) => (
             <li key={course.slug}>
-              <CourseCard course={course} />
+              {/* Directly under the page's <h1>, so these are <h2>. */}
+              <CourseCard course={course} headingLevel={2} />
             </li>
           ))}
         </ul>
@@ -171,7 +181,8 @@ function SearchResults({ results }: { results: CourseSearchResults | null }) {
       <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {results.results.map((course) => (
           <li key={course.slug}>
-            <CourseCard course={course} />
+            {/* Directly under the page's <h1>, so these are <h2>. */}
+            <CourseCard course={course} headingLevel={2} />
           </li>
         ))}
       </ul>

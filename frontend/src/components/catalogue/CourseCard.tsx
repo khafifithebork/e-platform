@@ -16,7 +16,26 @@ import type { PublicCourse } from "@/lib/catalogue/courses";
  * The title is the link; the rest is description, and `aria-labelledby` on the
  * article is what ties them together in the accessibility tree.
  */
-export function CourseCard({ course }: { course: PublicCourse }) {
+export function CourseCard({
+  course,
+  headingLevel = 3,
+}: {
+  course: PublicCourse;
+  /**
+   * Where this card sits in the page's heading outline.
+   *
+   * A card is not always at the same depth: on `/courses` it is directly
+   * under the page's `<h1>`, so it must be an `<h2>`; under "Recently
+   * published" or "Related courses" — both `<h2>` — it is an `<h3>`.
+   *
+   * Fixed at `<h3>` until M15 T10, which made `/courses` jump from h1 to h3.
+   * That skip is invisible on screen, because the styling does not follow the
+   * level, and it tells a screen-reader user browsing by heading that they
+   * missed a section.
+   */
+  headingLevel?: 2 | 3;
+}) {
+  const Heading = `h${headingLevel}` as const;
   const titleId = `course-${course.slug}-title`;
   const skills = Array.isArray(course.skill_areas) ? (course.skill_areas as string[]) : [];
 
@@ -39,11 +58,11 @@ export function CourseCard({ course }: { course: PublicCourse }) {
         </abbr>
       </div>
 
-      <h3 id={titleId} className="font-display text-xl leading-snug text-ink">
+      <Heading id={titleId} className="font-display text-xl leading-snug text-ink">
         <Link href={`/courses/${course.slug}`} className="hover:text-accent">
           {course.title}
         </Link>
-      </h3>
+      </Heading>
 
       {course.description && (
         <p className="line-clamp-3 text-sm leading-relaxed text-ink-muted">

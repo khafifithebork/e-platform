@@ -397,6 +397,19 @@ jobs:
       - name: Public routes are static
         run: npm run verify:static
 
+      # Document structure, on the HTML a visitor receives.
+      #
+      # The component tests query the accessibility tree, which is the right
+      # place for "is this control labelled". They cannot see what only exists
+      # once a page is assembled: two components each rendering an <h1>, a
+      # heading level skipped because a section moved, a landmark duplicated by
+      # a layout change. All three survive a green component suite, and M15 T10
+      # found all three — /courses and /pricing jumped h1 to h3, and
+      # /reset-password prerendered with no heading at all because its content
+      # sits behind a Suspense boundary.
+      - name: Document structure
+        run: npm run verify:a11y
+
       # And again inside the image, which is not the same build. `npm run
       # build` above runs on the runner with the full dependency tree; the
       # image builds on node:22-slim, installs with `npm ci --omit=dev`, and

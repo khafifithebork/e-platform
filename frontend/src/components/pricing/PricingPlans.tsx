@@ -57,9 +57,9 @@ function Plan({
       aria-labelledby={`plan-${name.toLowerCase()}`}
       className="flex flex-col gap-3 rounded-[--radius-lg] border border-line bg-surface p-6"
     >
-      <h3 id={`plan-${name.toLowerCase()}`} className="font-medium text-ink">
+      <h2 id={`plan-${name.toLowerCase()}`} className="font-medium text-ink">
         {name}
-      </h3>
+      </h2>
       <p className="flex items-baseline gap-2">
         <span className="font-display text-3xl text-ink">{price}</span>
         {/*
@@ -86,7 +86,7 @@ function Plan({
 function Unannounced() {
   return (
     <div className="flex flex-col gap-4 rounded-[--radius-lg] border border-line bg-surface p-6">
-      <h3 className="font-medium text-ink">Pricing is not announced yet</h3>
+      <h2 className="font-medium text-ink">Pricing is not announced yet</h2>
       <p className="max-w-prose text-ink-muted">
         There will be one subscription covering every course, billed monthly or
         yearly. The amount is not set, and we would rather leave this blank than

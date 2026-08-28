@@ -11,7 +11,8 @@
     "types": "openapi-typescript ../docs/openapi.yaml -o src/types/api.d.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:static": "node scripts/assert-static-marketing.mjs"
+    "verify:static": "node scripts/assert-static-marketing.mjs",
+    "verify:a11y": "node scripts/assert-page-structure.mjs"
   },
   "dependencies": {
     "next": "16.3.1",

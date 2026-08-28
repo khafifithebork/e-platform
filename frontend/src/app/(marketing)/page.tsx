@@ -49,7 +49,7 @@ export default async function Home() {
           <Link
             href="/courses"
             className="rounded-[--radius-md] bg-accent px-5 py-2.5 text-center
-              font-medium text-white transition-colors hover:bg-accent-hover"
+              font-medium text-on-accent transition-colors hover:bg-accent-hover"
           >
             Browse the catalogue
           </Link>

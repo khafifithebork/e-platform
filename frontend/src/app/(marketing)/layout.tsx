@@ -46,7 +46,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <a
         href="#main"
         className="sr-only rounded-[--radius-sm] bg-accent px-4 py-2 text-sm
-          font-medium text-white focus:not-sr-only focus:absolute focus:left-4
+          font-medium text-on-accent focus:not-sr-only focus:absolute focus:left-4
           focus:top-4 focus:z-50"
       >
         Skip to content
