@@ -12,7 +12,7 @@
  * bug if it is rendered as an empty list.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MyCourses } from "@/components/learn/MyCourses";
