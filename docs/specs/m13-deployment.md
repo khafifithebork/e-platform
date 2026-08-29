@@ -110,7 +110,7 @@ anything can be verified without an account.
 | # | Question | Blocks |
 |---|---|---|
 | 5.1 | **Hosting: B, B-lite or B-HA?** ADR-002 recommends B-lite; the tiebreaker is what you want from the project | almost all of M13 |
-| 5.2 | **Approve the monthly spend**, with the option named | §5 gate — all provisioning |
+| 5.2 | ~~**Approve the monthly spend**~~ — **approved 2026-08-29 for B-lite**, at the figures ADR-002 §5 records: **$44/month at Scenario 1**, ~$120 at Scenario 2. Provisioning is unblocked; **account creation and payment details remain the owner's to do** | was §5 gate |
 | 5.3 | **Run the OpenNext spike now?** Required before B-lite or B-HA can be committed to | 5.1, if B-lite |
 | 5.4 | **Celery Beat: in the worker at one replica, or platform cron?** CLAUDE.md §11 #3, scoped to M0 and M13 | the worker's deploy shape |
 | 5.5 | **Scope check:** should M13 shrink to §3 and hand provisioning to M13b once the answers exist? | the shape of this milestone |

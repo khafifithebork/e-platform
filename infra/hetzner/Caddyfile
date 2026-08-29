@@ -1,0 +1,88 @@
+# The reverse proxy in front of Django, on the Hetzner box.
+#
+# Dokploy runs its own Caddy and generates most of this. **This file is the
+# record of what that proxy must do**, so the settings survive somebody
+# rebuilding the box — and so a reviewer can see them without logging in.
+# Where Dokploy's UI is the source of truth, the comment says so.
+#
+# ADR-025 puts Next.js on Cloudflare Workers, so this proxies **only the API**.
+# There is no static asset serving here and no frontend to route to.
+
+{
+	# ACME email for Let's Encrypt renewal notices. Neither a secret nor a
+	# credential — it is the address that gets told when a certificate is about
+	# to expire, and an unmonitored one is how TLS lapses on a Sunday.
+	# deployment-strategy.md §12 lists TLS renewal monitoring among the things
+	# a VPS makes yours.
+	email {$ACME_EMAIL}
+
+	# Caddy's own access log, as JSON, so it joins the structured logs the rest
+	# of the system emits (architecture.md §3.7).
+	log {
+		format json
+	}
+}
+
+{$API_DOMAIN} {
+	# ---------------------------------------------------------------------
+	# Trust
+	#
+	# Cloudflare sits in front (DNS, TLS, WAF), so every request arrives from
+	# a Cloudflare IP. Without `trusted_proxies`, Caddy would forward that IP
+	# as the client address and Django would rate-limit and audit every
+	# learner as though they were one machine — django-axes would lock out the
+	# world on one person's failed logins.
+	#
+	# **`cloudflare_ip_ranges` needs Caddy's Cloudflare IP module.** If the
+	# build in use does not have it, the ranges must be pinned by hand and
+	# refreshed; a stale list fails closed, which is the right direction but is
+	# still an outage. Verify before first deploy.
+	# ---------------------------------------------------------------------
+	@api path /api/* /healthz /admin/*
+
+	handle @api {
+		reverse_proxy api:8000 {
+			# Django's SECURE_PROXY_SSL_HEADER reads this. Without it every
+			# request looks like plain HTTP behind the proxy, and
+			# SECURE_SSL_REDIRECT sends the browser into a redirect loop —
+			# which is exactly what M13 T5's smoke check hit before it started
+			# sending this header.
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+
+			# A learner watching a lesson holds a connection open while the
+			# player reports progress every fifteen seconds. The default read
+			# timeout is generous enough, but transcription callbacks and
+			# presigned-upload handshakes are the slow paths worth naming.
+			transport http {
+				read_timeout 60s
+			}
+		}
+	}
+
+	# Everything else is not ours. The frontend lives on Workers, and a request
+	# for `/courses` arriving here means DNS is pointing at the wrong place —
+	# answering it with a Django 404 would hide that.
+	handle {
+		respond "Not this host" 404
+	}
+
+	# ---------------------------------------------------------------------
+	# Response headers
+	#
+	# Django already sets its own security headers and `check --deploy`
+	# verifies them, so they are deliberately **not** duplicated here: two
+	# places setting one header is two places to disagree, and the one that
+	# wins is whichever ran last.
+	#
+	# `Server` is removed because naming the proxy and its version tells a
+	# scanner which advisories to try first.
+	# ---------------------------------------------------------------------
+	header {
+		-Server
+	}
+
+	log {
+		format json
+	}
+}
