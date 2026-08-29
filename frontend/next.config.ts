@@ -147,3 +147,18 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+/*
+ * Cloudflare bindings during `next dev`.
+ *
+ * `opennextjs-cloudflare migrate` appends this line, and it is kept rather than
+ * removed: without it `next dev` has no bindings and behaves differently from
+ * the Worker the same code runs in — which is the class of difference that is
+ * only discovered in production.
+ *
+ * Left as a dynamic import so the adapter is not pulled into the production
+ * bundle, and moved below the export with this explanation because a bare
+ * floating promise after `export default` reads as something that got pasted
+ * in by accident. It is not.
+ */
+void import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());
