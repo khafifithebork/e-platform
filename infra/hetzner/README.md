@@ -67,8 +67,15 @@ forbids inventing a provider capability and this is one.
 
 The ones without which nothing starts:
 
-`DJANGO_SECRET_KEY` · `DJANGO_ALLOWED_HOSTS` · `DATABASE_URL` (Neon, pooled) ·
+`DJANGO_SECRET_KEY` · `DJANGO_ALLOWED_HOSTS` · `DATABASE_URL` (Neon, **pooled**) ·
 `REDIS_URL` · `REDIS_CACHE_URL` · `MEDIA_STORAGE_*` (R2) · `OPERATIONS_ALERT_EMAIL`
+
+**`predeploy` needs a different one.** It takes a session-level advisory lock,
+which Neon's documentation lists among the features its transaction-mode pooler
+does not support — over the pooled string the lock is granted and held by
+nothing, and two concurrent deploys both proceed. Give the pre-deploy step the
+**direct** connection string, the host without `-pooler`. `infra/neon/README.md`
+has the detail, and `predeploy` now refuses rather than trusting the caller.
 
 Two that are easy to miss because nothing fails loudly without them:
 

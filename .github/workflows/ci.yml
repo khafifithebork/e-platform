@@ -99,6 +99,27 @@ jobs:
           done
           echo "object storage did not become ready"; docker logs minio; exit 1
 
+      # The preflight, against CI's own Postgres.
+      #
+      # Its real target is a Neon branch (M13 T8) — ADR-023 handed over that
+      # `CREATE EXTENSION pg_trgm` had only ever run locally, as a superuser,
+      # and "a managed provider may not grant it". Running it here does not
+      # answer that question; it answers a different one that would otherwise
+      # be discovered on the day it matters: **does the check itself work**.
+      #
+      # A preflight that has never run is a preflight nobody should trust at
+      # the moment they most need it.
+      - name: Database preflight
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          MEDIA_STORAGE_ENDPOINT: http://localhost:9000
+          MEDIA_STORAGE_BUCKET: media-ci
+          MEDIA_STORAGE_ACCESS_KEY: minioadmin
+          MEDIA_STORAGE_SECRET_KEY: minioadmin
+        run: |
+          python manage.py migrate --noinput
+          python manage.py check_database
+
       - name: Tests
         env:
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci

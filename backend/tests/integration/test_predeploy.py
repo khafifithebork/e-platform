@@ -229,3 +229,96 @@ class TestWhatItDoesNotDo:
             "It also does not run `check --deploy`.", ""
         )
         assert ast.parse(source.read_text(encoding="utf-8"))
+
+
+class TestTheLockIsActuallyHeld:
+    """A granted lock and a held lock are different things behind a pooler.
+
+    Neon's documentation lists **session-level advisory locks** among the
+    features its connection pooler does not support, and recommends a direct
+    connection for schema migrations: *"Tools may not support transaction
+    pooling."* PgBouncer in transaction mode returns the server connection to
+    the pool after each statement, so `pg_try_advisory_lock` can report success
+    against a backend nobody holds — and a second deploy is told it may
+    proceed.
+
+    Losing this lock quietly is worse than never having it, because
+    `_deploy_lock`'s docstring still says it is there.
+    """
+
+    def test_it_verifies_the_lock_belongs_to_this_backend(self) -> None:
+        """The check passes on a direct connection, which is what the test
+        suite uses. Its value is the failure, which the next test provokes.
+
+        The lock is taken first, because the check asks whether *this* session
+        holds it — calling it cold asks whether a lock nobody took is held, and
+        the honest answer to that is no. Found by writing it the other way."""
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_try_advisory_lock(%s)", [LOCK_KEY])
+            assert cursor.fetchone()[0] is True
+
+        try:
+            # No exception: this session really does hold what it was granted.
+            Command()._require_a_real_session(connection)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_unlock(%s)", [LOCK_KEY])
+
+    def test_it_refuses_when_the_lock_is_not_held_here(self, monkeypatch) -> None:
+        """What a transaction-mode pooler looks like from inside the process:
+        the grant succeeded, and `pg_locks` has nothing for this backend."""
+        from apps.core.management.commands import predeploy
+
+        # A key nothing has locked stands in for a lock that was granted
+        # elsewhere — the observable symptom is identical, and it needs no
+        # pooler to reproduce.
+        monkeypatch.setattr(predeploy, "LOCK_KEY", 987654321)
+
+        with pytest.raises(CommandError, match="not held by this backend"):
+            predeploy.Command()._require_a_real_session(connection)
+
+    def test_and_says_what_to_do_about_it(self) -> None:
+        """A deploy failing with "lock not held" at 3am is a puzzle. The
+        message names the cause and the fix, because whoever reads it will not
+        have Neon's pooling documentation open."""
+        from apps.core.management.commands import predeploy
+
+        original = predeploy.LOCK_KEY
+        predeploy.LOCK_KEY = 987654321
+        try:
+            with pytest.raises(CommandError) as failure:
+                predeploy.Command()._require_a_real_session(connection)
+        finally:
+            predeploy.LOCK_KEY = original
+
+        assert "unpooled" in str(failure.value)
+        assert "-pooler" in str(failure.value)
+
+    def test_the_lock_path_actually_runs_the_check(self, monkeypatch) -> None:
+        """**The wiring, not the method.**
+
+        The three tests above call `_require_a_real_session` directly, so they
+        all pass with the call removed from `_deploy_lock` — which is exactly
+        what happened when that deletion was provoked. A check nothing invokes
+        is a check that does not run.
+
+        Asserted by making the check refuse and watching `predeploy` stop.
+        """
+        from apps.core.management.commands import predeploy
+
+        def refuse(self, connection):
+            raise CommandError("the check ran")
+
+        monkeypatch.setattr(predeploy.Command, "_require_a_real_session", refuse)
+        # The lock is only taken when something is pending — `handle` returns
+        # early otherwise, and the test database is fully migrated. Without
+        # this the command never reaches the lock and the test proves nothing,
+        # which is how it was written the first time.
+        monkeypatch.setattr(
+            predeploy.Command,
+            "_pending_migrations",
+            lambda self, connection: [("catalog", "0005_search_vector")],
+        )
+
+        with pytest.raises(CommandError, match="the check ran"):
+            call_command("predeploy")

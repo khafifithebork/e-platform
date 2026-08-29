@@ -130,6 +130,49 @@ class Command(BaseCommand):
             for migration, _ in executor.migration_plan(targets)
         ]
 
+    def _require_a_real_session(self, connection) -> None:
+        """Confirm the lock we just took is actually held by this backend.
+
+        **A transaction-mode connection pooler makes this lock a no-op**, and
+        does it silently. Neon's documentation lists "session-level advisory
+        locks" among the features its pooler does not support, and recommends a
+        direct connection for schema migrations — *"Tools may not support
+        transaction pooling"*. PgBouncer in transaction mode returns the server
+        connection to the pool after each statement, so the next statement can
+        land on a different backend: `pg_try_advisory_lock` returns true, the
+        lock is attached to a connection nobody holds, and a second deploy is
+        told it may proceed.
+
+        The whole point of this lock is that two rollouts cannot migrate at
+        once. Losing it quietly is worse than not having it, because the
+        docstring above still claims it is there.
+
+        Checked by asking rather than by inspecting the hostname. Sniffing for
+        `-pooler` in a connection string tests one provider's naming
+        convention; this tests the property the lock needs — that the session
+        holding it is the session we are in.
+        """
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT count(*) FROM pg_locks
+                WHERE locktype = 'advisory' AND objid = %s AND pid = pg_backend_pid()
+                """,
+                [LOCK_KEY],
+            )
+            held = cursor.fetchone()[0]
+
+        if not held:
+            raise CommandError(
+                "The migration lock was granted but is not held by this backend. "
+                "That is what a transaction-mode connection pooler does to a "
+                "session-level advisory lock: it reports success and serialises "
+                "nothing. "
+                "Run migrations over a direct, unpooled connection. On Neon that "
+                "is the connection string without `-pooler` in the host; the "
+                "application may keep using the pooled one."
+            )
+
     def _deploy_lock(self, connection, *, seconds: int):
         """A Postgres advisory lock, so concurrent deploys serialise.
 
@@ -146,6 +189,7 @@ class Command(BaseCommand):
                     with connection.cursor() as cursor:
                         cursor.execute("SELECT pg_try_advisory_lock(%s)", [LOCK_KEY])
                         if cursor.fetchone()[0]:
+                            command._require_a_real_session(connection)
                             return self
                     if time.monotonic() >= deadline:
                         raise CommandError(
