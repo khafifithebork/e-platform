@@ -1,11 +1,18 @@
 # Runbook — rolling back a deploy
 
-**Status: written, NOT rehearsed.** M13's objective asks for a rollback
-procedure "documented **and** rehearsed". Rehearsing needs a running
-environment, and CLAUDE.md §11 #3 (hosting target) has not chosen one. Until somebody has
-actually done this against a real deployment, treat every step below as a
-plan rather than a tested procedure — the difference has bitten this project
-before, and ADR-023 §1 is about exactly that.
+**Status: written; partly rehearsed 2026-08-29.**
+
+§1's decision procedure, §3's migration hazard and its documented recovery were
+walked against the development stack during M13 T10 — and **§3 was found
+wrong**. See §6 for what the rehearsal verified and what it corrected.
+
+**§2, the code rollback itself, is still unrehearsed**, and not only for want of
+an environment: there is still no registry, so the images CI builds exist
+nowhere outside the runner that built them.
+
+M13's objective asks for a rollback procedure "documented **and** rehearsed".
+Treat any step not listed in §6 as a plan rather than a tested procedure — the
+difference has bitten this project before, and ADR-023 §1 is about exactly that.
 
 **Read §1 before touching anything.** It is thirty seconds and it decides
 which of two very different procedures you are in.
@@ -49,13 +56,17 @@ Compare against the previous release's tag. `git diff <previous-sha> <current-sh
 The safe path.
 
 > **Blocker, today: there is no registry.** M13 T4 builds and tags the release
-> image in CI and deliberately does **not** push it — pushing needs a registry,
-> a registry needs an account, and §11 #3 has not chosen a platform. So the
-> images this section tells you to redeploy **do not exist anywhere outside the
-> CI runner that built them**. Until T7–T10 land, a "rollback" means rebuilding
-> the previous commit from source, which is slower and needs CI to be healthy.
-> This is written down rather than glossed because a runbook whose first step
-> is impossible is worse than none.
+> image in CI and deliberately does **not** push it. **The platform is now
+> chosen** — B-lite, ADR-025 — and the spend is approved, so the reason has
+> narrowed: what is missing is an account and a registry to push to, not a
+> decision. Until somebody provisions one, the images this section tells you to
+> redeploy **do not exist anywhere outside the CI runner that built them**, and
+> a "rollback" means rebuilding the previous commit from source — slower, and
+> dependent on CI being healthy.
+>
+> Written down rather than glossed, because a runbook whose first step is
+> impossible is worse than none. **This is also why §2 could not be rehearsed**
+> in T10: there was nothing to roll back to.
 
 1. **Identify the last good image.** CI tags every image with the commit SHA
    (`e-platform-backend:<sha>`), so the previous release is the SHA of the
@@ -119,22 +130,59 @@ Prefer, in order:
 migration has no transaction to undo.
 
 **Observed, not assumed:** this migration was rolled back and re-applied
-against a live Postgres during M13 T3, and both directions worked. So the
-reversal is not the hazard. These two are:
+against a live Postgres during M13 T3, and again during T10's rehearsal. Both
+directions work. So the reversal is not the hazard. These are:
 
 - **A part-way failure leaves no clean state.** The index can be left `INVALID`
   and must be dropped by hand before a retry. Nothing rolls that back for you.
 - **Reversing drops `search_vector` and the `pg_trgm` extension.** The column
   is derived, so it is rebuildable with `manage.py backfill_search_vectors` —
-  but that is a separate chunked command over every course, not instant, and
-  search returns nothing until it finishes.
+  a separate chunked command over every course, not instant.
+
+### What that actually looks like, measured in T10's rehearsal
+
+**This section said "search returns nothing until it finishes". That was
+wrong**, and wrong in the direction that matters. Rolling `catalog` back to
+`0004` against a running API gave:
+
+| Endpoint | Before | After |
+|---|---|---|
+| `/api/v1/catalogue/search/` | 200 | **500** |
+| `/api/v1/catalogue/courses/` | 200 | **500** |
+| `/healthz` | 200 | **200** |
+
+**The whole public catalogue fails, not just search.** Django's ORM selects
+every model field, so any query touching `Course` raises
+`UndefinedColumn: column catalog_course.search_vector does not exist` — the
+course listing dies in the paginator, and it has nothing to do with trigram
+search. Search returning nothing would have been a degradation; this is an
+outage of the public surface.
+
+**And `/healthz` stays 200 throughout.** It answers without touching `Course`,
+which is what makes it a good liveness probe and a poor readiness one. **An
+uptime monitor on `/healthz` alone would report the site healthy while every
+catalogue page returns 500** — worth knowing before M14 T7 chooses what to
+poll.
+
+This is the §3 table's "removed or renamed a column the old code reads" row,
+arrived at from the other direction: not old code against a new schema, but
+**new code against an old one**, which is what a schema rollback produces. The
+table is right; this section understated it.
+
+**Recovery worked exactly as documented.** `migrate catalog` forward, then
+`manage.py backfill_search_vectors`, then both endpoints returned 200 and
+`check_database` reported `pg_trgm` usable again.
 
 It is the only migration in the repository with that property today. Check for
 others before assuming:
 
 ```bash
-grep -rl "atomic = False\|RunPython\|RunSQL" backend/apps/*/migrations/
+grep -rl --include="*.py" "atomic = False\|RunPython\|RunSQL" backend/apps/*/migrations/
 ```
+
+`--include="*.py"` because without it this returns compiled `.pyc` files from
+`__pycache__` alongside the real answer — noise in a command somebody runs
+under pressure. Found by running it during T10's rehearsal.
 
 ---
 
@@ -170,13 +218,41 @@ the problem is gone.
 
 ---
 
-## 6. Rehearsal — outstanding
+## 6. Rehearsal — half done, and the half that is done found things
 
-**Nobody has performed this**, and it is not currently possible: there is no
-environment to roll back and no registry to roll back *to* (see §2). The
-objective says "documented and rehearsed", and only the first half is done.
+**A dry run happened on 2026-08-29 (M13 T10), against the development stack.**
+Not the rehearsal this section asks for — that needs an environment, and §11 #3
+was only answered the day before — but the runbook had never been walked at
+all, and walking it found three things.
 
-The rehearsal, when there is an environment:
+### What was verified
+
+- **§1's decision procedure works.** `predeploy --check` exits 0 on a
+  fully-migrated database; `showmigrations --plan` gives the comparison it
+  promises.
+- **`catalog.0005_search_vector` reverses and re-applies**, for the second time
+  and against a running API rather than an idle database.
+- **The documented recovery is correct.** `migrate catalog`, then
+  `backfill_search_vectors`, restored search and the catalogue.
+
+### What was wrong
+
+- **§3 understated the failure.** It said search would return nothing; the
+  entire public catalogue returns 500, because Django selects every model field
+  and `Course` no longer has one. Corrected above with measurements.
+- **`/healthz` stays 200 while the catalogue is down.** A liveness probe, not a
+  readiness one. M14 T7 should not point an uptime monitor at it alone.
+- **§3's hazard grep returned `.pyc` files.** Fixed.
+
+### What is still outstanding
+
+**The rehearsal proper.** §2's procedure — identify the last good image, point
+the platform at it, redeploy — could not be walked, and not only because there
+is no environment: **there is still no registry**, so the images CI builds exist
+nowhere outside the runner that built them. That blocker is recorded in §2 and
+is unchanged.
+
+The real rehearsal, when there is somewhere to do it:
 
 1. Deploy a release with a deliberate, obvious defect — a wrong string on the
    health endpoint is enough.
@@ -185,5 +261,6 @@ The rehearsal, when there is an environment:
 4. Time it, and record what the runbook got wrong.
 
 **A runbook that has never been executed is a guess about your own systems.**
-Writing it first is what makes the rehearsal a test rather than an
-improvisation — but the test still has to happen.
+One third of this one has now been executed, and that third was wrong in a way
+nobody would have predicted from reading it. That is the argument for doing the
+rest.

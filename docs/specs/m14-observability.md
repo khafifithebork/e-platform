@@ -99,10 +99,39 @@ nothing lands on local disk.
 |---|---|---|
 | T5 | Sentry in Django, Celery and Next.js; DSN from env; **spend cap** | account, §5 gate |
 | T6 | `/metrics` or Sentry Insights — queue depth, transcription age, webhook lag | T5 |
-| T7 | Uptime monitors on `/healthz`, both tiers | a deployment |
+| T7 | Uptime monitors — **not on `/healthz` alone**, see §4.1 | a deployment |
 | T8 | Backups: Neon PITR **and** weekly `pg_dump` to R2 | M13 platform |
 | T9 | **Restore drill, executed** | T8 |
 | T10 | Runbooks beyond rollback; launch checklist; close-out | all |
+
+### 4.1 `/healthz` is a liveness probe, and T7 must not mistake it for a readiness one
+
+**Measured during M13 T10's rehearsal**, not reasoned about. Rolling
+`catalog` back to `0004` against a running API gave:
+
+| Endpoint | After the rollback |
+|---|---|
+| `/api/v1/catalogue/search/` | **500** |
+| `/api/v1/catalogue/courses/` | **500** |
+| `/healthz` | **200** |
+
+The whole public catalogue was down and the health endpoint said the service
+was fine. That is not a defect: `healthz` deliberately touches no database, and
+its docstring gives the reason — *"a liveness probe that fails during a
+thirty-second database blip invites the orchestrator to kill and reschedule
+containers that were seconds from recovering"*. `test_touches_no_database`
+pins it.
+
+**But an uptime monitor pointed only at `/healthz` would have reported the site
+healthy throughout.** T7 must poll something that exercises a real read — the
+public catalogue is the obvious candidate, it is unauthenticated, and it is the
+surface a visitor actually meets.
+
+The same docstring already names the follow-on: *"a separate readiness endpoint
+can be added when a deployment exists that consumes one."* T7 is that moment,
+and adding one is a decision for T7 rather than something to bolt on now.
+
+---
 
 **T8's two providers are the point, not belt-and-braces.** §3.7: *"A backup in
 the same account as the database is not a backup."*

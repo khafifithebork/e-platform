@@ -67,6 +67,33 @@ its docstring now says so.
 
 ---
 
+### M13 is 10 of 10, with two tasks honestly incomplete
+
+T7 configured both halves of B-lite. T8 built a database preflight and found
+that Neon's pooler makes `predeploy`'s advisory lock a no-op. T9 wired
+deploy-on-merge, dormant until switched on. T10 walked the rollback runbook.
+
+**Two of those cannot be finished from a keyboard here.** T8's verification
+needs a Neon branch to run `check_database` against; T10's §2 rehearsal needs a
+registry and an environment. Both say so in their own documents rather than
+being marked done.
+
+### The rollback rehearsal found the runbook wrong — 2026-08-29
+
+`docs/runbooks/rollback.md` §3 said that reversing `catalog.0005_search_vector`
+would leave "search returning nothing until the backfill finishes".
+
+It does not. **The entire public catalogue returns 500**, because Django selects
+every model field and `Course` no longer has `search_vector` — the course
+listing dies in the paginator, and it has nothing to do with trigram search.
+
+**And `/healthz` stayed 200 throughout.** An uptime monitor pointed only there
+would have reported the site healthy while every catalogue page failed. That is
+now recorded against M14 T7, which was going to do exactly that.
+
+Recovery worked as documented: `migrate catalog` forward, then
+`backfill_search_vectors`. Both endpoints returned to 200.
+
 ### Spend approved — 2026-08-29
 
 M13 §5.2 is answered for B-lite, at ADR-002 §5's figures: **$44/month at
