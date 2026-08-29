@@ -480,3 +480,106 @@ jobs:
       - name: Build the release image
         run: |
           docker build --network=host             --build-arg API_ORIGIN=http://localhost:8000             --target runtime -t e-platform-frontend:${{ github.sha }} .
+
+  # ---------------------------------------------------------------------------
+  # Deploy — M13 T9
+  #
+  # The objective: "a merge to master reaches a running environment without
+  # anybody typing a deploy command, and production is one approved action".
+  #
+  # **Jobs here rather than a separate workflow**, because `needs` is what makes
+  # "only after the tests pass" structural rather than a convention. A
+  # `workflow_run` trigger would express the same intent and would run against
+  # the default branch's copy of the workflow, which is a subtlety nobody wants
+  # to reason about at the moment a deploy is going wrong.
+  #
+  # **Dormant until switched on.** Every job below is gated on the repository
+  # variable `DEPLOY_ENABLED`. Nothing exists to deploy to yet — no Cloudflare
+  # account, no Hetzner box, no Neon project — and a pipeline that fails on
+  # every merge until somebody provisions is a pipeline people learn to ignore.
+  # Set the variable once the environments exist.
+  #
+  # **Ordering is not arbitrary**, and one step of it is a consequence of a
+  # decision made in M15:
+  #
+  #   1. `check_database` — read-only, and cheap to fail. `0005_search_vector`
+  #      is `atomic = False`, so learning about a missing extension from a
+  #      half-applied migration costs an incident (M13 T8).
+  #   2. `predeploy` — migrations, over the **direct** connection. Its advisory
+  #      lock is session-scoped, and Neon's pooler does not support those.
+  #   3. Backend, then frontend. **This order is forced**: the public catalogue
+  #      is statically generated, so `next build` reads every published course
+  #      from the API — building the frontend first would bake yesterday's
+  #      catalogue against today's schema.
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to staging
+    needs: [backend, frontend]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    # A GitHub Environment, which is where the secrets live and where a
+    # protection rule can be attached. Staging has none: reaching it should
+    # need no ceremony.
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_WEB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/deploy
+        with:
+          api-origin: ${{ vars.STAGING_API_ORIGIN }}
+          database-url-direct: ${{ secrets.DATABASE_URL_DIRECT }}
+          django-secret-key: ${{ secrets.DJANGO_SECRET_KEY }}
+          redis-url: ${{ secrets.REDIS_URL }}
+          redis-cache-url: ${{ secrets.REDIS_CACHE_URL }}
+          media-storage-endpoint: ${{ secrets.MEDIA_STORAGE_ENDPOINT }}
+          media-storage-bucket: ${{ secrets.MEDIA_STORAGE_BUCKET }}
+          media-storage-access-key: ${{ secrets.MEDIA_STORAGE_ACCESS_KEY }}
+          media-storage-secret-key: ${{ secrets.MEDIA_STORAGE_SECRET_KEY }}
+          dokploy-url: ${{ secrets.DOKPLOY_URL }}
+          dokploy-api-key: ${{ secrets.DOKPLOY_API_KEY }}
+          dokploy-application-ids: ${{ secrets.DOKPLOY_APPLICATION_IDS }}
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          worker-name: ${{ vars.STAGING_WORKER_NAME }}
+
+  deploy-production:
+    name: Deploy to production
+    needs: [deploy-staging]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    # **This is "one approved action".** The environment carries a required
+    # reviewer, configured in repository settings rather than here — GitHub
+    # does not express protection rules in YAML, deliberately, so that a pull
+    # request cannot remove its own gate.
+    #
+    # Staging having deployed first is the other half: the thing being approved
+    # has already run somewhere.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_WEB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/deploy
+        with:
+          api-origin: ${{ vars.PRODUCTION_API_ORIGIN }}
+          database-url-direct: ${{ secrets.DATABASE_URL_DIRECT }}
+          django-secret-key: ${{ secrets.DJANGO_SECRET_KEY }}
+          redis-url: ${{ secrets.REDIS_URL }}
+          redis-cache-url: ${{ secrets.REDIS_CACHE_URL }}
+          media-storage-endpoint: ${{ secrets.MEDIA_STORAGE_ENDPOINT }}
+          media-storage-bucket: ${{ secrets.MEDIA_STORAGE_BUCKET }}
+          media-storage-access-key: ${{ secrets.MEDIA_STORAGE_ACCESS_KEY }}
+          media-storage-secret-key: ${{ secrets.MEDIA_STORAGE_SECRET_KEY }}
+          dokploy-url: ${{ secrets.DOKPLOY_URL }}
+          dokploy-api-key: ${{ secrets.DOKPLOY_API_KEY }}
+          dokploy-application-ids: ${{ secrets.DOKPLOY_APPLICATION_IDS }}
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          worker-name: ${{ vars.PRODUCTION_WORKER_NAME }}

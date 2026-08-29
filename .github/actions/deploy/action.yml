@@ -1,0 +1,181 @@
+name: Deploy one environment
+description: Migrate, deploy the API, then build and deploy the Worker against it.
+
+# One action, used by both environments.
+#
+# Staging and production differ only in their inputs. Two copies of these steps
+# would drift, and the copy that drifts is the one nobody has open when they
+# change the other — which for a deploy pipeline means the environment you
+# rehearse on stops resembling the one you deploy to. That is precisely the
+# property M13 T10's rehearsal depends on.
+
+inputs:
+  api-origin:
+    description: >-
+      Public origin of this environment's API. **Baked into the frontend at
+      build time** — Next serializes rewrites into the build output, so setting
+      it at runtime does nothing and one build cannot serve two environments
+      (M15 spec §4.3, infra/cloudflare/README.md).
+    required: true
+  database-url-direct:
+    description: >-
+      **Direct, not pooled.** `predeploy` takes a session-level advisory lock so
+      two rollouts cannot migrate at once, and Neon's transaction-mode pooler
+      does not support those — the lock would be granted and held by nothing.
+      `predeploy` refuses rather than trusting this input, but pointing it at
+      the pooled host turns a deploy into a failed deploy.
+    required: true
+  django-secret-key: { required: true, description: Django SECRET_KEY. }
+  redis-url: { required: true, description: Celery broker. }
+  redis-cache-url: { required: true, description: Cache and throttle counters. }
+  media-storage-endpoint: { required: true, description: R2 endpoint. }
+  media-storage-bucket: { required: true, description: R2 bucket. }
+  media-storage-access-key: { required: true, description: R2 access key. }
+  media-storage-secret-key: { required: true, description: R2 secret key. }
+  dokploy-url: { required: true, description: Dokploy base URL. }
+  dokploy-api-key: { required: true, description: Dokploy API key. }
+  dokploy-application-ids:
+    description: >-
+      Comma-separated Dokploy application ids to redeploy — the `api` and the
+      `worker` are separate applications and both run the same image.
+    required: true
+  cloudflare-api-token: { required: true, description: Wrangler deploy token. }
+  cloudflare-account-id: { required: true, description: Cloudflare account. }
+  worker-name: { required: true, description: Worker name for this environment. }
+
+runs:
+  using: composite
+  steps:
+    # -----------------------------------------------------------------------
+    # 1. Ask before changing anything.
+    #
+    # Read-only, and cheap to fail. `catalog.0005_search_vector` is
+    # `atomic = False` because `CREATE INDEX CONCURRENTLY` requires it, so a
+    # missing extension discovered by `migrate` can leave an INVALID index that
+    # must be dropped by hand. Discovered here it costs a failed step.
+    # -----------------------------------------------------------------------
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: pip
+        cache-dependency-path: backend/pyproject.toml
+
+    - name: Install the API
+      shell: bash
+      working-directory: backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    # One step, not two, and that removes a YAML anchor rather than adding a
+    # dependency on one. GitHub added anchor support in September 2025 but not
+    # merge keys, and whether a composite action's parser honours them is not
+    # something a deploy pipeline should discover at 3am. Sequencing the two
+    # commands in one script says the same thing with no ambiguity: ask first,
+    # then migrate.
+    - name: Preflight, then migrate
+      shell: bash
+      working-directory: backend
+      env:
+        DJANGO_SETTINGS_MODULE: config.settings.production
+        DJANGO_ALLOWED_HOSTS: ${{ inputs.api-origin }}
+        DJANGO_SECRET_KEY: ${{ inputs.django-secret-key }}
+        DATABASE_URL: ${{ inputs.database-url-direct }}
+        REDIS_URL: ${{ inputs.redis-url }}
+        REDIS_CACHE_URL: ${{ inputs.redis-cache-url }}
+        MEDIA_STORAGE_ENDPOINT: ${{ inputs.media-storage-endpoint }}
+        MEDIA_STORAGE_BUCKET: ${{ inputs.media-storage-bucket }}
+        MEDIA_STORAGE_ACCESS_KEY: ${{ inputs.media-storage-access-key }}
+        MEDIA_STORAGE_SECRET_KEY: ${{ inputs.media-storage-secret-key }}
+      run: |
+        set -euo pipefail
+        python manage.py check_database
+        # Migrations, over the direct connection, holding a lock that is
+        # actually held — `predeploy` verifies that rather than trusting the
+        # connection string it was given.
+        python manage.py predeploy
+
+    # -----------------------------------------------------------------------
+    # 3. The API, before the frontend.
+    #
+    # **This order is forced by static generation.** The public catalogue is
+    # built from the API (ADR-024), so the Worker build below reads whatever
+    # the API is serving. Deploying the frontend first would bake the previous
+    # release's catalogue — and, worse, would do it against a schema the new
+    # migrations have already changed.
+    # -----------------------------------------------------------------------
+    - name: Redeploy the API and worker
+      shell: bash
+      env:
+        DOKPLOY_URL: ${{ inputs.dokploy-url }}
+        DOKPLOY_API_KEY: ${{ inputs.dokploy-api-key }}
+        APPLICATION_IDS: ${{ inputs.dokploy-application-ids }}
+      run: |
+        set -euo pipefail
+        # Both applications run the same image; Dokploy treats them as separate
+        # deployments. Looping rather than one call because the API takes one id.
+        for id in ${APPLICATION_IDS//,/ }; do
+          echo "Deploying Dokploy application ${id}"
+          # `--fail-with-body` so a 4xx prints what Dokploy said rather than
+          # exiting silently. `-o` alone would swallow the reason.
+          curl --fail-with-body -sS -X POST "${DOKPLOY_URL}/api/application.deploy" \
+            -H "x-api-key: ${DOKPLOY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"applicationId\":\"${id}\"}"
+          echo
+        done
+
+    - name: Wait for the API to answer
+      shell: bash
+      env:
+        API_ORIGIN: ${{ inputs.api-origin }}
+      run: |
+        set -euo pipefail
+        # Poll rather than sleep, the same reasoning as everywhere else in this
+        # pipeline: a fixed wait is either flaky or wasted. The frontend build
+        # that follows reads this API, so a Worker built against a container
+        # still starting would bake an empty catalogue — which
+        # `CatalogueUnavailable` would catch, but as a failed build rather than
+        # as the wait it actually needed.
+        for attempt in $(seq 60); do
+          if curl -fsS "${API_ORIGIN}/healthz" >/dev/null; then
+            echo "api answered after ${attempt}s"; exit 0
+          fi
+          sleep 1
+        done
+        echo "api did not answer within 60s at ${API_ORIGIN}/healthz"; exit 1
+
+    # -----------------------------------------------------------------------
+    # 4. The Worker, built against this environment's API.
+    # -----------------------------------------------------------------------
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install the frontend
+      shell: bash
+      working-directory: frontend
+      run: npm ci
+
+    - name: Build the Worker
+      shell: bash
+      working-directory: frontend
+      env:
+        API_ORIGIN: ${{ inputs.api-origin }}
+      run: |
+        set -euo pipefail
+        npx opennextjs-cloudflare build
+        # The same check CI runs on every push, against the artifact that is
+        # about to be deployed rather than a local build of it.
+        npm run verify:static
+        npm run verify:a11y
+
+    - name: Deploy the Worker
+      shell: bash
+      working-directory: frontend
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
+      run: npx opennextjs-cloudflare deploy --name "${{ inputs.worker-name }}"
