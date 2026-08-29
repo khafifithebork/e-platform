@@ -1,14 +1,23 @@
 """CI must supply every environment variable production settings require.
 
-This guards a failure that has now happened three times in different guises:
+This guards a failure that has now happened **four** times in different guises:
 a required variable is added to ``base.py``, and one of the several places that
 must also learn about it is missed. ``.env.example`` has a drift test.
 ``test.py`` seeds its own. ``docker-compose.yml`` sets them. The CI workflow
 had nothing checking it, and duly went stale.
 
-The failure mode is unpleasant out of proportion to the cause: the whole
-``check --deploy`` step dies with a traceback that looks like a Django problem
-rather than a missing line in a YAML file.
+The failure mode is unpleasant out of proportion to the cause: the step dies
+with a traceback that looks like a Django problem rather than a missing line in
+a YAML file.
+
+**The fourth time got past this file**, because it checked one step by name.
+M13 T8 added a `Database preflight` step that runs ``manage.py`` and supplied
+only the variables that command touches — and ``manage.py`` defaults to
+``config.settings.local``, which reads every one of them at import. A missing
+``REDIS_URL`` stopped a database check that never opens a Redis connection.
+
+So the check is no longer per-step. **Every step that runs ``manage.py`` is
+covered**, because every one of them pays the same import cost.
 """
 
 from __future__ import annotations
@@ -42,18 +51,28 @@ def _workflow() -> dict:
 
 
 def _deployment_check_step() -> dict:
-    workflow = _workflow()
-
-    for job in workflow["jobs"].values():
-        for step in job.get("steps", []):
-            if step.get("name") == DEPLOY_STEP_NAME:
-                return step
+    for _name, step in _manage_py_steps():
+        if step.get("name") == DEPLOY_STEP_NAME:
+            return step
 
     raise AssertionError(f"no {DEPLOY_STEP_NAME!r} step in {CI_WORKFLOW.name}")
 
 
-def _provided_by_ci() -> set[str]:
-    step = _deployment_check_step()
+def _manage_py_steps() -> list[tuple[str, dict]]:
+    """Every step that runs ``manage.py``, with the job it belongs to.
+
+    Named steps only: an unnamed one cannot be reported usefully when it fails,
+    and every step in this workflow has a name.
+    """
+    found = []
+    for job_name, job in _workflow()["jobs"].items():
+        for step in job.get("steps", []):
+            if "manage.py" in str(step.get("run", "")) and step.get("name"):
+                found.append((job_name, step))
+    return found
+
+
+def _provided_to(step: dict) -> set[str]:
     return set(step.get("env", {})) | set(_SHELL_EXPORT.findall(step.get("run", "")))
 
 
@@ -63,13 +82,30 @@ class TestCiSuppliesTheRequiredEnvironment:
         assertion here passes vacuously."""
         assert _required_by_settings(), "no required variables detected — regex is wrong"
 
-    def test_every_required_variable_is_provided(self) -> None:
-        missing = _required_by_settings() - _provided_by_ci()
+    def test_at_least_one_step_runs_manage_py(self) -> None:
+        """Guards the guard, again. If the search stops finding steps, the
+        assertion below passes over an empty list."""
+        assert _manage_py_steps(), "no manage.py steps found — the search is wrong"
 
-        assert not missing, (
-            f"{sorted(missing)} required by base.py but not supplied to the "
-            f"{DEPLOY_STEP_NAME!r} step in ci.yml. The step will die with "
-            "ImproperlyConfigured."
+    def test_every_step_running_manage_py_has_what_settings_require(self) -> None:
+        """Every one of them, not only the deployment check.
+
+        `manage.py` defaults to `config.settings.local`, which reads every
+        required variable at import — so a step that only touches the database
+        still needs the Redis URLs. Checking one step by name is what let M13
+        T8 ship a `Database preflight` that died on `DJANGO_SECRET_KEY`.
+        """
+        required = _required_by_settings()
+        failures = []
+
+        for job_name, step in _manage_py_steps():
+            missing = required - _provided_to(step)
+            if missing:
+                failures.append(f"{job_name} / {step['name']}: missing {sorted(missing)}")
+
+        assert not failures, (
+            "steps run manage.py without the environment base.py requires, and "
+            "will die with ImproperlyConfigured:\n  " + "\n  ".join(failures)
         )
 
     def test_the_secret_key_is_generated_rather_than_stored(self) -> None:

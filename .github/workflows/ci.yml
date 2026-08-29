@@ -111,12 +111,26 @@ jobs:
       # the moment they most need it.
       - name: Database preflight
         env:
+          # The full set base.py requires, not only the ones this command
+          # touches. `manage.py` defaults to config.settings.local, which reads
+          # every one of them at import — so a missing REDIS_URL stops a
+          # database check that never opens a Redis connection.
+          #
+          # Locally this is supplied by backend/.env, which CI does not have.
+          # That is the second time this exact gap has been shipped, and
+          # test_ci_environment.py now covers every manage.py step rather than
+          # only the deployment check.
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          REDIS_URL: redis://localhost:6379/0
+          REDIS_CACHE_URL: redis://localhost:6379/1
           MEDIA_STORAGE_ENDPOINT: http://localhost:9000
           MEDIA_STORAGE_BUCKET: media-ci
           MEDIA_STORAGE_ACCESS_KEY: minioadmin
           MEDIA_STORAGE_SECRET_KEY: minioadmin
         run: |
+          # Not a credential and not reused: a throwaway for a process that
+          # lives for one step. base.py reads DJANGO_SECRET_KEY with no default.
+          export DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(50))')"
           python manage.py migrate --noinput
           python manage.py check_database
 
