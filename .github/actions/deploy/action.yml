@@ -42,6 +42,22 @@ inputs:
   cloudflare-api-token: { required: true, description: Wrangler deploy token. }
   cloudflare-account-id: { required: true, description: Cloudflare account. }
   worker-name: { required: true, description: Worker name for this environment. }
+  sentry-dsn-browser:
+    description: >-
+      Browser DSN for this environment (M14 T5, ADR-027). **Baked into the
+      bundle at build time**, like `api-origin` — setting it on the container
+      does nothing. Optional: empty means the browser SDK never initialises,
+      which is the state until somebody provisions the account.
+
+      The *server* DSN is deliberately absent. It is configured on the Dokploy
+      containers, and the Next server half does not reach the Worker anyway —
+      ADR-027 §4.
+    required: false
+    default: ""
+  sentry-environment:
+    description: Environment name shown on every Sentry event. Optional.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -164,6 +180,12 @@ runs:
       working-directory: frontend
       env:
         API_ORIGIN: ${{ inputs.api-origin }}
+        # Both are inlined into the client bundle here and can only be set
+        # here. A Worker deployed with the wrong one reports this environment's
+        # errors into another environment's project, which is worse than not
+        # reporting them.
+        NEXT_PUBLIC_SENTRY_DSN: ${{ inputs.sentry-dsn-browser }}
+        NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${{ inputs.sentry-environment }}
       run: |
         set -euo pipefail
         npx opennextjs-cloudflare build

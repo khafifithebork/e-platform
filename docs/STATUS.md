@@ -1,11 +1,64 @@
 # STATUS
 
 **Last updated:** 2026-08-29
-**Updated by:** agent session (M16 complete)
+**Updated by:** agent session (M14 T5)
 
 ---
 
 ## Current milestone
+
+**M14 T5 — error reporting. Built 2026-08-29**, on branch
+`feat/m14-t5-sentry`. Decisions: `docs/adr/027-error-reporting.md`.
+
+Django, Celery and the browser report errors. **The Next.js server half does
+not**, and that is the finding rather than an omission.
+
+### What works, and what was proven rather than claimed
+
+Against a captured transport with a non-resolving DSN, a real exception
+carrying an email address arrived tagged with its `request_id` and redacted —
+which also proves M14 T2's chain reaches Sentry. The Django *and* Celery
+integrations auto-enable, verified on a live client.
+
+### The Worker gap, measured
+
+| Observation | Result |
+|---|---|
+| JS in `.open-next/server-functions/` naming `@sentry` | **none** |
+| Worker size with the whole server SDK added | 1061.49 → **1061.61 KiB** gzipped |
+
+A 0.12 KiB delta is the size of nothing. Ruled out: the file location (Next
+compiles it fine), the Wrangler preconditions (both already met), and
+`withSentryConfig` (tried; no change). Two attempts, so §9 applies and it stops
+there. `@sentry/cloudflare` is the documented alternative and a §5 gate.
+
+Django carries the business logic and is fully covered. The uncovered path is
+the one dynamic route, `/courses/[slug]/lessons/[lessonSlug]`.
+
+### The spend cap the task asked for does not exist
+
+Sentry puts spend thresholds on paid plans. ADR-002 §5 budgets Sentry at $0 —
+the Developer plan, 5k errors a month across everything — so **the quota is the
+cap**. Struck in the spec rather than quietly dropped. Tracing is off because
+it bills a separate quota, and the test suite overwrites the DSN so one
+`make test` cannot spend a month of budget.
+
+### Nothing has ever reported an event
+
+No DSN exists. What is tested is configuration, refusal and scrubbing. This is
+ADR-006's inert control **by construction**, and it says so in its own
+docstrings rather than being discovered later.
+
+### Two found in passing
+
+- **The dev API container died** with `No module named 'sentry_sdk'`: compose
+  mounts the source but carries the image's site-packages. The M12 T7 failure
+  class, reproduced by accident.
+- **`connect-src 'self'` would have silenced the browser SDK** the moment M13
+  enforced the CSP — invisible until then, because it is report-only. The
+  ingest origin is now derived from the DSN so the two cannot disagree.
+
+---
 
 **M16 — Learner surface. Complete — 9 of 9.**
 Branch: `feat/m16-*`, merged in pieces as PRs #48, #49 and #50.
@@ -185,8 +238,8 @@ Spec: `docs/specs/m14-observability.md`
 | T2 close the `request_id` chain, both missing hops | **done** — `5e1fc51` |
 | T3 entitlement reconciliation, reporting only | **done** — `1762165` |
 | T4 nightly drift alert; Beat wired | **done** |
-| T5 Sentry across three services, with a spend cap | **blocked** — account, §5 gate |
-| T6 metrics: queue depth, transcription age, webhook lag | **blocked** — needs T5 |
+| T5 Sentry across three services, with a spend cap | **built** — two of three tiers work; ADR-027 |
+| T6 metrics: queue depth, transcription age, webhook lag | **unblocked** — T5 done; inherits two questions |
 | T7 uptime monitors on `/healthz` | **blocked** — needs a deployment |
 | T8 backups: Neon PITR **and** weekly `pg_dump` to R2 | **blocked** — M13 platform |
 | T9 restore drill, **executed** | **blocked** — needs T8 |
