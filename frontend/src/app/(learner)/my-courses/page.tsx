@@ -9,6 +9,10 @@ import { MyCourses } from "@/components/learn/MyCourses";
  * prerendered, and M15's structural tests would fail if it sat in the static
  * group. Nothing is fetched here — `MyCourses` is a client component, so no
  * Server Component reaches Django and §11 #5 stays moot under B-lite.
+ *
+ * No `<main>` of its own: `SiteShell` owns that landmark as of T9, and two on
+ * one page is what the document-structure check caught the moment the learner
+ * layout was added.
  */
 export const metadata: Metadata = {
   title: "My courses",
@@ -16,9 +20,9 @@ export const metadata: Metadata = {
 
 export default function MyCoursesPage() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-16">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-16">
       <h1 className="font-display text-4xl tracking-tight text-ink">My courses</h1>
       <MyCourses />
-    </main>
+    </div>
   );
 }

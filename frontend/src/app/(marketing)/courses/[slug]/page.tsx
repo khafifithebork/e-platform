@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CourseCard } from "@/components/catalogue/CourseCard";
+import { CourseProgress } from "@/components/catalogue/CourseProgress";
 import { Curriculum } from "@/components/catalogue/Curriculum";
 import {
   CatalogueNotFound,
@@ -123,6 +124,15 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
           </ul>
         )}
       </header>
+
+      {/*
+       * The one personalised strip on a statically generated page.
+       *
+       * A client component, so the prerendered HTML stays identical for
+       * everyone and invariant 15 holds. It renders nothing for a visitor who
+       * is not enrolled — which is most of them, on a public catalogue page.
+       */}
+      <CourseProgress courseSlug={course.slug} />
 
       <section aria-labelledby="curriculum" className="flex flex-col gap-6">
         <h2 id="curriculum" className="font-display text-2xl text-ink">

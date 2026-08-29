@@ -23,8 +23,8 @@ import { LessonGate } from "@/components/learn/LessonGate";
 import { REFUSALS } from "@/lib/entitlements/denial";
 
 vi.mock("@/components/learn/LessonPlayer", () => ({
-  LessonPlayer: ({ lessonId }: { lessonId: string }) => (
-    <div data-testid="player">player for {lessonId}</div>
+  LessonPlayer: ({ lesson }: { lesson: { id: string } }) => (
+    <div data-testid="player">player for {lesson.id}</div>
   ),
 }));
 
@@ -87,12 +87,31 @@ describe("resolving the lesson", () => {
     expect(String(url)).toBe("/api/v1/courses/spanish/lessons/intro/");
   });
 
-  it("hands the resolved id to the player", async () => {
-    // The player addresses progress, completion, playback and the transcript
-    // by id. Passing it the slug would break all four silently.
+  it("hands the resolved lesson to the player", async () => {
+    /**
+     * The whole lesson, not just its id — T6.
+     *
+     * The player addresses progress, completion, playback and the transcript
+     * by id, and until T6 it fetched the lesson again to get one. Passing the
+     * object down is what removed a second gated GET on every lesson load.
+     */
     renderGate();
 
     expect(await screen.findByTestId("player")).toHaveTextContent(LESSON.id);
+  });
+
+  it("fetches the lesson exactly once", async () => {
+    // The duplicate T3 shipped knowingly and T6 removed. Two GETs for one
+    // lesson is invisible in a browser and doubles the load on the most
+    // expensive gated endpoint the product has.
+    renderGate();
+    await screen.findByTestId("player");
+
+    const lessonCalls = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.filter(([url]) => String(url).includes("/lessons/"));
+
+    expect(lessonCalls).toHaveLength(1);
   });
 
   it("offers a way back to the course", async () => {

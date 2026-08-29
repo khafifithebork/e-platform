@@ -17,11 +17,10 @@ import { refusalFor } from "@/lib/entitlements/denial";
  * change to make inside a routing task. T6 owns the player, will have tests
  * around it, and is where that belongs.
  *
- * **The cost is one duplicate request, and it is temporary.** This resolves the
- * lesson to learn its id; the player then fetches the same lesson again. Two
- * gated GETs where one would do, on a route that has no users yet. T6 removes
- * it by passing the resolved lesson down. Writing it here so the next person
- * finds a decision rather than an oversight.
+ * **The lesson is passed down, not refetched.** T3 shipped this resolving the
+ * lesson and then letting the player fetch the same one again — two gated GETs
+ * where one would do — and wrote that down as a temporary cost. T6 removed it:
+ * the player takes the resolved lesson as a prop.
  *
  * **Each of the six refusals has its own wording**, from `lib/entitlements/denial`.
  * `resolve_access` returns a reason and never a bare boolean (invariant 3), and
@@ -88,17 +87,17 @@ export function LessonGate({
     // resolves: a screen-reader user gets no signal at all that anything is
     // happening otherwise.
     return (
-      <main className="mx-auto w-full max-w-6xl px-6 py-10">
+      <div className="mx-auto w-full max-w-6xl px-6 py-10">
         <p aria-live="polite" className="text-ink-muted">
           Loading the lesson…
         </p>
-      </main>
+      </div>
     );
   }
 
   if (state.status === "ready") {
     return (
-      <main className="mx-auto w-full max-w-6xl px-6 py-10">
+      <div className="mx-auto w-full max-w-6xl px-6 py-10">
         <nav aria-label="Breadcrumb" className="mb-6 text-sm">
           {/*
            * Back to the course, not back to the catalogue. Somebody who
@@ -114,13 +113,13 @@ export function LessonGate({
           </Link>
         </nav>
 
-        <LessonPlayer lessonId={state.lesson.id} />
-      </main>
+        <LessonPlayer lesson={state.lesson} />
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 py-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 py-16">
       {state.status === "missing" && (
         <>
           <h1 className="font-display text-3xl tracking-tight text-ink">
@@ -146,7 +145,7 @@ export function LessonGate({
       <Link href={`/courses/${courseSlug}`} className="text-ink-muted hover:text-ink">
         ← Back to the course
       </Link>
-    </main>
+    </div>
   );
 }
 

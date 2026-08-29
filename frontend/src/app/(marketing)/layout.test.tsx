@@ -15,11 +15,13 @@
  * against the directory rather than against any one component.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+
+import { codeOnly, filesMatching, sourceFilesIn } from "@/test/source";
 
 import MarketingLayout from "./layout";
 
@@ -55,18 +57,6 @@ function publicSourceFiles(): string[] {
  * to satisfy by rewording a comment is a check that stops meaning anything.
  * Stripping comments first is what keeps these about code.
  */
-function codeOnly(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-}
-
-function sourceFilesIn(dir: string): string[] {
-  return readdirSync(dir).flatMap((entry) => {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) return sourceFilesIn(path);
-    return /\.tsx?$/.test(entry) && !entry.endsWith(".test.tsx") ? [path] : [];
-  });
-}
-
 describe("the marketing shell", () => {
   it("gives the page a main landmark", () => {
     render(
@@ -205,24 +195,16 @@ describe("invariant 15 — nothing here renders at request time", () => {
     // opts the route into dynamic rendering — no build-time prerender, a
     // server invocation per request. It is also the obvious way to build the
     // filters T4 added, which is exactly why it is asserted by name.
-    const offenders = sourceFilesIn(GROUP).filter((path) =>
-      /searchParams/.test(codeOnly(readFileSync(path, "utf8"))),
-    );
-
-    expect(offenders).toEqual([]);
+    expect(filesMatching(GROUP, /searchParams/)).toEqual([]);
   });
 
   it("no page or layout opts out of static rendering", () => {
     // `export const dynamic = "force-dynamic"` and `revalidate = 0` are the
     // explicit versions of the same thing. Nobody writes these by accident,
     // but they are what somebody reaches for when a page will not build.
-    const offenders = sourceFilesIn(GROUP).filter((path) =>
-      /export\s+const\s+(dynamic|revalidate|fetchCache)\s*=/.test(
-        codeOnly(readFileSync(path, "utf8")),
-      ),
-    );
-
-    expect(offenders).toEqual([]);
+    expect(
+      filesMatching(GROUP, /export\s+const\s+(dynamic|revalidate|fetchCache)\s*=/),
+    ).toEqual([]);
   });
 
   it("no page or layout calls fetch directly", () => {
@@ -232,11 +214,7 @@ describe("invariant 15 — nothing here renders at request time", () => {
     // `src/lib/catalogue/`, the way reads live in `selectors.py` on the
     // backend, and a page that fetches inline is the first step toward one
     // that fetches at the wrong time.
-    const offenders = sourceFilesIn(GROUP).filter((path) =>
-      /[^A-Za-z.]fetch\s*\(/.test(codeOnly(readFileSync(path, "utf8"))),
-    );
-
-    expect(offenders).toEqual([]);
+    expect(filesMatching(GROUP, /[^A-Za-z.]fetch\s*\(/)).toEqual([]);
   });
 
   it("no page or layout in the group is a client component", () => {
@@ -245,11 +223,7 @@ describe("invariant 15 — nothing here renders at request time", () => {
     // before the content is usable, and abuse case 7 says a public page must
     // show its content without JavaScript. Interactive pieces belong in a
     // child component — `CourseCatalogue` is one — not in the page itself.
-    const offenders = sourceFilesIn(GROUP).filter((path) =>
-      /^["']use client["']/m.test(readFileSync(path, "utf8")),
-    );
-
-    expect(offenders).toEqual([]);
+    expect(filesMatching(GROUP, /^["']use client["']/m)).toEqual([]);
   });
 
   it("every dynamic segment refuses params it did not generate", () => {

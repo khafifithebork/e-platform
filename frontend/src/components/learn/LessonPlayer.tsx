@@ -60,7 +60,17 @@ function timestamp(seconds: number): string {
  */
 
 interface LessonPlayerProps {
-  lessonId: string;
+  /**
+   * The lesson, already resolved.
+   *
+   * **Passed in rather than fetched, as of M16 T6.** `LessonGate` resolves
+   * `/courses/{slug}/lessons/{lessonSlug}` to learn the id this component
+   * addresses everything else by — and until now this component then fetched
+   * the very same lesson again. Two gated GETs where one would do, on every
+   * lesson load. T3 wrote that down as a temporary cost; this is the task that
+   * removes it.
+   */
+  lesson: GatedLesson;
 }
 
 /**
@@ -84,8 +94,8 @@ interface LessonPlayerProps {
  * is told. A client that decided for itself would be the second definition
  * §10 M7 warns about.
  */
-export function LessonPlayer({ lessonId }: LessonPlayerProps) {
-  const [lesson, setLesson] = useState<GatedLesson | null>(null);
+export function LessonPlayer({ lesson }: LessonPlayerProps) {
+  const lessonId = lesson.id;
   const [progress, setProgress] = useState<LessonProgress | null>(null);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [playback, setPlayback] = useState<PlaybackToken | null>(null);
@@ -164,13 +174,11 @@ export function LessonPlayer({ lessonId }: LessonPlayerProps) {
 
     async function load() {
       try {
-        const [detail, existing] = await Promise.all([
-          api.lesson(lessonId),
-          api.lessonProgress(lessonId),
-        ]);
+        // Only the progress. The lesson itself arrived as a prop — see
+        // `LessonPlayerProps`.
+        const existing = await api.lessonProgress(lessonId);
         if (cancelled) return;
 
-        setLesson(detail);
         setProgress(existing);
         if (existing) {
           // Resume. The playhead is restored before anything can play, so a

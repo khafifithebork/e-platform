@@ -1,6 +1,6 @@
 # M16 — Learner surface
 
-**Status:** approved 2026-08-28. Four decisions answered up front (§5).
+**Status:** complete 2026-08-29. Four decisions answered up front (§5). ADR-026.
 **Branch:** `feat/m16-learner-surface`
 **Depends on:** M7 (learning API), M4 (entitlements), M15 (the catalogue to enter from)
 
