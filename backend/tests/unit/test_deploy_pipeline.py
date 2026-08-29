@@ -144,6 +144,35 @@ class TestTheThingsThatWouldBreakSilently:
 
         assert "API_ORIGIN" in build.get("env", {})
 
+    def test_the_browser_sentry_dsn_is_supplied_at_build_time(self) -> None:
+        """**It can only be supplied here.** `NEXT_PUBLIC_` values are inlined
+        into the client bundle during the build, so setting the DSN on a
+        container does nothing — the same property `api-origin` has, and the
+        same reason one build cannot serve two environments.
+
+        The failure this catches is quiet: no DSN at build time produces a
+        Worker whose browser SDK never initialises, and a Sentry project that
+        simply stays empty looks identical to an application with no errors.
+        M14 T5, ADR-027."""
+        build = next(s for s in _action()["runs"]["steps"] if s.get("name") == "Build the Worker")
+
+        assert "NEXT_PUBLIC_SENTRY_DSN" in build.get("env", {})
+
+    def test_each_environment_reports_under_its_own_name(self) -> None:
+        """Staging errors landing in production's issue list is how an alert
+        that matters gets triaged as noise."""
+        jobs = _workflow()["jobs"]
+        named = {
+            job: next(
+                step["with"]
+                for step in jobs[job]["steps"]
+                if step.get("uses") == "./.github/actions/deploy"
+            )["sentry-environment"]
+            for job in ("deploy-staging", "deploy-production")
+        }
+
+        assert named["deploy-staging"] != named["deploy-production"]
+
     def test_migrations_use_the_direct_connection_not_the_pooled_one(self) -> None:
         """`predeploy` takes a session-level advisory lock, which Neon's
         transaction-mode pooler does not support — it would be granted and held

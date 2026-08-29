@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { ingestOriginFromDsn } from "./src/lib/observability/dsn";
+
 /**
  * Same-origin routing (ADR-001 section 2.1).
  *
@@ -36,13 +38,31 @@ const apiOrigin = process.env.API_ORIGIN ?? "http://localhost:8000";
 const mediaSrc = process.env.CSP_MEDIA_SRC ?? "";
 const reportUri = process.env.CSP_REPORT_URI ?? "";
 
+/**
+ * Sentry's ingest host, so the browser SDK can actually post an event.
+ *
+ * **Without this the SDK is silenced by our own policy.** `connect-src 'self'`
+ * blocks the POST, and because the policy is report-only today the failure is
+ * invisible: Sentry appears to work in development and reports nothing the
+ * moment M13 decides to enforce. That is the worst version of this bug — the
+ * error reporter goes quiet during the incident it exists to report.
+ *
+ * Derived from the DSN rather than configured separately, so the allowed
+ * origin cannot disagree with the one being posted to. `src/lib/observability`
+ * has the reasoning and the tests; the import is relative because Next's
+ * config loader does not resolve the `@/` alias.
+ */
+const sentryIngest = ingestOriginFromDsn(process.env.NEXT_PUBLIC_SENTRY_DSN);
+
+const connectSrc = ["'self'", mediaSrc, sentryIngest].filter(Boolean).join(" ");
+
 const csp = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  `connect-src 'self'${mediaSrc ? ` ${mediaSrc}` : ""}`,
+  `connect-src ${connectSrc}`,
   `media-src 'self'${mediaSrc ? ` ${mediaSrc}` : ""}`,
   "frame-ancestors 'none'",
   "form-action 'self'",
@@ -146,6 +166,22 @@ const nextConfig: NextConfig = {
   },
 };
 
+/**
+ * No `withSentryConfig`, and that is a measured decision rather than an
+ * omission — ADR-027 §4.
+ *
+ * It was added to see whether it was the missing piece that carries the
+ * server-side `instrumentation.ts` hook into the Cloudflare Worker. It is not:
+ * with the plugin, `.open-next/server-functions/` still contains no Sentry
+ * code and the Worker grew 2.2 KiB gzipped, where a bundled server SDK would
+ * be hundreds. It was removed rather than left in place, because a build
+ * plugin whose stated reason for existing has been disproven is configuration
+ * nobody can justify later — and this one reports to a third party by default
+ * (`telemetry` defaults to true).
+ *
+ * It becomes worth adding when there is an account, for source map upload,
+ * which needs an organisation, a project and an auth token.
+ */
 export default nextConfig;
 
 /*

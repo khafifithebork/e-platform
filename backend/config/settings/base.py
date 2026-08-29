@@ -14,6 +14,10 @@ import environ
 from celery.schedules import crontab
 from csp.constants import NONE, SELF
 
+# Safe to import from settings: this module reads no setting and imports no
+# Django machinery, only the vendor SDK and the request-id contextvar.
+from apps.core.observability import initialise_error_reporting
+
 # backend/config/settings/base.py -> backend/
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -570,6 +574,37 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": env("DJANGO_LOG_LEVEL", default="INFO")},
 }
+
+
+# ---------------------------------------------------------------------------
+# Error reporting (M14 T5)
+#
+# Every value comes from the environment and every one has a default, so the
+# absence of a Sentry account is the ordinary case rather than a broken one.
+# `apps.core.observability` is the only module that names the vendor.
+#
+# One `init` here serves all three processes that load Django — the ASGI
+# server, the Celery worker, and management commands — because the Django and
+# Celery integrations auto-enable from the installed packages.
+#
+# **The free tier's quota is the spend cap.** Sentry's pricing page puts "set
+# maximum spend threshold" on its paid plans, and ADR-002 §5 budgets Sentry at
+# $0, which is the Developer plan: 5k errors a month across everything. There
+# is therefore no cap to configure, and the way to stay inside it is to send
+# less — a separate DSN per service so one noisy tier can be muted alone, and
+# tracing off until M14 T6 decides it is wanted. ADR-027 §2.
+# ---------------------------------------------------------------------------
+SENTRY_DSN = env("SENTRY_DSN", default="")
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", default="local")
+SENTRY_RELEASE = env("SENTRY_RELEASE", default="")
+SENTRY_TRACES_SAMPLE_RATE = env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0)
+
+SENTRY_ENABLED = initialise_error_reporting(
+    dsn=SENTRY_DSN,
+    environment=SENTRY_ENVIRONMENT,
+    release=SENTRY_RELEASE,
+    traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+)
 
 
 # ---------------------------------------------------------------------------

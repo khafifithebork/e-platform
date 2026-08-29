@@ -1,6 +1,6 @@
 # M14 — Observability & Launch
 
-**Status:** unblocked half approved 2026-08-27 (T2–T4). T5–T10 blocked.
+**Status:** T2–T5 built. T6–T10 blocked on provisioning.
 **Branch:** `feat/m14-observability`
 **Depends on:** M13 platform work (for most of it), M11 email adapter (for alerts)
 
@@ -97,7 +97,7 @@ nothing lands on local disk.
 
 | # | Task | Blocked on |
 |---|---|---|
-| T5 | Sentry in Django, Celery and Next.js; DSN from env; **spend cap** | account, §5 gate |
+| T5 | Sentry in Django, Celery and Next.js; DSN from env; ~~spend cap~~ | **built 2026-08-29** — see §4.2 |
 | T6 | `/metrics` or Sentry Insights — queue depth, transcription age, webhook lag | T5 |
 | T7 | Uptime monitors — **not on `/healthz` alone**, see §4.1 | a deployment |
 | T8 | Backups: Neon PITR **and** weekly `pg_dump` to R2 | M13 platform |
@@ -130,6 +130,26 @@ surface a visitor actually meets.
 The same docstring already names the follow-on: *"a separate readiness endpoint
 can be added when a deployment exists that consumes one."* T7 is that moment,
 and adding one is a decision for T7 rather than something to bolt on now.
+
+### 4.2 T5 is built, and one third of it does not work
+
+Approved under §5 on 2026-08-29. `sentry-sdk` and `@sentry/nextjs`.
+**ADR-027 is the record**; the three things a reader of this table needs:
+
+- **The spend cap does not exist on the tier ADR-002 budgets.** Sentry puts
+  spend thresholds on its paid plans; the free Developer plan is 5k errors a
+  month and that quota *is* the cap. The task line is struck rather than
+  silently dropped. ADR-027 §2.
+- **The Next.js server half does not reach the Cloudflare Worker.** Measured:
+  no Sentry JavaScript in `.open-next/server-functions/`, and adding the entire
+  server SDK moved the Worker 0.12 KiB. Django, Celery and the browser work.
+  ADR-027 §4.
+- **Nothing has ever reported an event**, because no DSN exists. What is tested
+  is configuration, refusal and scrubbing.
+
+**T6 inherits two questions from it**: whether to close the Worker gap with
+`@sentry/cloudflare` (another §5 gate), and whether 5k errors a month survives
+a repeated error on a public site.
 
 ---
 

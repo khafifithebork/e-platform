@@ -40,6 +40,13 @@ os.environ.setdefault("MEDIA_STORAGE_SECRET_KEY", "minioadmin")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("REDIS_CACHE_URL", "redis://localhost:6379/1")
 
+# Assignment, not setdefault, and that is the whole point: read_env above has
+# already loaded backend/.env, so a developer with a real DSN in it would
+# otherwise report every deliberately-raised exception in the suite to a live
+# project. The free tier allows 5k errors a month across all three services and
+# this suite has over 1400 tests, so one `make test` could spend the budget.
+os.environ["SENTRY_DSN"] = ""
+
 # E402: the import genuinely must follow read_env and the setdefaults above,
 # because base reads its environment at import time.
 from .base import *  # noqa: E402

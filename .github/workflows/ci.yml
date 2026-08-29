@@ -545,6 +545,8 @@ jobs:
           cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           worker-name: ${{ vars.STAGING_WORKER_NAME }}
+          sentry-dsn-browser: ${{ secrets.SENTRY_DSN_BROWSER }}
+          sentry-environment: staging
 
   deploy-production:
     name: Deploy to production
@@ -583,3 +585,5 @@ jobs:
           cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           worker-name: ${{ vars.PRODUCTION_WORKER_NAME }}
+          sentry-dsn-browser: ${{ secrets.SENTRY_DSN_BROWSER }}
+          sentry-environment: production
