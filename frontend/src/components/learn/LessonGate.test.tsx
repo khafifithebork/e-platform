@@ -20,6 +20,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LessonGate } from "@/components/learn/LessonGate";
+import { REFUSALS } from "@/lib/entitlements/denial";
 
 vi.mock("@/components/learn/LessonPlayer", () => ({
   LessonPlayer: ({ lessonId }: { lessonId: string }) => (
@@ -131,20 +132,9 @@ describe("abuse cases 1 and 7 — a refusal shows no lesson", () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason: "NO_SUBSCRIPTION" }));
 
     renderGate();
-    await screen.findByRole("heading", { name: /do not have access/i });
+    await screen.findByRole("heading", { name: /needs a subscription/i });
 
     expect(screen.queryByTestId("player")).not.toBeInTheDocument();
-  });
-
-  it("shows the reason the server gave", async () => {
-    // `resolve_access` returns a reason, never a bare boolean — invariant 3.
-    // Six of them exist; T4 gives each its own wording, and until then showing
-    // the code is honest rather than inventing a message for all six.
-    vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason: "NO_SUBSCRIPTION" }));
-
-    renderGate();
-
-    expect(await screen.findByText("NO_SUBSCRIPTION")).toBeInTheDocument();
   });
 
   it("leaks no lesson body in a refusal", async () => {
@@ -156,22 +146,112 @@ describe("abuse cases 1 and 7 — a refusal shows no lesson", () => {
     );
 
     renderGate();
-    await screen.findByRole("heading", { name: /do not have access/i });
+    await screen.findByRole("heading", { name: /needs a subscription/i });
 
     expect(document.body.textContent).not.toContain("SECRET-LESSON-BODY");
   });
 
-  it("points at what a subscription covers", async () => {
-    // Not at a checkout: there is no self-serve subscription and no price
+  it("never shows the raw reason code", async () => {
+    // It is a wire value. Showing it was honest while there was one message
+    // for six refusals; now that each has its own words, printing the code
+    // beside them is jargon standing in for an explanation.
+    vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason: "NO_SUBSCRIPTION" }));
+
+    renderGate();
+    await screen.findByRole("heading", { name: /needs a subscription/i });
+
+    expect(document.body.textContent).not.toContain("NO_SUBSCRIPTION");
+  });
+});
+
+describe("abuse case 2 — six refusals, six messages", () => {
+  /**
+   * The distinction the entitlement resolver exists to make.
+   *
+   * `resolve_access` returns a reason and never a bare boolean (invariant 3),
+   * and the six are not interchangeable: somebody who never subscribed, whose
+   * subscription lapsed, and whose payment failed after a grace period need
+   * three different sentences and two different destinations.
+   *
+   * **`LessonPlayer` got this wrong from M7 until now** — its table was keyed
+   * on `SUBSCRIPTION_PAST_DUE` and `NOT_AUTHENTICATED`, neither of which the
+   * server has ever sent.
+   */
+  const REASONS = [
+    "LOGIN_REQUIRED",
+    "NO_SUBSCRIPTION",
+    "SUBSCRIPTION_EXPIRED",
+    "TRIAL_EXPIRED",
+    "TRIAL_SCOPE",
+    "GRACE_PERIOD_ENDED",
+  ] as const;
+
+  it.each(REASONS)("%s gets its own heading", async (reason) => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason }));
+
+    renderGate();
+    const heading = await screen.findByRole("heading", { level: 1 });
+
+    expect(heading.textContent).toBe(REFUSALS[reason].title);
+  });
+
+  it("gives no two refusals the same heading", () => {
+    // The check that makes the six above mean something. Six tests each
+    // asserting a title would all pass against one table entry copied six
+    // times.
+    const titles = REASONS.map((reason) => REFUSALS[reason].title);
+
+    expect(new Set(titles).size).toBe(REASONS.length);
+  });
+
+  it("sends someone who never subscribed to what a subscription covers", async () => {
+    // Not to a checkout: there is no self-serve subscription and no price
     // (§11 #1). `/pricing` says so plainly, which is the honest destination.
     vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason: "NO_SUBSCRIPTION" }));
 
     renderGate();
 
-    expect(await screen.findByRole("link", { name: /what a subscription covers/i })).toHaveAttribute(
+    expect(
+      await screen.findByRole("link", { name: /what a subscription covers/i }),
+    ).toHaveAttribute("href", "/pricing");
+  });
+
+  it("sends someone who is not signed in to sign in", async () => {
+    // The commonest refusal on a public catalogue, and the one the old table
+    // had no entry for at all.
+    vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason: "LOGIN_REQUIRED" }));
+
+    renderGate();
+
+    expect(await screen.findByRole("link", { name: "Sign in" })).toHaveAttribute(
       "href",
-      "/pricing",
+      "/login",
     );
+  });
+
+  it("does not tell a lapsed payer to buy what they already bought", async () => {
+    // GRACE_PERIOD_ENDED is the one refusal that is not "subscribe". The
+    // person is a paying customer whose payment failed; the only useful
+    // destination is a billing page, which does not exist until M8 — so there
+    // is no link rather than a misleading one.
+    vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason: "GRACE_PERIOD_ENDED" }));
+
+    renderGate();
+    await screen.findByRole("heading", { name: /problem with your payment/i });
+
+    expect(screen.queryByRole("link", { name: /subscription covers/i })).not.toBeInTheDocument();
+  });
+
+  it("falls back without inventing a billing state", async () => {
+    // A reason this build does not know means the server is ahead of it — a
+    // deploy in progress, or a reason added in M8. Guessing at somebody's
+    // billing state is worse than a general sentence.
+    vi.mocked(globalThis.fetch).mockResolvedValue(problem(403, { reason: "SOMETHING_NEW" }));
+
+    renderGate();
+
+    expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(screen.queryByTestId("player")).not.toBeInTheDocument();
   });
 });
 

@@ -10,6 +10,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.entitlements.resolver import Cta, Reason
+
 
 class RegisterSerializer(serializers.Serializer):
     """Registration input.
@@ -120,8 +122,11 @@ class AccessSerializer(serializers.Serializer):
     """
 
     allowed = serializers.BooleanField(read_only=True)
-    reason = serializers.CharField(read_only=True)
-    cta = serializers.CharField(read_only=True, allow_null=True)
+    # ChoiceField, not CharField: drf-spectacular turns choices into a schema
+    # enum, which openapi-typescript turns into a union the frontend can be
+    # exhaustive over. As a bare string the set lived in two places and drifted.
+    reason = serializers.ChoiceField(choices=Reason.choices, read_only=True)
+    cta = serializers.ChoiceField(choices=Cta.CHOICES, read_only=True, allow_null=True)
 
 
 class MeSerializer(serializers.Serializer):

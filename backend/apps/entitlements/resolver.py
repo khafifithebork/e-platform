@@ -76,6 +76,18 @@ class Cta:
     SUBSCRIBE = "subscribe"
     UPDATE_PAYMENT = "update_payment"
 
+    # Exposed as serializer choices so the OpenAPI schema carries the set and
+    # the frontend's types are generated from it rather than retyped by hand
+    # (invariant 16). Retyping is not hypothetical here: the lesson player has
+    # branched on `SUBSCRIPTION_PAST_DUE` and `NOT_AUTHENTICATED` since M7, and
+    # neither has ever been a `Reason` — two dead branches, and four real
+    # reasons with no branch at all.
+    CHOICES = (
+        (LOGIN, "Sign in"),
+        (SUBSCRIBE, "Subscribe"),
+        (UPDATE_PAYMENT, "Update payment"),
+    )
+
 
 @dataclass(frozen=True)
 class AccessDecision:
