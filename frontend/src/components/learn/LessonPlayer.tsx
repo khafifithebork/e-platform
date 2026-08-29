@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
+import { refusalFor } from "@/lib/entitlements/denial";
 import { TranscriptPanel } from "@/components/learn/TranscriptPanel";
 import {
   ApiError,
@@ -44,12 +45,19 @@ function timestamp(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-const DENIAL_MESSAGES: Record<string, string> = {
-  NO_SUBSCRIPTION: "This lesson needs a subscription.",
-  SUBSCRIPTION_EXPIRED: "Your subscription has ended.",
-  SUBSCRIPTION_PAST_DUE: "There is a problem with your payment.",
-  NOT_AUTHENTICATED: "Sign in to watch this lesson.",
-};
+/*
+ * The denial messages that used to live here are gone.
+ *
+ * They were keyed on `SUBSCRIPTION_PAST_DUE` and `NOT_AUTHENTICATED`, **and
+ * neither has ever been a `Reason`** — so two branches could not fire, and
+ * four real refusals had no branch at all, including `LOGIN_REQUIRED`, which
+ * is what every signed-out visitor gets. Written at M7, never tested, never
+ * reached by a user, and nothing caught it because the codes were plain
+ * strings on both sides.
+ *
+ * `lib/entitlements/denial` is the one table now, keyed by the schema enum, so
+ * a reason added in M8 is a compile error rather than a silent fallback.
+ */
 
 interface LessonPlayerProps {
   lessonId: string;
@@ -295,8 +303,8 @@ export function LessonPlayer({ lessonId }: LessonPlayerProps) {
         </header>
 
         {denial ? (
-          <Notice tone="error" title="You cannot watch this">
-            {DENIAL_MESSAGES[denial] ?? "This lesson is not available to you."}
+          <Notice tone="error" title={refusalFor(denial).title}>
+            {refusalFor(denial).detail}
           </Notice>
         ) : null}
 

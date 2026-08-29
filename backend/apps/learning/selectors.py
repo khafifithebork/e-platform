@@ -50,6 +50,33 @@ def _next_lesson_id(user: User):
     )
 
 
+def _next_lesson_slug(user: User):
+    """The same lesson as ``_next_lesson_id``, as a slug.
+
+    Both ship because both are needed and neither can be derived from the
+    other without a query. The id is what the progress and completion
+    endpoints take; the slug is what a URL takes, since M16 T3 moved lesson
+    pages to ``/courses/{slug}/lessons/{lessonSlug}`` — the address
+    architecture.md §6.2 specified.
+
+    A second correlated subquery rather than a second query: this costs the
+    database a little more work inside the one statement, and costs the caller
+    nothing per row. ADR-009 — measured by
+    ``test_my_courses_costs_the_same_for_one_course_or_ten``, which would fail
+    if this had been written as a join that multiplied rows.
+
+    **Ordered identically to `_next_lesson_id`, and that is load-bearing.** Two
+    subqueries with different ordering would return two different lessons, and
+    the interface would link to one while reporting progress against the other.
+    """
+    return Subquery(
+        Lesson.objects.filter(course_id=OuterRef("course_id"))
+        .exclude(pk__in=_completed_lesson_ids(user))
+        .order_by("section__position", "position")
+        .values("slug")[:1]
+    )
+
+
 def courses_in_progress(*, user: User):
     """Every course this learner has started, for "my courses".
 
@@ -87,7 +114,7 @@ def courses_in_progress(*, user: User):
 
     return (
         Enrollment.objects.filter(user=user)
-        .select_related("course")
+        .select_related("course", "last_lesson")
         # The serializer renders the course's slug and title, so this join is
         # the difference between one query and one per enrolment. Measured, not
         # assumed — `test_my_courses_costs_the_same_for_one_course_or_ten`.
@@ -96,6 +123,7 @@ def courses_in_progress(*, user: User):
             completed_lesson_count=Count("course__lessons", filter=completed, distinct=True),
             last_activity=Max("course__lessons__progress__updated_at", filter=mine),
             next_lesson=_next_lesson_id(user),
+            next_lesson_slug=_next_lesson_slug(user),
         )
     )
 

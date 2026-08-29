@@ -5,6 +5,7 @@ from typing import ClassVar
 from rest_framework import serializers
 
 from apps.entitlements.models import AccessOverride, Subscription, SubscriptionEvent
+from apps.entitlements.resolver import Cta, Reason
 
 
 class SubscriptionDiagnosticSerializer(serializers.ModelSerializer):
@@ -64,8 +65,11 @@ class DiagnosticUserSerializer(serializers.Serializer):
 
 class AccessDecisionSerializer(serializers.Serializer):
     allowed = serializers.BooleanField(read_only=True)
-    reason = serializers.CharField(read_only=True)
-    cta = serializers.CharField(read_only=True, allow_null=True)
+    # ChoiceField, not CharField: drf-spectacular turns choices into a schema
+    # enum, which openapi-typescript turns into a union the frontend can be
+    # exhaustive over. As a bare string the set lived in two places and drifted.
+    reason = serializers.ChoiceField(choices=Reason.choices, read_only=True)
+    cta = serializers.ChoiceField(choices=Cta.CHOICES, read_only=True, allow_null=True)
 
 
 class AuditTrailEntrySerializer(serializers.Serializer):

@@ -2064,12 +2064,15 @@ components:
           type: boolean
           readOnly: true
         reason:
-          type: string
+          allOf:
+          - $ref: '#/components/schemas/ReasonEnum'
           readOnly: true
         cta:
-          type: string
           readOnly: true
           nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CtaEnum'
+          - $ref: '#/components/schemas/NullEnum'
       required:
       - allowed
       - cta
@@ -2081,12 +2084,15 @@ components:
           type: boolean
           readOnly: true
         reason:
-          type: string
+          allOf:
+          - $ref: '#/components/schemas/ReasonEnum'
           readOnly: true
         cta:
-          type: string
           readOnly: true
           nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CtaEnum'
+          - $ref: '#/components/schemas/NullEnum'
       required:
       - allowed
       - cta
@@ -2433,6 +2439,16 @@ components:
         * `IN_REVIEW` - In review
         * `PUBLISHED` - Published
         * `ARCHIVED` - Archived
+    CtaEnum:
+      enum:
+      - login
+      - subscribe
+      - update_payment
+      type: string
+      description: |-
+        * `login` - Sign in
+        * `subscribe` - Subscribe
+        * `update_payment` - Update payment
     DiagnosticUser:
       type: object
       properties:
@@ -2487,11 +2503,21 @@ components:
           readOnly: true
           nullable: true
           description: Where to resume. A bookmark, not a permission.
+        last_lesson_slug:
+          type: string
+          readOnly: true
+          nullable: true
+          pattern: ^[-a-zA-Z0-9_]+$
         next_lesson:
           type: string
           format: uuid
           readOnly: true
           nullable: true
+        next_lesson_slug:
+          type: string
+          readOnly: true
+          nullable: true
+          pattern: ^[-a-zA-Z0-9_]+$
         completed_lesson_count:
           type: integer
           readOnly: true
@@ -2520,8 +2546,10 @@ components:
       - id
       - last_activity
       - last_lesson
+      - last_lesson_slug
       - lesson_count
       - next_lesson
+      - next_lesson_slug
       - started_at
     EventTypeEnum:
       enum:
@@ -3047,6 +3075,9 @@ components:
         * `TRANSCODING` - Being processed by the provider
         * `READY` - Playable
         * `FAILED` - Failed
+    NullEnum:
+      enum:
+      - null
     PaginatedCourseList:
       type: object
       required:
@@ -3539,6 +3570,38 @@ components:
       - lessons
       - position
       - title
+    ReasonEnum:
+      enum:
+      - PREVIEW
+      - STAFF
+      - COURSE_OWNER
+      - OVERRIDE
+      - SUBSCRIPTION_ACTIVE
+      - TRIAL
+      - GRACE_PERIOD
+      - CANCELED_BUT_PAID
+      - LOGIN_REQUIRED
+      - NO_SUBSCRIPTION
+      - SUBSCRIPTION_EXPIRED
+      - TRIAL_EXPIRED
+      - TRIAL_SCOPE
+      - GRACE_PERIOD_ENDED
+      type: string
+      description: |-
+        * `PREVIEW` - Free preview lesson
+        * `STAFF` - Administrator
+        * `COURSE_OWNER` - Instructor of this course
+        * `OVERRIDE` - Manual access grant
+        * `SUBSCRIPTION_ACTIVE` - Active subscription
+        * `TRIAL` - Trial in progress
+        * `GRACE_PERIOD` - Payment failed, within grace period
+        * `CANCELED_BUT_PAID` - Cancelled, paid period not yet over
+        * `LOGIN_REQUIRED` - Not signed in
+        * `NO_SUBSCRIPTION` - Never subscribed
+        * `SUBSCRIPTION_EXPIRED` - Subscription ended
+        * `TRIAL_EXPIRED` - Trial ended
+        * `TRIAL_SCOPE` - Not included in your trial
+        * `GRACE_PERIOD_ENDED` - Payment failed and grace period ended
     RefundRequestRequest:
       type: object
       description: |-

@@ -1201,13 +1201,13 @@ export interface components {
          */
         Access: {
             readonly allowed: boolean;
-            readonly reason: string;
-            readonly cta: string | null;
+            readonly reason: components["schemas"]["ReasonEnum"];
+            readonly cta: (components["schemas"]["CtaEnum"] | components["schemas"]["NullEnum"]) | null;
         };
         AccessDecision: {
             readonly allowed: boolean;
-            readonly reason: string;
-            readonly cta: string | null;
+            readonly reason: components["schemas"]["ReasonEnum"];
+            readonly cta: (components["schemas"]["CtaEnum"] | components["schemas"]["NullEnum"]) | null;
         };
         AccessOverride: {
             /** Format: uuid */
@@ -1404,6 +1404,13 @@ export interface components {
          * @enum {string}
          */
         CourseStatusEnum: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED";
+        /**
+         * @description * `login` - Sign in
+         *     * `subscribe` - Subscribe
+         *     * `update_payment` - Update payment
+         * @enum {string}
+         */
+        CtaEnum: "login" | "subscribe" | "update_payment";
         DiagnosticUser: {
             /** Format: uuid */
             readonly id: string;
@@ -1432,8 +1439,10 @@ export interface components {
              * @description Where to resume. A bookmark, not a permission.
              */
             readonly last_lesson: string | null;
+            readonly last_lesson_slug: string | null;
             /** Format: uuid */
             readonly next_lesson: string | null;
+            readonly next_lesson_slug: string | null;
             readonly completed_lesson_count: number;
             readonly lesson_count: number;
             /** Format: date-time */
@@ -1721,6 +1730,8 @@ export interface components {
          * @enum {string}
          */
         MediaAssetStatusEnum: "PENDING" | "UPLOADED" | "TRANSCODING" | "READY" | "FAILED";
+        /** @enum {unknown} */
+        NullEnum: null;
         PaginatedCourseList: {
             /**
              * Format: uri
@@ -2004,6 +2015,24 @@ export interface components {
             position: number;
             readonly lessons: components["schemas"]["PublicLesson"][];
         };
+        /**
+         * @description * `PREVIEW` - Free preview lesson
+         *     * `STAFF` - Administrator
+         *     * `COURSE_OWNER` - Instructor of this course
+         *     * `OVERRIDE` - Manual access grant
+         *     * `SUBSCRIPTION_ACTIVE` - Active subscription
+         *     * `TRIAL` - Trial in progress
+         *     * `GRACE_PERIOD` - Payment failed, within grace period
+         *     * `CANCELED_BUT_PAID` - Cancelled, paid period not yet over
+         *     * `LOGIN_REQUIRED` - Not signed in
+         *     * `NO_SUBSCRIPTION` - Never subscribed
+         *     * `SUBSCRIPTION_EXPIRED` - Subscription ended
+         *     * `TRIAL_EXPIRED` - Trial ended
+         *     * `TRIAL_SCOPE` - Not included in your trial
+         *     * `GRACE_PERIOD_ENDED` - Payment failed and grace period ended
+         * @enum {string}
+         */
+        ReasonEnum: "PREVIEW" | "STAFF" | "COURSE_OWNER" | "OVERRIDE" | "SUBSCRIPTION_ACTIVE" | "TRIAL" | "GRACE_PERIOD" | "CANCELED_BUT_PAID" | "LOGIN_REQUIRED" | "NO_SUBSCRIPTION" | "SUBSCRIPTION_EXPIRED" | "TRIAL_EXPIRED" | "TRIAL_SCOPE" | "GRACE_PERIOD_ENDED";
         /**
          * @description What an administrator sends to issue a refund.
          *

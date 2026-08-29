@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { LessonPlayer } from "@/components/learn/LessonPlayer";
 import { ApiError, api, type GatedLesson } from "@/lib/api/client";
+import { refusalFor } from "@/lib/entitlements/denial";
 
 /**
  * Resolves two slugs to a lesson, then hands over to the player.
@@ -22,10 +23,9 @@ import { ApiError, api, type GatedLesson } from "@/lib/api/client";
  * it by passing the resolved lesson down. Writing it here so the next person
  * finds a decision rather than an oversight.
  *
- * **The refusal states are deliberately thin.** `resolve_access` distinguishes
- * six reasons and this shows one message; T4 is the task that gives each its
- * own. What is here now is honest — it says access was refused and points at
- * the way forward — rather than a placeholder that lies.
+ * **Each of the six refusals has its own wording**, from `lib/entitlements/denial`.
+ * `resolve_access` returns a reason and never a bare boolean (invariant 3), and
+ * six reasons exist precisely so an interface can say six different things.
  */
 type GateState =
   | { status: "loading" }
@@ -132,25 +132,7 @@ export function LessonGate({
         </>
       )}
 
-      {state.status === "refused" && (
-        <>
-          <h1 className="font-display text-3xl tracking-tight text-ink">
-            You do not have access to this lesson
-          </h1>
-          {/*
-           * The reason is rendered as data, not interpolated into a sentence.
-           * T4 maps each of the six to its own wording; until then, showing
-           * the server's own code is honest about what happened and gives
-           * support something to search for.
-           */}
-          <p className="text-ink-muted">
-            The server refused with: <code className="text-ink">{state.reason}</code>
-          </p>
-          <Link href="/pricing" className="text-accent hover:text-accent-hover">
-            See what a subscription covers
-          </Link>
-        </>
-      )}
+      {state.status === "refused" && <Refused reason={state.reason} />}
 
       {state.status === "failed" && (
         <>
@@ -165,5 +147,31 @@ export function LessonGate({
         ← Back to the course
       </Link>
     </main>
+  );
+}
+
+/**
+ * One refusal, said in its own words.
+ *
+ * `GRACE_PERIOD_ENDED` deliberately has no action link. The person is a paying
+ * customer whose payment failed, and the only useful destination is a page for
+ * updating payment details — which does not exist, because there is no billing
+ * surface until M8. A link to `/pricing` would tell somebody to buy what they
+ * have already bought.
+ */
+function Refused({ reason }: { reason: string }) {
+  const refusal = refusalFor(reason);
+
+  return (
+    <>
+      <h1 className="font-display text-3xl tracking-tight text-ink">{refusal.title}</h1>
+      <p className="text-ink-muted">{refusal.detail}</p>
+
+      {refusal.action && (
+        <Link href={refusal.action.href} className="text-accent hover:text-accent-hover">
+          {refusal.action.label}
+        </Link>
+      )}
+    </>
   );
 }
