@@ -144,7 +144,7 @@ to you as advice.
 | # | Task |
 |---|---|
 | T7 | Platform configuration — `render.yaml` **or** Dokploy compose + Caddy |
-| T8 | Staging on a Neon branch; `pg_trgm` verified there (M12 handover) |
+| T8 | Staging on a Neon branch; `pg_trgm` verified there (M12 handover) — **preparation done; the verification itself needs the branch to exist** |
 | T9 | Deploy on merge; production as one approved action |
 | T10 | Rollback **rehearsed**; production load baseline (M12 handover) |
 
