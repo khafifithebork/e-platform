@@ -39,7 +39,12 @@ export function sourceFilesIn(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) return sourceFilesIn(path);
-    return /\.tsx?$/.test(entry) && !entry.endsWith(".test.tsx") ? [path] : [];
+    // `.test.ts` as well as `.test.tsx`. The original excluded only the latter,
+    // which matched every test in a route group and so looked correct; a guard
+    // scanning a directory of plain `.ts` tests would have been checking the
+    // tests along with the code, and the first symptom would be a guard failing
+    // against the file that asserts it.
+    return /\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry) ? [path] : [];
   });
 }
 
