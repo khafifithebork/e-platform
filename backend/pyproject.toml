@@ -59,6 +59,18 @@ dependencies = [
     "cron-descriptor==1.4.5",
     "django-timezone-field==7.2.2",
     "python-crontab==3.3.0",
+    # Error reporting (M14 T5, ADR-027). Approved under §5 on 2026-08-29.
+    # Version read from the installed package in backend/.venv, not recalled.
+    #
+    # Unlike django-celery-beat above, this pins no transitives: it requires
+    # certifi and urllib3, and both were already in the tree via boto3, so
+    # installing it added exactly one distribution. Measured, not assumed —
+    # pip reported only sentry-sdk as collected.
+    #
+    # The Django and Celery integrations auto-enable from the packages already
+    # present, so neither is imported anywhere; `apps/core/observability.py` is
+    # the only module that names the vendor at all.
+    "sentry-sdk==2.68.1",
 ]
 
 [project.optional-dependencies]
