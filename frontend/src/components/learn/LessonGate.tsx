@@ -87,17 +87,17 @@ export function LessonGate({
     // resolves: a screen-reader user gets no signal at all that anything is
     // happening otherwise.
     return (
-      <main className="mx-auto w-full max-w-6xl px-6 py-10">
+      <div className="mx-auto w-full max-w-6xl px-6 py-10">
         <p aria-live="polite" className="text-ink-muted">
           Loading the lesson…
         </p>
-      </main>
+      </div>
     );
   }
 
   if (state.status === "ready") {
     return (
-      <main className="mx-auto w-full max-w-6xl px-6 py-10">
+      <div className="mx-auto w-full max-w-6xl px-6 py-10">
         <nav aria-label="Breadcrumb" className="mb-6 text-sm">
           {/*
            * Back to the course, not back to the catalogue. Somebody who
@@ -114,12 +114,12 @@ export function LessonGate({
         </nav>
 
         <LessonPlayer lesson={state.lesson} />
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 py-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 py-16">
       {state.status === "missing" && (
         <>
           <h1 className="font-display text-3xl tracking-tight text-ink">
@@ -145,7 +145,7 @@ export function LessonGate({
       <Link href={`/courses/${courseSlug}`} className="text-ink-muted hover:text-ink">
         ← Back to the course
       </Link>
-    </main>
+    </div>
   );
 }
 

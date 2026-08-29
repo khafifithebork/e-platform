@@ -1,11 +1,73 @@
 # STATUS
 
-**Last updated:** 2026-08-28
-**Updated by:** agent session (M15 complete)
+**Last updated:** 2026-08-29
+**Updated by:** agent session (M16 complete)
 
 ---
 
 ## Current milestone
+
+**M16 — Learner surface. Complete — 9 of 9.**
+Branch: `feat/m16-*`, merged in pieces as PRs #48, #49 and #50.
+
+Spec: `docs/specs/m16-learner-surface.md` · Decisions: `docs/adr/026-learner-surface.md`
+
+| Task | State |
+|---|---|
+| T1 spec | **done** — `6f27e4a` |
+| T2 an authenticated shell | **done** — `be14a92` |
+| T3 the lesson URL architecture.md specified at M0 | **done** — `003eaab` |
+| T4 six refusals, six messages | **done** — `3420744` |
+| T5 my courses, and the slugs a resume link needs | **done** — `ec181c0` |
+| T6 the player, tested for the first time | **done** — `2bce745` |
+| T7 a transcript you can follow | **done** — `33a82a6` |
+| T8 completion, and progress on a static page | **done** — `2db7175` |
+| T9 accessibility, ADR, close-out | **done** |
+
+**1407 backend tests, 317 frontend.** ruff, tsc, eslint, `verify:static` and
+`verify:a11y` all clean.
+
+### M7's API finally has callers
+
+Gated lessons, progress, completion, playback tokens, transcripts and
+enrolments were all built in April and none of it had ever been called. A
+learner can now find a lesson from the catalogue, watch it, follow the
+transcript, and come back to where they left off.
+
+### What was already broken, and had never been reached
+
+- **`LessonPlayer`'s denial table was keyed on two codes the server has never
+  sent**, and had no branch for four that it does — including the one every
+  signed-out visitor gets. Fixed by making the reason a schema enum, so a
+  missing case is now a compile error.
+- **The learner pages had no layout at all.** No header, no footer, no
+  navigation, no skip link. Following "My courses" out of the header stranded
+  you. Invisible in the source; obvious in the built HTML.
+- **`architecture.md` §6.2's lesson route was never built**, while the schema
+  carried a redundant foreign key and a unique constraint to support it.
+
+### What T3 broke and T5 caught
+
+Moving lesson pages to slug-based URLs silently broke resume: the enrolment
+payload carried only UUIDs. "My courses" could show progress and could not link
+to it. Both lessons now ship their slug, from subqueries ordered identically to
+the ids they accompany.
+
+### Testing untested code mostly found bad tests
+
+The player and transcript panel passed thirty of thirty-three tests first time.
+The failures were mostly mine — a timestamp format that did not exist, a
+boundary asserted at a moment that falls in a gap, a guard that grepped a
+docstring.
+
+The one real finding was the opposite of a bug: **`readyRef` is not the guard
+its comment claims.** Removing it leaves every test passing, because
+`worthSending` already refuses the same beat. It stays as defence in depth and
+its docstring now says so.
+
+---
+
+## Previous milestone
 
 **M15 — Public catalogue. Complete — 10 of 10.**
 Branch: `feat/m15-public-catalogue`, off `master` after M14's unblocked half
