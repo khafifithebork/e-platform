@@ -1,0 +1,110 @@
+# The Hetzner half of B-lite.
+#
+# ADR-025 chose B-lite: Next.js on Cloudflare Workers, Django and Celery and
+# Redis on one Hetzner CX33 managed with Dokploy, Postgres on Neon.
+#
+# **This is not `docker-compose.yml` with the development bits removed**, and
+# the differences are the interesting part:
+#
+# - **No `postgres` service.** Neon holds the database. That is the single
+#   biggest departure from `deployment-strategy.md`'s Architecture A diagram,
+#   which puts Postgres in a container on the box — ADR-002 chose managed
+#   Postgres instead, so backups, point-in-time recovery and version upgrades
+#   are somebody else's job rather than the thing that wakes you up.
+# - **No `minio`.** Cloudflare R2 holds media in production. MinIO exists in
+#   development so nobody needs an R2 bucket to run tests.
+# - **No `mailpit`.** Real email goes through the provider M11's adapter wraps.
+# - **No `web`.** Next.js runs on Workers, not here. That is what B-lite *is*.
+#
+# Applied by Dokploy, which reads a compose file and manages the containers and
+# the reverse proxy. Caddy is Dokploy's own and is not declared here; §2 below
+# says what it must be configured to do.
+#
+# **Nothing in this file is a secret.** Every value comes from the environment.
+#
+# `env_file` is marked `required: false` so the file validates in a checkout,
+# where no `.env` exists and none should. **How Dokploy actually supplies these
+# is not verified** — it may write a `.env` beside the compose file, or inject
+# them directly, and the two behave differently when a variable is missing.
+# CLAUDE.md §6 forbids inventing a provider capability, so this is written down
+# as a thing to confirm rather than assumed. `README.md` repeats it.
+#
+# `backend/.env.example` documents the names, and only the names.
+
+services:
+  api:
+    image: ${IMAGE_REGISTRY}/e-platform-backend:${IMAGE_TAG}
+    # `runtime`, the stage `scripts/smoke_release.sh` already boots and checks
+    # in CI (M13 T5). The image that gets smoked is the image that gets run.
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # The same endpoint the uptime monitor will poll (M14 T7), so a container
+      # that Dokploy considers healthy and one the monitor considers up are the
+      # same claim rather than two.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # Migrations run before the container serves (see §1), so the first
+      # health check can be later without hiding a slow start.
+      start_period: 60s
+    expose: ["8000"]
+
+  worker:
+    image: ${IMAGE_REGISTRY}/e-platform-backend:${IMAGE_TAG}
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    # --beat, and **this service must never scale past one replica.** Two beats
+    # means every scheduled job runs twice: double emails, double charges,
+    # double expiry sweeps. ADR-001 §2.2 settled Beat's placement inside the
+    # worker at exactly one replica, and M14 T4 wired it.
+    command: >-
+      celery -A config worker --beat
+      --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      --loglevel=info
+    deploy:
+      replicas: 1
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # `celery inspect ping` asks the worker itself rather than checking the
+      # process is alive: a worker that has lost its broker connection is a
+      # running process that does no work, which is the failure that looks
+      # healthiest.
+      test: ["CMD", "celery", "-A", "config", "inspect", "ping", "-d", "celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Disposable by design (ADR-002 §4): the queue is work in flight, not
+    # state, and Redis is also the cache and the throttle counter. Losing it
+    # costs queued tasks and nothing that cannot be re-derived — which is why
+    # there is no volume here and no backup of it anywhere.
+    #
+    # `--save ""` turns off RDB snapshots for the same reason: persisting
+    # something we have decided is disposable buys disk I/O and a false sense
+    # that it is recoverable.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose: ["6379"]

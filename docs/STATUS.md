@@ -67,6 +67,17 @@ its docstring now says so.
 
 ---
 
+### Spend approved — 2026-08-29
+
+M13 §5.2 is answered for B-lite, at ADR-002 §5's figures: **$44/month at
+Scenario 1**, ~$120 at Scenario 2. M13 T7–T10 and M14 T7–T10 are unblocked.
+
+**What is still not mine to do.** Creating the Cloudflare, Hetzner and Neon
+accounts, and entering any payment or credential, is the owner's. Configuration
+lives in the repository; provisioning happens in a browser, by a person.
+
+---
+
 ## Previous milestone
 
 **M15 — Public catalogue. Complete — 10 of 10.**
