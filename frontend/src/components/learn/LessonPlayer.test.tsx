@@ -297,3 +297,144 @@ describe("a subscription that lapses mid-lesson", () => {
     expect(REFUSALS.SUBSCRIPTION_EXPIRED.title).toBe("Your subscription has ended");
   });
 });
+
+describe("completion", () => {
+  /**
+   * **Displayed, never decided.** ADR-016 §2 puts the rule on the server, and
+   * every progress response carries `completed_at`. A client that decided for
+   * itself would be the second definition M7 warns about — and the two would
+   * disagree the first time the rule changed.
+   */
+
+  it("shows a course already finished as finished", async () => {
+    vi.stubGlobal(
+      "fetch",
+      respond({ progress: json(progress({ completed_at: "2026-02-01T00:00:00Z" })) }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+
+    expect(await screen.findByText("Completed")).toBeInTheDocument();
+  });
+
+  it("offers no button once it is finished", async () => {
+    // The negative. Both rendering at once is what an `&&` instead of a
+    // ternary produces, and "mark complete" beside "Completed" reads as though
+    // the first click did not work.
+    vi.stubGlobal(
+      "fetch",
+      respond({ progress: json(progress({ completed_at: "2026-02-01T00:00:00Z" })) }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByText("Completed");
+
+    expect(screen.queryByRole("button", { name: /mark complete/i })).not.toBeInTheDocument();
+  });
+
+  it("asks the server rather than deciding", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        calls.push(String(url));
+        if (String(url).includes("/complete/")) {
+          return json(progress({ completed_at: "2026-02-01T00:00:00Z" }));
+        }
+        if (String(url).includes("/progress/")) return json(progress());
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await userEvent.click(await screen.findByRole("button", { name: /mark complete/i }));
+
+    await waitFor(() => expect(calls.some((url) => url.includes("/complete/"))).toBe(true));
+  });
+
+  it("shows completion only after the server confirms it", async () => {
+    // The property that makes it "displayed, never decided": the label changes
+    // because the response said so, not because the button was pressed.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        if (String(url).includes("/complete/")) {
+          return json(progress({ completed_at: "2026-02-01T00:00:00Z" }));
+        }
+        if (String(url).includes("/progress/")) return json(progress());
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await userEvent.click(await screen.findByRole("button", { name: /mark complete/i }));
+
+    expect(await screen.findByText("Completed")).toBeInTheDocument();
+  });
+
+  it("does not claim completion when the server refuses", async () => {
+    // A subscription that lapsed between loading the lesson and pressing the
+    // button. Showing "Completed" anyway would record nothing and tell the
+    // learner it had.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        if (String(url).includes("/complete/")) {
+          return json(
+            {
+              type: "/problems/entitlement-denied",
+              title: "Access denied",
+              status: 403,
+              detail: "Your subscription has ended.",
+              errors: null,
+              reason: "SUBSCRIPTION_EXPIRED",
+            },
+            403,
+          );
+        }
+        if (String(url).includes("/progress/")) return json(progress());
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await userEvent.click(await screen.findByRole("button", { name: /mark complete/i }));
+
+    await screen.findByRole("alert");
+
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+  });
+
+  it("stops offering completion once access is refused", async () => {
+    // The button is disabled by a denial. Leaving it live would invite a
+    // second refusal for the same reason.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/progress/") && init?.method === "PUT") {
+          return json(
+            {
+              type: "/problems/entitlement-denied",
+              title: "Access denied",
+              status: 403,
+              detail: "Your subscription has ended.",
+              errors: null,
+              reason: "SUBSCRIPTION_EXPIRED",
+            },
+            403,
+          );
+        }
+        if (String(url).includes("/progress/")) return json(progress());
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+    await userEvent.click(screen.getByRole("button", { name: /play/i }));
+    await tick(16);
+    await screen.findByRole("alert");
+
+    expect(screen.getByRole("button", { name: /mark complete/i })).toBeDisabled();
+  });
+});
