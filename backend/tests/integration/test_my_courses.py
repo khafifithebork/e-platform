@@ -360,3 +360,79 @@ class TestTheSelectorIsScoped:
         assert rows[0].user_id == learner.pk
         assert Enrollment.objects.count() == 2
         assert LessonProgress.objects.count() == 2
+
+
+class TestTheSlugsAUrlNeeds:
+    """`last_lesson` and `next_lesson` are UUIDs, and since M16 T3 a lesson URL
+    is `/courses/{slug}/lessons/{lessonSlug}`.
+
+    Without slugs on this payload, "my courses" can show progress and cannot
+    link to it — a resume button with nowhere to go. The ids stay because
+    progress and completion are addressed by id; dropping them would trade one
+    gap for another.
+    """
+
+    def test_the_next_lesson_carries_its_slug(self, client, learner) -> None:
+        _, lessons = _course("spanish")
+        _watch(learner, lessons[0], completed=True)
+        _sign_in(client, "learner@example.test")
+
+        row = client.get(URL).json()["results"][0]
+
+        assert row["next_lesson_slug"] == lessons[1].slug
+
+    def test_the_slug_and_the_id_are_the_same_lesson(self, client, learner) -> None:
+        """**The property that matters.** Two subqueries with different
+        ordering would return two different lessons, and the interface would
+        link to one while recording progress against the other — a resume
+        button that silently sends somebody to the wrong place."""
+        from apps.catalog.models import Lesson
+
+        _, lessons = _course("spanish")
+        _watch(learner, lessons[0], completed=True)
+        _sign_in(client, "learner@example.test")
+
+        row = client.get(URL).json()["results"][0]
+
+        assert Lesson.objects.get(pk=row["next_lesson"]).slug == row["next_lesson_slug"]
+
+    def test_the_bookmark_carries_its_slug_too(self, client, learner) -> None:
+        _, lessons = _course("spanish")
+        _watch(learner, lessons[0])
+        _sign_in(client, "learner@example.test")
+
+        row = client.get(URL).json()["results"][0]
+
+        assert row["last_lesson_slug"] == lessons[0].slug
+
+    def test_a_finished_course_has_no_next_slug(self, client, learner) -> None:
+        """`next_lesson` is null when there is nothing left, and the slug must
+        be null with it rather than falling back to the first lesson — which
+        would offer "resume" on a course somebody has finished."""
+        _, lessons = _course("spanish")
+        for lesson in lessons:
+            _watch(learner, lesson, completed=True)
+        _sign_in(client, "learner@example.test")
+
+        row = client.get(URL).json()["results"][0]
+
+        assert row["next_lesson"] is None
+        assert row["next_lesson_slug"] is None
+
+    def test_the_extra_subqueries_cost_no_extra_queries(
+        self, client, learner, django_assert_num_queries
+    ) -> None:
+        """ADR-009 — measured, not reasoned about.
+
+        The slugs arrive as a second correlated subquery and a join, both of
+        which do more work inside one statement rather than adding statements.
+        Written as a naive attribute access instead, this would be one query
+        per enrolment and would look fine on a database with one course.
+        """
+        for slug in ("spanish", "french", "german"):
+            _, lessons = _course(slug)
+            _watch(learner, lessons[0])
+        _sign_in(client, "learner@example.test")
+
+        with django_assert_num_queries(3):
+            client.get(URL)

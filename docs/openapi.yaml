@@ -2503,11 +2503,21 @@ components:
           readOnly: true
           nullable: true
           description: Where to resume. A bookmark, not a permission.
+        last_lesson_slug:
+          type: string
+          readOnly: true
+          nullable: true
+          pattern: ^[-a-zA-Z0-9_]+$
         next_lesson:
           type: string
           format: uuid
           readOnly: true
           nullable: true
+        next_lesson_slug:
+          type: string
+          readOnly: true
+          nullable: true
+          pattern: ^[-a-zA-Z0-9_]+$
         completed_lesson_count:
           type: integer
           readOnly: true
@@ -2536,8 +2546,10 @@ components:
       - id
       - last_activity
       - last_lesson
+      - last_lesson_slug
       - lesson_count
       - next_lesson
+      - next_lesson_slug
       - started_at
     EventTypeEnum:
       enum:

@@ -1439,8 +1439,10 @@ export interface components {
              * @description Where to resume. A bookmark, not a permission.
              */
             readonly last_lesson: string | null;
+            readonly last_lesson_slug: string | null;
             /** Format: uuid */
             readonly next_lesson: string | null;
+            readonly next_lesson_slug: string | null;
             readonly completed_lesson_count: number;
             readonly lesson_count: number;
             /** Format: date-time */

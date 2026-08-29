@@ -63,6 +63,15 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     # Null when the course is finished.
     next_lesson = serializers.UUIDField(read_only=True, allow_null=True)
 
+    # The same two lessons as slugs, because a URL cannot be built from a UUID
+    # since M16 T3 moved lesson pages to `/courses/{slug}/lessons/{lessonSlug}`.
+    # The ids stay: progress and completion are addressed by id, and dropping
+    # them would trade one gap for another.
+    next_lesson_slug = serializers.SlugField(read_only=True, allow_null=True)
+    last_lesson_slug = serializers.SlugField(
+        source="last_lesson.slug", read_only=True, allow_null=True
+    )
+
     # Not the sort key — see `courses_in_progress`. A cursor cannot page on an
     # aggregate, so this ships as data for the caller to use.
     last_activity = serializers.DateTimeField(read_only=True, allow_null=True)
@@ -74,7 +83,9 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             "course_slug",
             "course_title",
             "last_lesson",
+            "last_lesson_slug",
             "next_lesson",
+            "next_lesson_slug",
             "completed_lesson_count",
             "lesson_count",
             "last_activity",
