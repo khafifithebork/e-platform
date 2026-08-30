@@ -1,11 +1,63 @@
 # STATUS
 
-**Last updated:** 2026-08-29
-**Updated by:** agent session (M14 T5)
+**Last updated:** 2026-08-30
+**Updated by:** agent session (M14 T6)
 
 ---
 
 ## Current milestone
+
+**M14 T6 — metrics. Built 2026-08-30**, on `feat/m14-t6-metrics`.
+Decisions: `docs/adr/028-metrics.md`.
+
+`/metrics` in Prometheus format behind a bearer token, 404 until one is
+configured. **No new dependency, no new service, no §5 gate** — the format is
+three lines per metric, and a client library would have brought a registry and
+a multiprocess mode nothing here uses.
+
+### Proven against the running stack
+
+An eleven-day-old transcript was injected into the dev database. `report_metrics`
+reported it, the alert task ran, and a real message reached Mailpit —
+*"Transcription backlog: 1 unfinished, oldest 11 days"* — with the course title,
+lesson title, instructor address, slug and transcript id all **confirmed absent
+from the body**. Queue depth read from the live Redis broker on the same run.
+Data removed afterwards; the metrics returned to zero.
+
+### The stuck-transcription alert exists now
+
+§3.7 lists it among the business alerts and calls that row *"the one people skip
+and shouldn't"*. T4 built Beat, the threshold and the mail path and used it
+once; this is the second thing it was built for. Three days rather than an hour,
+because a threshold that fires over a normal weekend is one somebody mutes.
+
+### Sentry Insights was declined for a reason worth keeping
+
+It needs tracing on. Tracing bills a quota **separate** from T5's 5k errors, and
+ADR-027 §2 had just recorded that ceiling as unmeasured. Choosing it would have
+compounded the pressure T5 wrote down a day earlier.
+
+### A fourth metric nobody can compute
+
+architecture.md §3.7 lists **four**; the task line carries three. The missing one
+is *video minutes delivered* — a provider-reported billing figure, and no video
+provider has been chosen. Recorded in ADR-028 §5 rather than inherited silently,
+because it is the only one of the four about **money** and must return with the
+Mux decision.
+
+### One control no behavioural test can catch
+
+Swapping `secrets.compare_digest` for `==` changes nothing observable while
+leaking the token's prefix. Asserted from the syntax tree instead — the third
+time this repository has needed that, after M4's resolver guard and T5's vendor
+seam.
+
+### Still open, and still nobody's
+
+**The Cloudflare Worker gap** (ADR-027 §4). T6 did not touch it; closing it
+needs `@sentry/cloudflare`, another dependency and another §5 gate.
+
+---
 
 **M14 T5 — error reporting. Built 2026-08-29**, on branch
 `feat/m14-t5-sentry`. Decisions: `docs/adr/027-error-reporting.md`.
@@ -239,7 +291,7 @@ Spec: `docs/specs/m14-observability.md`
 | T3 entitlement reconciliation, reporting only | **done** — `1762165` |
 | T4 nightly drift alert; Beat wired | **done** |
 | T5 Sentry across three services, with a spend cap | **built** — two of three tiers work; ADR-027 |
-| T6 metrics: queue depth, transcription age, webhook lag | **unblocked** — T5 done; inherits two questions |
+| T6 metrics: queue depth, transcription age, webhook lag | **built** — ADR-028 |
 | T7 uptime monitors on `/healthz` | **blocked** — needs a deployment |
 | T8 backups: Neon PITR **and** weekly `pg_dump` to R2 | **blocked** — M13 platform |
 | T9 restore drill, **executed** | **blocked** — needs T8 |

@@ -192,3 +192,25 @@ def send_course_reviewed_email(*, to: str, course_title: str, decision: str, not
         to=to,
         context={"course_title": course_title, "decision": decision, "notes": notes},
     )
+
+
+def send_stuck_transcription_alert(*, to: str, report) -> None:
+    """The second operational message, and it follows the first's reasoning.
+
+    Like `send_entitlement_drift_alert` it deliberately does not go through
+    `_send_to_account`: the recipient is whoever `OPERATIONS_ALERT_EMAIL`
+    names, an operator who quite possibly holds no account here, and applying
+    the verified-account rule would make the alert silently never send — the
+    exact failure an alert exists to prevent.
+
+    **Counts and an age, never a title or an id.** M14 §6 case 6. A transcript
+    belongs to a lesson, a lesson to a course, and a course to an instructor,
+    so naming one would put a person's unfinished work in a mailbox nobody
+    audits. The report dataclass carries only two numbers, which is what makes
+    that true of any future template rather than only of this one.
+    """
+    _send(
+        "stuck_transcriptions",
+        to=to,
+        context={"count": report.count, "oldest_age_days": report.oldest_age_days},
+    )

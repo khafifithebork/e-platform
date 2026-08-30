@@ -12,7 +12,7 @@ from django.contrib import admin
 from django.urls import URLPattern, URLResolver, include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from apps.core.views import csp_report, healthz
+from apps.core.views import csp_report, healthz, metrics
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/auth/", include("apps.accounts.urls")),
@@ -32,6 +32,10 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # Infrastructure, not product: outside /api/v1/ on purpose, so it is not
     # versioned, not in the OpenAPI schema, and not proxied as an API route.
     path("healthz", healthz, name="healthz"),
+    # Beside healthz rather than under /api/v1/: infrastructure, not product,
+    # and deliberately outside the OpenAPI schema. Guarded by a bearer token
+    # and 404 until one is configured.
+    path("metrics", metrics, name="metrics"),
     # Outside /api/v1/ deliberately: it is not part of the product API, no
     # client calls it, and it must not appear in the OpenAPI schema — a
     # published endpoint that accepts anonymous POSTs is an invitation.

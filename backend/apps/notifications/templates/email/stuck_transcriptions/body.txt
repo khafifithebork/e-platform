@@ -1,0 +1,22 @@
+{{ count }} transcript{{ count|pluralize }} {{ count|pluralize:"has,have" }} not reached APPROVED or
+FAILED, and the oldest has been waiting {{ oldest_age_days }} day{{ oldest_age_days|pluralize }}.
+
+Age is the number that matters. A large count with a small age is a busy week;
+a small count with a large age is a job that died and nobody noticed.
+
+Two places a transcript gets stuck, and they need different people:
+
+  PENDING    the provider was asked and never answered, or was never asked.
+             An operator's problem. Check the dead-letter queue first.
+
+  MACHINE    machine output is waiting for a human to review it.
+  IN_REVIEW  Nothing is broken; somebody has to read it.
+
+No lesson titles or ids here on purpose. A transcript belongs to a lesson, a
+lesson to a course, and a course to an instructor, so naming one would put a
+person's unfinished work in a mailbox nobody audits. To see which:
+
+  python manage.py report_metrics
+
+This alert reports and does not repair. Retrying a transcription costs money at
+a provider, and deciding to spend it is not a cron job's decision.

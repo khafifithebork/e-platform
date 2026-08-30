@@ -45,6 +45,36 @@ Three findings, in order of importance:
 | **Video delivery** | $29 → $806/mo at S3 | Provider choice + 720p cap + audio mode: 50–90% |
 | **Compute + DB** | $36–100/mo | Architecture change: 40–60%, i.e. $15–60/mo |
 
+### Correction, 2026-08-30 — the fixed per-transaction fee is missing
+
+**The ~$500/mo figure above is the percentage only.** A merchant of record
+charges ~5% **plus a fixed amount per transaction** — Paddle's published rate is
+5% + 50¢. At 1,000 subscribers billed monthly at $10, the fixed half adds
+another ~$500, so the real cost is **~$1,000/mo and the effective rate is 10%,
+not 5%**.
+
+The fixed fee is invisible at high prices and dominant at low ones:
+
+| Monthly price | Effective rate at 5% + 50¢ |
+|---:|---:|
+| $10 | **10.0%** |
+| $20 | 7.5% |
+| $30 | 6.7% |
+
+Two consequences this section did not draw:
+
+- **Annual billing roughly halves it** — one transaction a year instead of
+  twelve takes $10/mo from 10.0% to 5.5% at $100/yr. That is ~$450/mo at 1,000
+  subscribers, and the product already sells both terms.
+- **"Saves ~$200/mo" by incorporating omits the fixed costs of doing so.**
+  Stripe Atlas is ~$33/mo amortised plus tax tooling from $49/mo, so the switch
+  does not pay for itself until roughly **200 subscribers** billed monthly, or
+  **430** billed annually. Below that, staying on an MoR is cheaper.
+
+`docs/spikes/payment-provider-morocco.md` has the provider comparison and the
+sources. Flagged here rather than silently amended, for the reason §1 gives
+about the $83 error this document was written to correct.
+
 This ordering is the actual answer to "is there anything cheaper." Yes — but the compute layer is where the least money is. I'll optimise it anyway, because the changes below also improve reliability, which is the part you asked about that actually matters.
 
 ---

@@ -194,7 +194,7 @@ These are unresolved. If a task depends on one, stop and ask.
 
 | # | Decision | Blocks |
 |---|---|---|
-| 1 | Payment provider and operating jurisdiction (Stripe is unavailable to Moroccan merchants; a merchant of record may be required) | M4 schema, M8 entirely |
+| 1 | Payment provider and operating jurisdiction (Stripe is unavailable to Moroccan merchants; a merchant of record may be required). **Researched 2026-08-30 — `docs/spikes/payment-provider-morocco.md`. Still open: it turns on a Moroccan tax question, not a technical one** | M4 schema, M8 entirely |
 | 2 | Whether live classes are on the roadmap | Nothing yet; affects M5 modelling if yes |
 | 3 | ~~**Hosting target**~~ — **answered 2026-08-28: B-lite.** Cloudflare Workers for Next.js, Hetzner CX33 with Dokploy for Django/Celery/Redis, Neon for Postgres. ADR-025. **Spend is a separate approval and is still outstanding** — choosing the option is not authorising the bill | was M13 T7–T10 |
 | 4 | The BFF-vs-path-routing shape — ADR-001 §2.1 settled the sequence (Next rewrites now, Cloudflare Worker before launch); what a Worker taking over `/api/*` implies is still open | M13, launch |

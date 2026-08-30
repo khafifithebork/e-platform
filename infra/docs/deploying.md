@@ -80,6 +80,7 @@ Set per environment, so staging cannot reach production's database.
 | `DOKPLOY_APPLICATION_IDS` | Comma-separated: the `api` and the `worker` are separate Dokploy applications running the same image |
 | `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_ACCOUNT_ID` | |
 | `SENTRY_DSN_BROWSER` | **Baked into the bundle at build time**, so it can only be set here. Optional — empty means the browser SDK never initialises. Give each environment its own Sentry project (ADR-027 §2) |
+| `METRICS_TOKEN` | Bearer token for `/metrics` (ADR-028 §3). Optional — unset means the endpoint answers 404, which is correct until a scraper exists. Set it per environment, never shared |
 
 **Why the direct connection.** `predeploy` takes a session-level advisory lock
 so two rollouts cannot migrate at once. Neon's documentation lists exactly that

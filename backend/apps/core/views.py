@@ -6,10 +6,15 @@ in the OpenAPI schema.
 
 import json
 import logging
+import secrets
 
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.conf import settings
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
+
+from apps.core.metrics import collect as collect_metrics
+from apps.core.metrics import render as render_metrics
 
 
 @require_safe
@@ -112,3 +117,57 @@ def csp_report(request: HttpRequest) -> HttpResponse:
         },
     )
     return HttpResponse(status=204)
+
+
+# The metrics endpoint's shared secret. Empty means the endpoint does not
+# exist — which is the state of this repository, because there is no scraper
+# yet (M14 T6, ADR-028 §3).
+#
+# A token rather than a session or a role, because the caller is a scraper: it
+# holds no account, cannot log in, and must present the same credential on
+# every request forever. That is what a bearer token is for.
+_BEARER = "Bearer "
+
+
+@require_safe
+def metrics(request: HttpRequest) -> HttpResponse:
+    """Prometheus exposition of the operational gauges.
+
+    **A plain Django view, not DRF, and `healthz` learned why the hard way.**
+    DRF defaults to ``IsAuthenticated`` here, so a scraper would receive 403
+    forever; and DRF throttles anonymous requests at 60/min per IP, which a
+    scrape every 15 seconds from one address would eventually trip. Both
+    failures look like the endpoint working until somebody reads a dashboard.
+
+    **404 when unconfigured, 403 when the token is wrong.** These say different
+    things on purpose. Unconfigured means the feature is off and the endpoint
+    genuinely is not there. A wrong token means it is there and the caller got
+    it wrong, which is the fact an operator needs when a scraper goes quiet —
+    and hiding it would only hide the endpoint from somebody who already knows
+    the path. ADR-019 §5 settled the same question for the admin site the same
+    way: refuse clearly rather than pretend.
+
+    Comparison is constant-time. A token compared with ``==`` leaks its prefix
+    to anyone who can measure a few thousand requests, and this one guards a
+    read of operational data.
+    """
+    expected = settings.METRICS_TOKEN
+    if not expected:
+        raise Http404
+
+    header = request.headers.get("Authorization", "")
+    presented = header[len(_BEARER) :] if header.startswith(_BEARER) else ""
+
+    if not secrets.compare_digest(presented, expected):
+        return HttpResponse("forbidden\n", status=403, content_type="text/plain")
+
+    body = render_metrics(collect_metrics())
+
+    # `version=0.0.4` is the exposition format's own version, not ours. Scrapers
+    # content-negotiate on it, and omitting it makes some of them guess.
+    return HttpResponse(
+        body,
+        content_type="text/plain; version=0.0.4; charset=utf-8",
+        # A cached scrape is a lie with a timestamp on it.
+        headers={"Cache-Control": "no-store"},
+    )
