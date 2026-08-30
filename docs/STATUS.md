@@ -279,7 +279,7 @@ where it belongs so M13 T7–T10 pick it up rather than discovering it.
 
 ## Previous milestone
 
-**M14 — Observability & Launch. Unblocked half complete — 4 of 10.**
+**M14 — Observability & Launch. 6 of 10.**
 Branch: `feat/m14-observability`, off `master` after M13's unblocked half merged.
 
 Spec: `docs/specs/m14-observability.md`
@@ -292,12 +292,12 @@ Spec: `docs/specs/m14-observability.md`
 | T4 nightly drift alert; Beat wired | **done** |
 | T5 Sentry across three services, with a spend cap | **built** — two of three tiers work; ADR-027 |
 | T6 metrics: queue depth, transcription age, webhook lag | **built** — ADR-028 |
-| T7 uptime monitors on `/healthz` | **blocked** — needs a deployment |
+| T7 uptime monitors — **not on `/healthz` alone**, spec §4.1 | **blocked** — needs a deployment |
 | T8 backups: Neon PITR **and** weekly `pg_dump` to R2 | **blocked** — M13 platform |
 | T9 restore drill, **executed** | **blocked** — needs T8 |
 | T10 runbooks beyond rollback; launch checklist | **blocked** — all of the above |
 
-**1387 tests pass**, ruff/`check --deploy`/pip-audit clean.
+**1509 backend tests and 334 frontend pass**, ruff/`check --deploy`/pip-audit clean.
 
 ### What T3 and T4 found, which is the point of them
 
