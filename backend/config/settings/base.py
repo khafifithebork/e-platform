@@ -594,6 +594,13 @@ LOGGING = {
 # less — a separate DSN per service so one noisy tier can be muted alone, and
 # tracing off until M14 T6 decides it is wanted. ADR-027 §2.
 # ---------------------------------------------------------------------------
+# The bearer token /metrics requires. Empty means the endpoint answers 404 and
+# the feature is off, which is its state here: nothing scrapes it yet (M14 T6,
+# ADR-028 §3). A metrics endpoint reachable without a credential publishes queue
+# depth and backlog size, which is a description of how loaded this system is
+# and when it is weakest.
+METRICS_TOKEN = env("METRICS_TOKEN", default="")
+
 SENTRY_DSN = env("SENTRY_DSN", default="")
 SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", default="local")
 SENTRY_RELEASE = env("SENTRY_RELEASE", default="")
