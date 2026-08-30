@@ -1,0 +1,1 @@
+Transcription backlog: {{ count }} unfinished, oldest {{ oldest_age_days }} day{{ oldest_age_days|pluralize }}

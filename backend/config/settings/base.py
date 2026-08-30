@@ -453,6 +453,14 @@ CELERY_BEAT_SCHEDULE = {
         # there is no load argument for the small hours.
         "schedule": crontab(hour="6", minute="0"),
     },
+    "stuck-transcription-alert": {
+        "task": "apps.transcripts.tasks.alert_on_stuck_transcriptions",
+        # 06:15, a quarter hour after the drift alert rather than beside it.
+        # Two alerts landing in the same second read as one incident, and the
+        # first thing anybody does with two simultaneous emails is assume they
+        # are about the same thing.
+        "schedule": crontab(hour="6", minute="15"),
+    },
 }
 
 # Where operational alerts go. Empty by default, and the alert task treats that

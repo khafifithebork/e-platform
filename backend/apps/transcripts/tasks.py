@@ -21,8 +21,10 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.metrics import stuck_transcriptions
 from apps.media_assets.models import MediaAsset, MediaAssetStatus
 from apps.media_assets.providers.storage import object_storage
+from apps.notifications.emails import send_stuck_transcription_alert
 from apps.transcripts.models import (
     Transcript,
     TranscriptKind,
@@ -216,3 +218,48 @@ def apply_transcription_callback(self, webhook_event_id: str) -> str:
 
     WebhookEvent.objects.filter(pk=record.pk).update(processed_at=timezone.now())
     return outcome
+
+
+@shared_task(
+    # No retry, the same reasoning as M14 T4's drift alert: if the alert fails
+    # to send, the next run is tomorrow and the backlog will still be there. A
+    # retry storm against a broken mail provider adds nothing that waiting does
+    # not.
+    acks_late=True,
+)
+def alert_on_stuck_transcriptions() -> None:
+    """Say something when transcription work has been sitting too long.
+
+    architecture.md §3.7 lists "stuck transcriptions" among the business alerts
+    and calls that row *"the one people skip and shouldn't"*. M14 T4 built the
+    machinery — Beat, a threshold, email through M11's adapter — and used it for
+    entitlement drift only. This is the second thing it was built for.
+
+    **Silent when there is nothing to say.** M14 §6 case 5: an alert that always
+    fires is one nobody reads, and a nightly "0 stuck transcriptions" is how a
+    real one gets filtered into a folder.
+
+    **Reports; does not repair.** Retrying a transcription costs money at a
+    provider. Deciding to spend it is not a cron job's decision — the same line
+    T4 drew, for a different reason: there the risk was a second writer of
+    entitlement state, here it is a bill.
+    """
+    report = stuck_transcriptions()
+    if report is None:
+        logger.info("no stuck transcriptions")
+        return
+
+    logger.warning(
+        "stuck transcriptions",
+        extra={"count": report.count, "oldest_age_days": report.oldest_age_days},
+    )
+
+    recipient = settings.OPERATIONS_ALERT_EMAIL
+    if not recipient:
+        # Configured-off is not an error. The log line above already carries
+        # the finding, which is the half that does not depend on anyone having
+        # set an address.
+        logger.info("no operations alert address configured; nothing sent")
+        return
+
+    send_stuck_transcription_alert(to=recipient, report=report)
