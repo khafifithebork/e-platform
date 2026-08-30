@@ -38,9 +38,15 @@ bootstrap:
 dev: bootstrap
 	$(COMPOSE) up
 
-# Frontend has no test runner yet: Vitest arrives with the first component in
-# M2. Until then the frontend contributes its type check and lint to the suite.
+# The whole suite: backend, then the frontend's tests, types and lint.
+#
+# The frontend test run was missing here until M14 T6. The comment this replaces
+# said "Vitest arrives with the first component in M2" — it arrived in M15 T2,
+# and `make test` went on skipping 334 tests that CI was running all along. A
+# command documented as the full suite has to be one, or the next person to
+# trust it gets a green run that proved less than they think.
 test: test-fast
+	cd frontend && $(NPM) run test
 	cd frontend && $(NPM) run typecheck
 	cd frontend && $(NPM) run lint
 
