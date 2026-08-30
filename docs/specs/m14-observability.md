@@ -1,6 +1,6 @@
 # M14 — Observability & Launch
 
-**Status:** T2–T5 built. T6–T10 blocked on provisioning.
+**Status:** T2–T6 built. T7–T10 blocked on provisioning.
 **Branch:** `feat/m14-observability`
 **Depends on:** M13 platform work (for most of it), M11 email adapter (for alerts)
 
@@ -98,7 +98,7 @@ nothing lands on local disk.
 | # | Task | Blocked on |
 |---|---|---|
 | T5 | Sentry in Django, Celery and Next.js; DSN from env; ~~spend cap~~ | **built 2026-08-29** — see §4.2 |
-| T6 | `/metrics` or Sentry Insights — queue depth, transcription age, webhook lag | T5 |
+| T6 | `/metrics`, token-guarded — queue depth, transcription age, webhook lag | **built 2026-08-30** — §4.3 |
 | T7 | Uptime monitors — **not on `/healthz` alone**, see §4.1 | a deployment |
 | T8 | Backups: Neon PITR **and** weekly `pg_dump` to R2 | M13 platform |
 | T9 | **Restore drill, executed** | T8 |
@@ -150,6 +150,32 @@ Approved under §5 on 2026-08-29. `sentry-sdk` and `@sentry/nextjs`.
 **T6 inherits two questions from it**: whether to close the Worker gap with
 `@sentry/cloudflare` (another §5 gate), and whether 5k errors a month survives
 a repeated error on a public site.
+
+### 4.3 T6 is built, and needs no account
+
+`/metrics` in Prometheus format behind a bearer token, 404 until one is
+configured. **No new dependency and no new service**, so no §5 gate — the
+format is three lines per metric and a client library would have brought a
+registry and a multiprocess mode nothing here uses. ADR-028 is the record.
+
+Sentry Insights was the other option and was declined for a specific reason:
+it needs tracing on, tracing bills a quota separate from the 5k errors, and
+ADR-027 §2 had just recorded that ceiling as unmeasured.
+
+**The stuck-transcription alert is included**, on T4's machinery. §3.7 lists it
+among the business alerts and calls that row "the one people skip and
+shouldn't"; T4 built Beat, the threshold and the mail path, and used it once.
+
+**§3.7 lists a fourth metric this task cannot compute** — *video minutes
+delivered*. It is a provider-reported billing figure, no video provider has
+been chosen, and computing it from our own data would invent a provider
+capability. ADR-028 §5 records it so it returns with the Mux decision rather
+than vanishing.
+
+**T7 is unblocked by nothing here** — it still needs a deployment. But §4.1's
+warning now has somewhere to point: the catalogue read it asks for is exactly
+the kind of check `/healthz` cannot do, and `/metrics` is a second endpoint an
+uptime monitor should *not* be aimed at either, for the same reason.
 
 ---
 
