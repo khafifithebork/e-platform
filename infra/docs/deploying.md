@@ -2,6 +2,8 @@
 
 What happens on a merge to `master`, and what has to exist first.
 
+**`provisioning.md` is the companion to this file** — what has to be created, in what order, and what it costs. Read that first if nothing exists yet.
+
 **The pipeline is dormant.** Every deploy job is gated on the repository
 variable `DEPLOY_ENABLED`, which is unset. Nothing exists to deploy to yet, and
 a pipeline that fails on every merge until somebody provisions is a pipeline
