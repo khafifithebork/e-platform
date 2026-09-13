@@ -67,8 +67,8 @@ export function Field({
           [hasErrors ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ") ||
           undefined
         }
-        className={`rounded-[--radius-sm] border bg-surface px-3 py-2 text-ink
-          transition-colors placeholder:text-ink-subtle
+        className={`rounded-[--radius-md] border bg-surface px-3.5 py-2.5 text-ink
+          shadow-[--shadow-sm] transition-colors placeholder:text-ink-subtle
           disabled:cursor-not-allowed disabled:opacity-60
           ${hasErrors ? "border-danger" : "border-line-strong hover:border-ink-subtle"}`}
       />
