@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Card } from "@/components/ui/Card";
 import { formatPrice, yearlySavingPercent, type PriceBook } from "@/lib/pricing";
 
@@ -23,22 +24,26 @@ export function PricingPlans({ prices }: { prices: PriceBook | null }) {
   const saving = yearlySavingPercent(prices);
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2">
-      <Plan
-        name="Monthly"
-        price={formatPrice(prices.monthly)}
-        period="per month"
-        note="Cancel any time. Access continues to the end of the period you paid for."
-      />
-      <Plan
-        name="Yearly"
-        price={formatPrice(prices.yearly)}
-        period="per year"
-        // `saving` is null when a year costs as much as twelve months, and
-        // then nothing is claimed. "Save 0%" is worse than saying nothing.
-        note={saving === null ? "Billed once a year." : `Billed once a year — save ${saving}%.`}
-      />
-    </div>
+    <StaggerList as="div" className="grid gap-5 sm:grid-cols-2">
+      <StaggerItem as="div">
+        <Plan
+          name="Monthly"
+          price={formatPrice(prices.monthly)}
+          period="per month"
+          note="Cancel any time. Access continues to the end of the period you paid for."
+        />
+      </StaggerItem>
+      <StaggerItem as="div">
+        <Plan
+          name="Yearly"
+          price={formatPrice(prices.yearly)}
+          period="per year"
+          // `saving` is null when a year costs as much as twelve months, and
+          // then nothing is claimed. "Save 0%" is worse than saying nothing.
+          note={saving === null ? "Billed once a year." : `Billed once a year — save ${saving}%.`}
+        />
+      </StaggerItem>
+    </StaggerList>
   );
 }
 
@@ -54,7 +59,12 @@ function Plan({
   note: string;
 }) {
   return (
-    <Card as="section" aria-labelledby={`plan-${name.toLowerCase()}`} className="flex flex-col gap-3 p-6">
+    <Card
+      as="section"
+      aria-labelledby={`plan-${name.toLowerCase()}`}
+      hoverable
+      className="flex flex-col gap-3 p-6"
+    >
       <h2 id={`plan-${name.toLowerCase()}`} className="font-medium text-ink">
         {name}
       </h2>

@@ -12,8 +12,11 @@ import type { ReactNode } from "react";
  * (`ul`/`li`) covers every course and enrolment grid this wraps — real
  * lists, read by a screen reader as a list of N items, which is why the
  * primitive renders the actual element rather than a `<div>` grid animated to
- * look like one. `dl`/`div` covers the one place this app stagger-reveals a
- * description list instead.
+ * look like one. `dl` covers the one place this app stagger-reveals a
+ * description list instead, and a plain `div` container is for a grid of
+ * things that are not a list at all — two independent `<section>`s, say —
+ * where forcing list semantics onto unrelated content would be the same
+ * mistake in the other direction.
  *
  * **Not a generic `as` prop.** A `motion.create(Tag)` call for a runtime tag
  * string would construct a new component type on every render — React would
@@ -50,7 +53,7 @@ export function StaggerList({
   className,
   ...props
 }: Omit<React.HTMLAttributes<HTMLElement>, Excluded> & {
-  as?: "ul" | "dl";
+  as?: "ul" | "dl" | "div";
   children: ReactNode;
 }) {
   const reduceMotion = useReducedMotion();
@@ -64,7 +67,7 @@ export function StaggerList({
     );
   }
 
-  const Motion = as === "dl" ? motion.dl : motion.ul;
+  const Motion = as === "dl" ? motion.dl : as === "div" ? motion.div : motion.ul;
 
   return (
     <Motion
