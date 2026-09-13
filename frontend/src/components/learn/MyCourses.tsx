@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Card } from "@/components/ui/Card";
 import { ApiError, api, type Enrollment } from "@/lib/api/client";
 
@@ -98,13 +99,13 @@ export function MyCourses() {
   }
 
   return (
-    <ul className="flex flex-col gap-4">
+    <StaggerList className="flex flex-col gap-4">
       {state.enrollments.map((enrollment) => (
-        <li key={enrollment.id}>
+        <StaggerItem key={enrollment.id}>
           <EnrollmentCard enrollment={enrollment} />
-        </li>
+        </StaggerItem>
       ))}
-    </ul>
+    </StaggerList>
   );
 }
 

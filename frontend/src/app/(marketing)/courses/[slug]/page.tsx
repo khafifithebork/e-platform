@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { CourseCard } from "@/components/catalogue/CourseCard";
 import { CourseProgress } from "@/components/catalogue/CourseProgress";
 import { Curriculum } from "@/components/catalogue/Curriculum";
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Badge } from "@/components/ui/Badge";
 import {
   CatalogueNotFound,
@@ -143,13 +144,13 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
           <h2 id="related" className="font-display text-2xl text-ink">
             Related courses
           </h2>
-          <ul className="grid gap-5 sm:grid-cols-2">
+          <StaggerList className="grid gap-5 sm:grid-cols-2">
             {course.related.map((related) => (
-              <li key={related.slug}>
+              <StaggerItem key={related.slug}>
                 <CourseCard course={related} />
-              </li>
+              </StaggerItem>
             ))}
-          </ul>
+          </StaggerList>
         </section>
       )}
     </article>
