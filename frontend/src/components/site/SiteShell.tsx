@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AuthMenu } from "@/components/auth/AuthMenu";
+import { NavLinks } from "@/components/site/NavLinks";
 
 /**
  * The chrome every page outside the auth flow wears.
@@ -76,11 +77,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
            * tells a screen-reader user nothing about which is which.
            */}
           <nav aria-label="Main" className="flex items-center gap-6 text-sm">
-            {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="text-ink-muted hover:text-ink">
-                {item.label}
-              </Link>
-            ))}
+            <NavLinks items={NAV} />
 
             {/*
              * The one personalised thing in an otherwise impersonal shell. A

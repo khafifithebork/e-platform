@@ -1,4 +1,7 @@
+"use client";
+
 import { cva, type VariantProps } from "class-variance-authority";
+import { motion, useReducedMotion } from "framer-motion";
 import type { ButtonHTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils/cn";
@@ -23,7 +26,7 @@ import { cn } from "@/lib/utils/cn";
  */
 const button = cva(
   `inline-flex items-center justify-center gap-2 rounded-[--radius-sm]
-   text-sm font-medium transition-all duration-150
+   text-sm font-medium transition-colors duration-150
    disabled:cursor-not-allowed disabled:opacity-60`,
   {
     variants: {
@@ -47,13 +50,20 @@ const button = cva(
   },
 );
 
-interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof button> {
-  /** Shows progress and blocks repeat submits. */
-  pending?: boolean;
-  pendingLabel?: string;
-}
+/**
+ * See `Card.tsx` for why these three are excluded: React's native DOM
+ * events and framer-motion's animation/gesture props share five names with
+ * incompatible signatures, and nothing here uses any of them.
+ */
+type ButtonProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart" | "onAnimationEnd"
+> &
+  VariantProps<typeof button> & {
+    /** Shows progress and blocks repeat submits. */
+    pending?: boolean;
+    pendingLabel?: string;
+  };
 
 export function Button({
   variant,
@@ -65,16 +75,25 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
+  const reduceMotion = useReducedMotion();
+  const isDisabled = disabled || pending;
+
   return (
-    <button
+    <motion.button
       {...props}
-      disabled={disabled || pending}
+      disabled={isDisabled}
       // aria-busy rather than swapping in a spinner alone: a screen reader
       // should know the control is working, not just that its label changed.
       aria-busy={pending}
       className={cn(button({ variant, size }), className)}
+      // A press should read as a press: a slight compression on pointer-down,
+      // released on up. Skipped when reduced motion is requested or the
+      // control cannot be pressed at all — animating a scale on a disabled
+      // button would be motion with nothing for it to mean.
+      whileTap={!reduceMotion && !isDisabled ? { scale: 0.97 } : undefined}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
     >
       {pending ? pendingLabel : children}
-    </button>
+    </motion.button>
   );
 }
