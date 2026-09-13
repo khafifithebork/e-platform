@@ -32,9 +32,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <aside
         aria-hidden="true"
-        className="hidden flex-col justify-center bg-surface-sunken px-16 lg:flex"
+        className="relative hidden flex-col justify-center overflow-hidden
+          bg-surface-sunken px-16 lg:flex"
       >
-        <blockquote className="max-w-md">
+        {/* The same glow the landing page uses behind its hero, at rest here
+            rather than centred on any one line of the quote — it is texture
+            for the panel, not emphasis for the text. */}
+        <div
+          className="pointer-events-none absolute inset-0
+            bg-[radial-gradient(ellipse_50%_40%_at_80%_20%,var(--color-accent-subtle),transparent)]"
+        />
+
+        <blockquote className="relative max-w-md">
           <p className="font-display text-3xl leading-snug text-ink">
             A language is not a subject to be finished. It is a habit, built
             fifteen minutes at a time.

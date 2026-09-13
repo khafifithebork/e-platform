@@ -47,12 +47,26 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      <header className="border-b border-line">
+      <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-6 py-5">
           <Link
             href="/"
-            className="font-display text-xl tracking-tight text-ink hover:text-accent"
+            className="flex items-center gap-2 font-display text-xl tracking-tight
+              text-ink transition-colors hover:text-accent"
           >
+            {/*
+             * A mark, not a logo file — one glyph in the accent colour, so the
+             * wordmark reads as a product rather than plain text in the header.
+             * Decorative: the name beside it already says "Lingua" to a screen
+             * reader.
+             */}
+            <span
+              aria-hidden="true"
+              className="flex h-6 w-6 items-center justify-center rounded-[--radius-sm]
+                bg-accent text-sm font-semibold text-on-accent"
+            >
+              L
+            </span>
             Lingua
           </Link>
 
