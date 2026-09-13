@@ -80,12 +80,12 @@ export function TranscriptPanel({ segments, positionSeconds, onSeek }: Transcrip
               type="button"
               onClick={() => onSeek(segment.start_ms / 1000)}
               aria-current={index === current ? "true" : undefined}
-              className={`w-full rounded-[--radius-sm] px-3 py-2 text-left text-sm leading-relaxed
-                transition-colors hover:bg-surface-sunken
+              className={`w-full rounded-[--radius-sm] border-l-2 px-3 py-2 text-left text-sm
+                leading-relaxed transition-colors hover:bg-surface-sunken
                 ${
                   index === current
-                    ? "bg-accent-subtle font-medium text-ink"
-                    : "text-ink-muted"
+                    ? "border-accent bg-accent-subtle font-medium text-ink"
+                    : "border-transparent text-ink-muted"
                 }`}
             >
               {segment.text}
