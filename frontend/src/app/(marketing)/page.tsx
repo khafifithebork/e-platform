@@ -33,82 +33,102 @@ export default async function Home() {
   const courses = await allPublishedCourses();
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-20 px-6 py-20">
-      <section className="flex max-w-2xl flex-col gap-6">
-        <h1 className="font-display text-4xl leading-tight tracking-tight text-ink sm:text-5xl">
-          Language courses, reviewed before they are published.
-        </h1>
+    <div className="flex flex-col gap-20">
+      {/*
+       * The glow sits behind the hero text only, not the whole page — a wash
+       * of colour across every section would fight the editorial restraint
+       * the rest of the palette holds to. `-z-10` and a fixed height keep it
+       * from being read as a card boundary or pushing later content down.
+       */}
+      <section className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[32rem]
+            bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,var(--color-accent-subtle),transparent)]"
+        />
 
-        <p className="text-lg leading-relaxed text-ink-muted">
-          Every course here was submitted by an instructor and approved by a
-          person before anyone could see it. No open marketplace, no
-          auto-published backlog.
-        </p>
+        <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 pt-20">
+          <div className="flex max-w-2xl flex-col gap-6">
+            <h1 className="font-display text-4xl leading-tight tracking-tight text-ink sm:text-5xl">
+              Language courses, reviewed before they are published.
+            </h1>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/courses"
-            className="rounded-[--radius-md] bg-accent px-5 py-2.5 text-center
-              font-medium text-on-accent transition-colors hover:bg-accent-hover"
-          >
-            Browse the catalogue
-          </Link>
-          <Link
-            href="/pricing"
-            className="rounded-[--radius-md] border border-line-strong px-5 py-2.5
-              text-center font-medium text-ink transition-colors hover:border-ink-subtle"
-          >
-            See pricing
-          </Link>
+            <p className="text-lg leading-relaxed text-ink-muted">
+              Every course here was submitted by an instructor and approved by
+              a person before anyone could see it. No open marketplace, no
+              auto-published backlog.
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/courses"
+                className="rounded-[--radius-md] bg-accent px-5 py-2.5 text-center
+                  font-medium text-on-accent shadow-[--shadow-sm] transition-all
+                  hover:bg-accent-hover hover:shadow-[--shadow-md]"
+              >
+                Browse the catalogue
+              </Link>
+              <Link
+                href="/pricing"
+                className="rounded-[--radius-md] border border-line-strong bg-surface
+                  px-5 py-2.5 text-center font-medium text-ink transition-colors
+                  hover:border-ink-subtle hover:bg-surface-sunken"
+              >
+                See pricing
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
-      <FeaturedCourses courses={courses} />
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-20 px-6 pb-20">
+        <FeaturedCourses courses={courses} />
 
-      <section aria-labelledby="what-you-get" className="flex flex-col gap-6">
-        <h2 id="what-you-get" className="font-display text-2xl text-ink">
-          What is in every course
-        </h2>
+        <section aria-labelledby="what-you-get" className="flex flex-col gap-6">
+          <h2 id="what-you-get" className="font-display text-2xl text-ink">
+            What is in every course
+          </h2>
 
-        {/*
-         * A description list, not a grid of divs. Each item is a term and its
-         * explanation, which is what `<dl>` is for — and it gives assistive
-         * technology the pairing without any ARIA.
-         */}
-        <dl className="grid gap-8 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <dt className="font-medium text-ink">Video, audio and written lessons</dt>
-            <dd className="text-ink-muted">
-              A lesson is whichever of those suits it. Listening practice does
-              not need a video of somebody talking.
-            </dd>
-          </div>
+          {/*
+           * A description list, not a grid of divs. Each item is a term and its
+           * explanation, which is what `<dl>` is for — and it gives assistive
+           * technology the pairing without any ARIA.
+           */}
+          <dl className="grid gap-8 sm:grid-cols-2">
+            <div className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5">
+              <dt className="font-medium text-ink">Video, audio and written lessons</dt>
+              <dd className="text-ink-muted">
+                A lesson is whichever of those suits it. Listening practice does
+                not need a video of somebody talking.
+              </dd>
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <dt className="font-medium text-ink">Transcripts and subtitles</dt>
-            <dd className="text-ink-muted">
-              Every spoken lesson is transcribed, so you can read along, search
-              inside it, or follow without sound.
-            </dd>
-          </div>
+            <div className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5">
+              <dt className="font-medium text-ink">Transcripts and subtitles</dt>
+              <dd className="text-ink-muted">
+                Every spoken lesson is transcribed, so you can read along, search
+                inside it, or follow without sound.
+              </dd>
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <dt className="font-medium text-ink">Progress that follows you</dt>
-            <dd className="text-ink-muted">
-              Where you stopped is remembered per lesson, and picking up on
-              another device continues from the same place.
-            </dd>
-          </div>
+            <div className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5">
+              <dt className="font-medium text-ink">Progress that follows you</dt>
+              <dd className="text-ink-muted">
+                Where you stopped is remembered per lesson, and picking up on
+                another device continues from the same place.
+              </dd>
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <dt className="font-medium text-ink">Reviewed, not just uploaded</dt>
-            <dd className="text-ink-muted">
-              An administrator reads a course before it is published, and can
-              send it back. That is the whole reason this catalogue is small.
-            </dd>
-          </div>
-        </dl>
-      </section>
+            <div className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5">
+              <dt className="font-medium text-ink">Reviewed, not just uploaded</dt>
+              <dd className="text-ink-muted">
+                An administrator reads a course before it is published, and can
+                send it back. That is the whole reason this catalogue is small.
+              </dd>
+            </div>
+          </dl>
+        </section>
+      </div>
     </div>
   );
 }

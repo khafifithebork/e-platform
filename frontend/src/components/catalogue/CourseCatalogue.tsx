@@ -209,8 +209,9 @@ function Select({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-[--radius-sm] border border-line-strong bg-surface
-          px-3 py-2 text-ink"
+        className="rounded-[--radius-md] border border-line-strong bg-surface
+          px-3.5 py-2.5 text-ink shadow-[--shadow-sm] transition-colors
+          hover:border-ink-subtle"
       >
         <option value={ANY}>{anyLabel}</option>
         {options.map((option) => (

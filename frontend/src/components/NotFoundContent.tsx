@@ -41,14 +41,16 @@ export function NotFoundContent() {
         <Link
           href="/courses"
           className="rounded-[--radius-md] bg-accent px-5 py-2.5 text-center
-            font-medium text-on-accent transition-colors hover:bg-accent-hover"
+            font-medium text-on-accent shadow-[--shadow-sm] transition-all
+            hover:bg-accent-hover hover:shadow-[--shadow-md]"
         >
           Browse the catalogue
         </Link>
         <Link
           href="/"
-          className="rounded-[--radius-md] border border-line-strong px-5 py-2.5
-            text-center font-medium text-ink transition-colors hover:border-ink-subtle"
+          className="rounded-[--radius-md] border border-line-strong bg-surface px-5 py-2.5
+            text-center font-medium text-ink transition-colors hover:border-ink-subtle
+            hover:bg-surface-sunken"
         >
           Go to the home page
         </Link>

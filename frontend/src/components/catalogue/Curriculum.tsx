@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Badge } from "@/components/ui/Badge";
 import type { PublicSection } from "@/lib/catalogue/courses";
 
 /**
@@ -82,14 +83,7 @@ export function Curriculum({
                    * a link: the lesson route is entitlement-gated and lives
                    * outside this route group.
                    */}
-                  {lesson.is_preview && (
-                    <span
-                      className="rounded-[--radius-sm] bg-accent-subtle px-1.5 py-0.5
-                        text-xs font-medium text-accent"
-                    >
-                      Free preview
-                    </span>
-                  )}
+                  {lesson.is_preview && <Badge tone="accent">Free preview</Badge>}
                 </li>
               ))}
           </ul>

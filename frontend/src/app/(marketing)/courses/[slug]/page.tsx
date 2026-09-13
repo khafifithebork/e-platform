@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { CourseCard } from "@/components/catalogue/CourseCard";
 import { CourseProgress } from "@/components/catalogue/CourseProgress";
 import { Curriculum } from "@/components/catalogue/Curriculum";
+import { Badge } from "@/components/ui/Badge";
 import {
   CatalogueNotFound,
   publishedCourse,
@@ -113,12 +114,8 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
         {skills.length > 0 && (
           <ul className="flex flex-wrap gap-1.5">
             {skills.map((skill) => (
-              <li
-                key={skill}
-                className="rounded-[--radius-sm] bg-surface-sunken px-2 py-0.5
-                  text-xs text-ink-muted"
-              >
-                {skill}
+              <li key={skill}>
+                <Badge>{skill}</Badge>
               </li>
             ))}
           </ul>

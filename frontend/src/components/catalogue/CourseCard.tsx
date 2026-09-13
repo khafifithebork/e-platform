@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
 import type { PublicCourse } from "@/lib/catalogue/courses";
 
 /**
@@ -40,11 +42,7 @@ export function CourseCard({
   const skills = Array.isArray(course.skill_areas) ? (course.skill_areas as string[]) : [];
 
   return (
-    <article
-      aria-labelledby={titleId}
-      className="flex flex-col gap-3 rounded-[--radius-lg] border border-line
-        bg-surface p-5 transition-colors hover:border-line-strong"
-    >
+    <Card as="article" aria-labelledby={titleId} hoverable className="flex flex-col gap-3">
       <div className="flex items-center gap-2 text-sm text-ink-subtle">
         <span>{course.language.name}</span>
         <span aria-hidden="true">·</span>
@@ -82,17 +80,13 @@ export function CourseCard({
       {skills.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">
           {skills.map((skill) => (
-            <li
-              key={skill}
-              className="rounded-[--radius-sm] bg-surface-sunken px-2 py-0.5
-                text-xs text-ink-muted"
-            >
-              {skill}
+            <li key={skill}>
+              <Badge>{skill}</Badge>
             </li>
           ))}
         </ul>
       )}
-    </article>
+    </Card>
   );
 }
 
