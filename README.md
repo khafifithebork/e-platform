@@ -148,6 +148,7 @@ documents. Later ADRs beat earlier documents.
 | `docs/specs/` | Per-milestone specifications and abuse cases |
 | `docs/runbooks/` | Rollback, and what has actually been rehearsed |
 | `docs/spikes/` | Research that informed a decision |
+| `infra/docs/provisioning.md` | What to create, in what order, what it costs |
 | `infra/docs/deploying.md` | What happens on a merge, and what must exist first |
 | `docs/SESSION-RECAP.md` | What changed recently and why |
 
