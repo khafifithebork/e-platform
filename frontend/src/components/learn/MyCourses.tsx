@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
+import { Card } from "@/components/ui/Card";
 import { ApiError, api, type Enrollment } from "@/lib/api/client";
 
 /**
@@ -97,13 +99,13 @@ export function MyCourses() {
   }
 
   return (
-    <ul className="flex flex-col gap-4">
+    <StaggerList className="flex flex-col gap-4">
       {state.enrollments.map((enrollment) => (
-        <li key={enrollment.id}>
+        <StaggerItem key={enrollment.id}>
           <EnrollmentCard enrollment={enrollment} />
-        </li>
+        </StaggerItem>
       ))}
-    </ul>
+    </StaggerList>
   );
 }
 
@@ -113,9 +115,11 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
   const finished = enrollment.next_lesson_slug === null;
 
   return (
-    <article
+    <Card
+      as="article"
       aria-labelledby={`enrollment-${enrollment.id}`}
-      className="flex flex-col gap-3 rounded-[--radius-lg] border border-line bg-surface p-5"
+      hoverable
+      className="flex flex-col gap-3"
     >
       <h2 id={`enrollment-${enrollment.id}`} className="font-display text-xl text-ink">
         <Link href={`/courses/${enrollment.course_slug}`} className="hover:text-accent">
@@ -150,7 +154,8 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
         <Link
           href={`/courses/${enrollment.course_slug}/lessons/${enrollment.next_lesson_slug}`}
           className="self-start rounded-[--radius-md] bg-accent px-4 py-2 text-sm
-            font-medium text-on-accent transition-colors hover:bg-accent-hover"
+            font-medium text-on-accent shadow-[--shadow-sm] transition-all
+            hover:bg-accent-hover hover:shadow-[--shadow-md]"
         >
           {/*
            * "Continue" only once something has been watched. A course with an
@@ -161,6 +166,6 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
           {enrollment.last_lesson_slug ? "Continue" : "Start"}
         </Link>
       )}
-    </article>
+    </Card>
   );
 }

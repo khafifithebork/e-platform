@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
+import { Card } from "@/components/ui/Card";
 import { formatPrice, yearlySavingPercent, type PriceBook } from "@/lib/pricing";
 
 /**
@@ -22,22 +24,26 @@ export function PricingPlans({ prices }: { prices: PriceBook | null }) {
   const saving = yearlySavingPercent(prices);
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2">
-      <Plan
-        name="Monthly"
-        price={formatPrice(prices.monthly)}
-        period="per month"
-        note="Cancel any time. Access continues to the end of the period you paid for."
-      />
-      <Plan
-        name="Yearly"
-        price={formatPrice(prices.yearly)}
-        period="per year"
-        // `saving` is null when a year costs as much as twelve months, and
-        // then nothing is claimed. "Save 0%" is worse than saying nothing.
-        note={saving === null ? "Billed once a year." : `Billed once a year — save ${saving}%.`}
-      />
-    </div>
+    <StaggerList as="div" className="grid gap-5 sm:grid-cols-2">
+      <StaggerItem as="div">
+        <Plan
+          name="Monthly"
+          price={formatPrice(prices.monthly)}
+          period="per month"
+          note="Cancel any time. Access continues to the end of the period you paid for."
+        />
+      </StaggerItem>
+      <StaggerItem as="div">
+        <Plan
+          name="Yearly"
+          price={formatPrice(prices.yearly)}
+          period="per year"
+          // `saving` is null when a year costs as much as twelve months, and
+          // then nothing is claimed. "Save 0%" is worse than saying nothing.
+          note={saving === null ? "Billed once a year." : `Billed once a year — save ${saving}%.`}
+        />
+      </StaggerItem>
+    </StaggerList>
   );
 }
 
@@ -53,9 +59,11 @@ function Plan({
   note: string;
 }) {
   return (
-    <section
+    <Card
+      as="section"
       aria-labelledby={`plan-${name.toLowerCase()}`}
-      className="flex flex-col gap-3 rounded-[--radius-lg] border border-line bg-surface p-6"
+      hoverable
+      className="flex flex-col gap-3 p-6"
     >
       <h2 id={`plan-${name.toLowerCase()}`} className="font-medium text-ink">
         {name}
@@ -70,7 +78,7 @@ function Plan({
         <span className="text-sm text-ink-muted">{period}</span>
       </p>
       <p className="text-sm text-ink-muted">{note}</p>
-    </section>
+    </Card>
   );
 }
 
@@ -85,7 +93,7 @@ function Plan({
  */
 function Unannounced() {
   return (
-    <div className="flex flex-col gap-4 rounded-[--radius-lg] border border-line bg-surface p-6">
+    <Card className="flex flex-col gap-4 p-6">
       <h2 className="font-medium text-ink">Pricing is not announced yet</h2>
       <p className="max-w-prose text-ink-muted">
         There will be one subscription covering every course, billed monthly or
@@ -99,6 +107,6 @@ function Unannounced() {
       <Link href="/courses" className="text-accent hover:text-accent-hover">
         Browse the catalogue
       </Link>
-    </div>
+    </Card>
   );
 }

@@ -334,14 +334,14 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
                 videoRef.current.currentTime = positionRef.current;
               }
             }}
-            className="w-full rounded-[--radius-md] bg-black"
+            className="w-full rounded-[--radius-md] bg-black shadow-[--shadow-md]"
           >
             {/* Subtitles come from the same rows the panel renders, as the
                 projection a `<track>` element can consume (invariant 13). */}
             <track kind="captions" src={`/api/v1/lessons/${lessonId}/transcript.vtt`} default />
           </video>
         ) : (
-          <div className="rounded-[--radius-md] border border-line bg-surface-sunken p-6">
+          <div className="rounded-[--radius-md] border border-line bg-surface-sunken p-6 shadow-[--shadow-sm]">
             <p className="mb-3 text-sm text-ink-muted">
               No video provider is configured, so this is a stand-in clock. It reports
               progress exactly as a real player would.
@@ -374,7 +374,7 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
       </div>
 
       {segments.length > 0 ? (
-        <div className="max-h-[32rem] rounded-[--radius-md] border border-line bg-surface p-4">
+        <div className="max-h-[32rem] rounded-[--radius-md] border border-line bg-surface p-4 shadow-[--shadow-sm]">
           <TranscriptPanel segments={segments} positionSeconds={position} onSeek={seek} />
         </div>
       ) : null}

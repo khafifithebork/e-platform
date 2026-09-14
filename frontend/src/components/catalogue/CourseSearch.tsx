@@ -129,8 +129,9 @@ export function CourseSearch({
           // count and any error are announced as part of this field rather
           // than as loose text somewhere on the page.
           aria-describedby="search-status"
-          className="w-full max-w-md rounded-[--radius-sm] border border-line-strong
-            bg-surface px-3 py-2 text-ink placeholder:text-ink-subtle"
+          className="w-full max-w-md rounded-[--radius-md] border border-line-strong
+            bg-surface px-3.5 py-2.5 text-ink shadow-[--shadow-sm]
+            transition-colors placeholder:text-ink-subtle hover:border-ink-subtle"
         />
       </label>
 

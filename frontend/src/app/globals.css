@@ -3,10 +3,12 @@
 /*
  * Design tokens.
  *
- * The palette is warm ink-on-paper with a single ochre accent — deliberately
- * not the blue-or-violet a product like this defaults to. A curated language
- * catalogue is closer to a well-set book than to a dashboard, and the surface
- * should say so before any copy is read.
+ * The palette is warm ink-on-paper with a single terracotta accent —
+ * deliberately not the blue-or-violet a product like this defaults to. A
+ * curated language catalogue is closer to a well-set book than to a
+ * dashboard, and the surface should say so before any copy is read. The
+ * accent moved from ochre to terracotta (2026-09-13) for more warmth and
+ * energy — same paper/ink structure, same accessibility discipline below.
  *
  * Every colour here is committed to in both schemes. Semantic names only:
  * nothing in a component should reference a raw value.
@@ -32,17 +34,19 @@
   --color-line-strong: #948770;
 
   /*
-   * Ochre.
+   * Terracotta, replacing the original ochre.
    *
-   * Darkened from #a8621b, which measured 4.47 against paper — under AA by a
-   * margin too small to see and large enough to fail. The comment that used to
-   * sit here claimed it was "dark enough for white text at AA"; that was true
-   * of white-on-accent (4.74) and untrue of accent-as-text, and nothing
-   * checked either. `contrast.test.ts` now does.
+   * Same structure and the same discipline — one accent, checked by
+   * `contrast.test.ts` in both schemes — but ochre read as muted/brown at the
+   * saturation AA allowed. This sits closer to red on the wheel at the same
+   * lightness, which reads as warmer and more alive without pushing into a
+   * tone the paper/ink system wasn't built for. 5.50 against paper, 5.84
+   * against surface — both with headroom, not scraping AA the way the
+   * original did.
    */
-  --color-accent: #9d5b18;
-  --color-accent-hover: #8c4f13;
-  --color-accent-subtle: #fdf3e7;
+  --color-accent: #b23e1c;
+  --color-accent-hover: #8f3216;
+  --color-accent-subtle: #fdf1ea;
 
   /*
    * What goes *on* the accent, which is not simply white.
@@ -75,6 +79,27 @@
   --radius-sm: 3px;
   --radius-md: 5px;
   --radius-lg: 8px;
+
+  /*
+   * Elevation, tinted with ink rather than pure black.
+   *
+   * A shadow is light blocked by the page's own surface, not a grey rectangle
+   * — keeping it ink-coloured at low opacity is what makes a raised card read
+   * as paper lifted off paper instead of a div with a CSS effect on it. Two
+   * steps only: a resting card and a hovered one, which is every elevation
+   * change this design uses.
+   */
+  --shadow-sm: 0 1px 3px rgb(28 25 23 / 0.09), 0 1px 2px rgb(28 25 23 / 0.06);
+  --shadow-md: 0 16px 32px rgb(28 25 23 / 0.14), 0 4px 10px rgb(28 25 23 / 0.08);
+  /*
+   * Each combines its drop shadow with a hairline of light along the top
+   * edge — the way a card lifted off paper catches light nearest the source.
+   * Combined here, not composed at each call site: `shadow-[--var]` and
+   * framer-motion's `boxShadow` both take one property value, and a card is
+   * the only thing in this design that is ever elevated.
+   */
+  --shadow-card-resting: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.5);
+  --shadow-card-hovered: var(--shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -91,10 +116,10 @@
     /* 1.74 before, 3.24 now. Same reasoning as the light scheme. */
     --color-line-strong: #756c5b;
 
-    /* Lifted for contrast against the dark surface. */
-    --color-accent: #e0932f;
-    --color-accent-hover: #f0a743;
-    --color-accent-subtle: #2b2114;
+    /* Lifted for contrast against the dark surface, same terracotta hue. */
+    --color-accent: #ef7a4a;
+    --color-accent-hover: #f4966b;
+    --color-accent-subtle: #2e1c12;
     /* Dark ink on a bright accent, not white on it. See the light block. */
     --color-on-accent: #17150f;
 
@@ -102,6 +127,17 @@
     --color-danger-subtle: #2c1319;
     --color-success: #6fb98a;
     --color-success-subtle: #12231a;
+
+    /*
+     * Deeper and more opaque than the light scheme's. A shadow this dark on a
+     * background this dark needs more of it to read as a boundary at all —
+     * the light scheme's values here would be invisible against `--color-paper`.
+     */
+    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.34), 0 1px 2px rgb(0 0 0 / 0.26);
+    --shadow-md: 0 16px 32px rgb(0 0 0 / 0.48), 0 4px 10px rgb(0 0 0 / 0.32);
+    /* Same hairline, dimmer — a bright top edge would read as a glow, not a bevel, this dark. */
+    --shadow-card-resting: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --shadow-card-hovered: var(--shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.06);
   }
 }
 

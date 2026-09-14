@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { CourseCard } from "@/components/catalogue/CourseCard";
 import { CourseSearch } from "@/components/catalogue/CourseSearch";
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import type { Language, PublicCourse } from "@/lib/catalogue/courses";
 import type { CourseSearchResults } from "@/lib/catalogue/search";
 
@@ -138,14 +139,14 @@ export function CourseCatalogue({
           No courses match those filters yet. Try widening one of them.
         </p>
       ) : (
-        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visible.map((course) => (
-            <li key={course.slug}>
+            <StaggerItem key={course.slug}>
               {/* Directly under the page's <h1>, so these are <h2>. */}
               <CourseCard course={course} headingLevel={2} />
-            </li>
+            </StaggerItem>
           ))}
-        </ul>
+        </StaggerList>
       )}
     </div>
   );
@@ -178,14 +179,14 @@ function SearchResults({ results }: { results: CourseSearchResults | null }) {
         {results.truncated && ` (showing the first ${results.limit})`}
       </p>
 
-      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {results.results.map((course) => (
-          <li key={course.slug}>
+          <StaggerItem key={course.slug}>
             {/* Directly under the page's <h1>, so these are <h2>. */}
             <CourseCard course={course} headingLevel={2} />
-          </li>
+          </StaggerItem>
         ))}
-      </ul>
+      </StaggerList>
     </div>
   );
 }
@@ -209,8 +210,9 @@ function Select({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-[--radius-sm] border border-line-strong bg-surface
-          px-3 py-2 text-ink"
+        className="rounded-[--radius-md] border border-line-strong bg-surface
+          px-3.5 py-2.5 text-ink shadow-[--shadow-sm] transition-colors
+          hover:border-ink-subtle"
       >
         <option value={ANY}>{anyLabel}</option>
         {options.map((option) => (

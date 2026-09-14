@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CourseCard } from "@/components/catalogue/CourseCard";
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import type { PublicCourse } from "@/lib/catalogue/courses";
 
 /**
@@ -49,13 +50,13 @@ export function FeaturedCourses({ courses }: { courses: PublicCourse[] }) {
         </Link>
       </div>
 
-      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {featured.map((course) => (
-          <li key={course.slug}>
+          <StaggerItem key={course.slug}>
             <CourseCard course={course} />
-          </li>
+          </StaggerItem>
         ))}
-      </ul>
+      </StaggerList>
     </section>
   );
 }

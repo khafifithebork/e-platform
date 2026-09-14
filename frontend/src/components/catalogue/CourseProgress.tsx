@@ -56,7 +56,7 @@ export function CourseProgress({ courseSlug }: { courseSlug: string }) {
     <aside
       aria-label="Your progress"
       className="flex flex-wrap items-center gap-4 rounded-[--radius-md]
-        border border-line bg-surface-sunken px-4 py-3"
+        border border-line bg-surface-sunken px-4 py-3.5 shadow-[--shadow-sm]"
     >
       <progress
         value={enrollment.completed_lesson_count}
