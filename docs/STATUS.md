@@ -1,11 +1,120 @@
 # STATUS
 
-**Last updated:** 2026-08-30
-**Updated by:** agent session (M14 T6)
+**Last updated:** 2026-09-14
+**Updated by:** agent session (redesign pulled, CI repaired)
 
 ---
 
 ## Current milestone
+
+**No milestone is in progress.** M14 stands at 6 of 10 and its remaining tasks
+need a deployment. What happened on 2026-09-14 was a contribution arriving and
+CI breaking for reasons unrelated to it.
+
+---
+
+### A frontend redesign landed — PR #59, from a fork
+
+13 commits, 34 files, +1,702/−279, by `dem-bijan`. A design-system foundation
+(`Badge`, `Card`, `NavLinks`, `cn`), motion primitives (`Reveal`,
+`StaggerList`), a `Hero`, a `SiteNavTree`, and a `useCurrentUser` hook — plus
+`seed_demo_catalogue`, a backend command that fills the catalogue with readable
+courses so a redesign can be judged against real copy rather than the word
+salad `seed_catalogue` generates for load tests.
+
+**Verified after pulling, and it is sound.** 334 frontend tests still pass,
+`tsc` and eslint clean, `verify:static` shows all four public routes still
+prerendering (invariant 15), document structure sound across 11 built pages. No
+`dangerouslySetInnerHTML`, no `"use client"` in the `(marketing)` group, and
+`useCurrentUser` reads the session through `/auth/me/` rather than storage
+(invariant 9). `seed_demo_catalogue` is DEBUG-only behind an explicit `--force`,
+atomic and idempotent.
+
+The `IntersectionObserver` stub added to `vitest.setup.ts` is worth reading
+rather than skimming: jsdom implements none, framer-motion's `whileInView`
+constructs one inside library code where there is no call site to guard, and the
+note explaining why it is a plain assignment rather than `vi.stubGlobal` — which
+another suite's `unstubAllGlobals()` would silently clear — describes a real
+trap, correctly avoided.
+
+#### Four things about it that are conversations, not defects
+
+1. **Five dependencies arrived without a §5 gate** — `framer-motion`,
+   `lucide-react`, `clsx`, `class-variance-authority`, `tailwind-merge`. §5
+   requires approval for any new dependency and names "a large framework
+   without a written comparison" specifically; framer-motion is that case.
+2. They use `^` ranges while `next`, `react` and `@sentry/nextjs` are pinned
+   exactly. npm has silently re-floated pins in this repository before.
+3. **~1,700 lines of new components, zero new tests.** The count is unchanged
+   at 334.
+4. **The Worker bundle grew 18%** — 1061.61 → **1254.32 KiB** gzipped. Wrangler
+   raised no warning, but `infra/docs/provisioning.md` plans around Cloudflare's
+   free tier, so the direction matters.
+
+---
+
+### CI was red, and it was not the redesign — PR #60
+
+**The last green run was 30 August.** Every run since 2026-09-14 failed,
+including PR #59's own checks, which were merged red. Both causes were two weeks
+of drift landing on whoever merged next.
+
+- **Docker Hub stopped serving `minio/minio` anonymously.** The backend job died
+  at `pull access denied ... may require 'docker login'` before a single test
+  ran. Machines with the image cached kept working, which is exactly the shape
+  of failure that gets blamed on the morning's commit. Repointed at **quay.io**,
+  which MinIO also publishes to — same repository, same tag, verified by pulling
+  it.
+- **Five high-severity npm advisories**, all against dependencies that were
+  already here: `js-yaml` via `openapi-typescript` (invariant 16) and `sharp`
+  via `wrangler` (M13 T7). **None of the redesign's five packages is
+  implicated.**
+
+Fixed rather than suppressed, because ADR-022 §3 chose `--audit-level=high`
+deliberately: `wrangler` 4.127.1 → 4.131.2 (a direct devDependency, so a bump
+rather than `--force` reaching outside a range) and `js-yaml` pinned to 4.3.2
+through `overrides`, since `openapi-typescript` 7.13.0 is already latest and
+there is no upstream fix to wait for.
+
+`qs` remains at moderate, below the gate. **It will not fail CI and nothing
+automatic will fix it** — the next advisory that crosses into high will surface
+the same way this one did.
+
+**A fifth drift guard** now asserts `docker-compose.yml` and the CI step name the
+same MinIO image. Fixing only one would have meant testing one MinIO release
+locally and another in CI, which surfaces as a storage test nobody can
+reproduce. Both halves provoked.
+
+---
+
+### A provisioning plan for a smaller budget — PR #61
+
+The client cannot afford the deployment. `infra/docs/provisioning.md` costs it
+at **~$5/month rather than $44**, and most of that gap is not a cheaper tier:
+**$14 of ADR-002's figure is a forecast**, budgeting for Mux and Deepgram when
+`providers/fake_video.py` and `providers/fake.py` are still the only
+implementations.
+
+**The architecture does not change.** ADR-025 stands; same providers, same
+compose file, same pipeline, on free tiers with a smaller box.
+
+Three trades are marked in the document, and one is serious: **Neon's free plan
+retains six hours of history**, so M14 T8's weekly `pg_dump` to R2 stops being
+the second copy and becomes the only backup. **T8 gets more important on the
+cheap tier, not less**, and T9's restore drill goes from prudent to necessary.
+
+**Two answers are still needed** before any of it is actionable: whether the
+target is ~$5 or must be $0, and whether video launches deferred or served
+directly from R2 (free egress, ~$3/month storage, at the cost of adaptive
+bitrate — which matters for EU and MENA learners on mobile).
+
+---
+
+**1512 backend tests, 334 frontend.** Master green at `973e047`.
+
+---
+
+## Previous work
 
 **M14 T6 — metrics. Built 2026-08-30**, on `feat/m14-t6-metrics`.
 Decisions: `docs/adr/028-metrics.md`.
