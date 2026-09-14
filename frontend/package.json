@@ -46,6 +46,9 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.11",
-    "wrangler": "4.127.1"
+    "wrangler": "4.131.2"
+  },
+  "overrides": {
+    "js-yaml": "4.3.2"
   }
 }

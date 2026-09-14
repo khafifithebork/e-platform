@@ -87,7 +87,7 @@ jobs:
         run: |
           # Ephemeral, reachable only from this runner, destroyed with the
           # job — the same reasoning as the Postgres credentials above.
-          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
           # Poll rather than sleep: a fixed wait is either flaky or wasted.
           # /minio/health/live is MinIO's own probe, confirmed against the
           # running image rather than taken from documentation.
