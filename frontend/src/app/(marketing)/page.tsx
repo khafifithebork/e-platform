@@ -43,7 +43,7 @@ export default async function Home() {
     <div className="flex flex-col gap-20">
       <Hero />
 
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-20 px-6 pb-20">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-20 px-6 pb-20">
         <FeaturedCourses courses={courses} />
 
         <section aria-labelledby="what-you-get" className="flex flex-col gap-6">

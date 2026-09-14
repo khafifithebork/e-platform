@@ -62,7 +62,7 @@ export function Hero() {
           bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,var(--color-accent-subtle),transparent)]"
       />
 
-      <div className="mx-auto grid max-w-5xl gap-12 px-6 pt-20 lg:grid-cols-[3fr_2fr] lg:items-center">
+      <div className="mx-auto grid max-w-7xl gap-12 px-6 pt-20 lg:grid-cols-[3fr_2fr] lg:items-center">
         <motion.div className="flex max-w-2xl flex-col gap-6" {...container}>
           <motion.h1
             {...item}

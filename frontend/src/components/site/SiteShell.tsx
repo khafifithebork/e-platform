@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AuthMenu } from "@/components/auth/AuthMenu";
 import { NavLinks } from "@/components/site/NavLinks";
+import { SiteNavTree } from "@/components/site/SiteNavTree";
 
 /**
  * The chrome every page outside the auth flow wears.
@@ -49,7 +50,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       </a>
 
       <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5">
           <Link
             href="/"
             className="flex items-center gap-2 font-display text-xl tracking-tight
@@ -95,12 +96,26 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
        * next Tab goes straight back into the navigation the user just skipped.
        */}
       <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-        {children}
+        {/*
+         * The sidebar and the page content share this row so `SiteNavTree`'s
+         * column sits in the margin a fixed content width otherwise leaves
+         * empty, without each page's own `max-w-7xl` container having to know
+         * a sidebar exists. No `items-start`: the default `stretch` is what
+         * lets the sidebar's background and right border run the full height
+         * of whatever page sits beside it, rather than stopping after its own
+         * short list of links. Below `xl`, `SiteNavTree` renders nothing here
+         * at all — its mobile form is a fixed-position toggle — so
+         * `min-w-0 flex-1` is simply the whole width down there.
+         */}
+        <div className="flex w-full">
+          <SiteNavTree />
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
       </main>
 
       <footer className="border-t border-line">
         <div
-          className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-8 text-sm
+          className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-8 text-sm
             text-ink-subtle sm:flex-row sm:items-center sm:justify-between"
         >
           <p>Every course here is reviewed before it is published.</p>

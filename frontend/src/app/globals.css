@@ -89,8 +89,17 @@
    * steps only: a resting card and a hovered one, which is every elevation
    * change this design uses.
    */
-  --shadow-sm: 0 1px 2px rgb(28 25 23 / 0.06), 0 1px 1px rgb(28 25 23 / 0.04);
-  --shadow-md: 0 8px 24px rgb(28 25 23 / 0.10), 0 2px 6px rgb(28 25 23 / 0.06);
+  --shadow-sm: 0 1px 3px rgb(28 25 23 / 0.09), 0 1px 2px rgb(28 25 23 / 0.06);
+  --shadow-md: 0 16px 32px rgb(28 25 23 / 0.14), 0 4px 10px rgb(28 25 23 / 0.08);
+  /*
+   * Each combines its drop shadow with a hairline of light along the top
+   * edge — the way a card lifted off paper catches light nearest the source.
+   * Combined here, not composed at each call site: `shadow-[--var]` and
+   * framer-motion's `boxShadow` both take one property value, and a card is
+   * the only thing in this design that is ever elevated.
+   */
+  --shadow-card-resting: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.5);
+  --shadow-card-hovered: var(--shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -124,8 +133,11 @@
      * background this dark needs more of it to read as a boundary at all —
      * the light scheme's values here would be invisible against `--color-paper`.
      */
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.30), 0 1px 1px rgb(0 0 0 / 0.24);
-    --shadow-md: 0 8px 24px rgb(0 0 0 / 0.40), 0 2px 6px rgb(0 0 0 / 0.28);
+    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.34), 0 1px 2px rgb(0 0 0 / 0.26);
+    --shadow-md: 0 16px 32px rgb(0 0 0 / 0.48), 0 4px 10px rgb(0 0 0 / 0.32);
+    /* Same hairline, dimmer — a bright top edge would read as a glow, not a bevel, this dark. */
+    --shadow-card-resting: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --shadow-card-hovered: var(--shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.06);
   }
 }
 

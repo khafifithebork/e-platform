@@ -139,7 +139,7 @@ export function CourseCatalogue({
           No courses match those filters yet. Try widening one of them.
         </p>
       ) : (
-        <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visible.map((course) => (
             <StaggerItem key={course.slug}>
               {/* Directly under the page's <h1>, so these are <h2>. */}
@@ -179,7 +179,7 @@ function SearchResults({ results }: { results: CourseSearchResults | null }) {
         {results.truncated && ` (showing the first ${results.limit})`}
       </p>
 
-      <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {results.results.map((course) => (
           <StaggerItem key={course.slug}>
             {/* Directly under the page's <h1>, so these are <h2>. */}

@@ -59,8 +59,8 @@ export function Card({ as = "div", className, hoverable = false, ...props }: Car
       <Tag
         className={cn(
           base,
-          "shadow-[--shadow-sm]",
-          hoverable && "transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-[--shadow-md]",
+          "shadow-[--shadow-card-resting]",
+          hoverable && "transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-[--shadow-card-hovered]",
           className,
         )}
         {...props}
@@ -73,11 +73,11 @@ export function Card({ as = "div", className, hoverable = false, ...props }: Car
   return (
     <MotionTag
       className={cn(base, "border-line", className)}
-      initial={{ boxShadow: "var(--shadow-sm)" }}
+      initial={{ boxShadow: "var(--shadow-card-resting)" }}
       whileHover={{
-        y: -4,
+        y: -6,
         borderColor: "var(--color-line-strong)",
-        boxShadow: "var(--shadow-md)",
+        boxShadow: "var(--shadow-card-hovered)",
       }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       {...props}
