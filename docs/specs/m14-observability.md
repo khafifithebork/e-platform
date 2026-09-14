@@ -100,7 +100,7 @@ nothing lands on local disk.
 | T5 | Sentry in Django, Celery and Next.js; DSN from env; ~~spend cap~~ | **built 2026-08-29** — see §4.2 |
 | T6 | `/metrics`, token-guarded — queue depth, transcription age, webhook lag | **built 2026-08-30** — §4.3 |
 | T7 | Uptime monitors — **not on `/healthz` alone**, see §4.1 | a deployment |
-| T8 | Backups: Neon PITR **and** weekly `pg_dump` to R2 | M13 platform |
+| T8 | Backups: Neon PITR **and** weekly `pg_dump` to R2 — **and what protects the masters**, §4.4 | M13 platform |
 | T9 | **Restore drill, executed** | T8 |
 | T10 | Runbooks beyond rollback; launch checklist; close-out | all |
 
@@ -181,6 +181,41 @@ uptime monitor should *not* be aimed at either, for the same reason.
 
 **T8's two providers are the point, not belt-and-braces.** §3.7: *"A backup in
 the same account as the database is not a backup."*
+
+### 4.4 T8 covers the database and not the masters, and the masters are worse to lose
+
+**Added 2026-09-14**, while costing video storage rather than while planning
+backups — which is why it had not been noticed.
+
+Invariant 7 keeps two copies of every lesson: the master in R2 and a derived,
+transcoded copy at the video provider. T8 as originally written protects
+Postgres and says nothing about either.
+
+**The asymmetry is the point.** Lose the database and you restore a dump — the
+rows describe things that still exist. **Lose a master and nobody can restore
+it**, because the master *is* the original; the only recovery is an instructor
+re-recording a lesson. And the derived copy is not a backup of it: it is
+transcoded, capped, and the whole reason for keeping masters is that a provider
+migration re-uploads *from ours* rather than from theirs.
+
+**It gets worse on the lean tier.** `infra/docs/provisioning.md` puts the
+weekly `pg_dump` in R2, and R2 also holds the masters. That is §3.7's own
+warning — *"a backup in the same account as the database is not a backup"* —
+arriving one level up: one provider account now holds the irreplaceable
+originals **and** the database's only real backup, because Neon's free plan
+retains six hours of history.
+
+**T8 must therefore answer three questions it currently does not ask:**
+
+1. What protects the masters — R2 object versioning, a lifecycle rule, or a
+   copy somewhere that is not Cloudflare?
+2. Does the `pg_dump` belong in the same account as the thing it is insuring?
+3. What does "restore" mean for a master, so T9 can rehearse it rather than
+   assume it?
+
+**Not urgent while the catalogue is empty**, and that is exactly when it is
+cheap to decide. Once instructors have uploaded sixty hours, the answer has to
+be retrofitted around data that already exists.
 
 **T9 is the deliverable that cannot be faked.** §3.7 again: *"An untested
 backup is a hope, not a strategy."* It is the one task in this milestone whose

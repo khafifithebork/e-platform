@@ -229,17 +229,32 @@ and `provider_asset_id`, M5's adapter interface is written, and `fake_video.py`
 is the only implementation. So this is a decision with a cost, not a bill you
 already have.
 
-Sizes below assume a master at ~50 MB/min and delivery at ~20 MB/min **[E]** —
-`deployment-strategy.md`'s blended figure. A 60-hour catalogue is 3,600 minutes.
+Sizes below assume a master at ~60 MB/min and delivery at ~20 MB/min **[E]**.
+The second is `deployment-strategy.md`'s blended figure; the first is a
+midpoint nobody has measured, and `docs/spikes/video-provider.md` §4.1 gives
+the range per bitrate rather than one number. A 60-hour catalogue is 3,600
+minutes.
 
-| Option | Storage/mo | Delivery at S1 | Total | What you give up |
+| Option | R2 master | Provider | Total | What you give up |
 |---|---:|---:|---:|---|
 | **A — no video yet** | $0 | $0 | **$0** | Video. Audio lessons still work |
-| **B — R2 direct** | ~$2.70 | **$0** | **~$3** | Adaptive bitrate, HLS, per-title encoding |
-| **C — Mux** | — | — | **~$9** | Nothing. 100k delivered min/month free |
-| **D — Bunny volume** | — | — | **~$3** | PoP selection work; bitrate/region risk |
+| **B — R2 direct** | ~$3 | — | **~$3** | Adaptive bitrate, HLS, per-title encoding |
+| **C — Mux** | ~$3 | $8.64 | **~$12** | Nothing. 100k delivered min/month free |
+| **D — Bunny volume** | ~$3 | ~$3 | **~$6** | PoP selection work; bitrate/region risk |
 
-C and D come from ADR-002 §4.1's verified table; A and B are new here.
+**Corrected 2026-09-14.** The first version of this table priced the provider's
+copy and left ours out, so C read as ~$9 and D as ~$3. **Invariant 7 keeps two
+copies** — the master in R2 and a derived copy at the provider — and only option
+B has one, because there is no provider to hold the second.
+
+That widens the gap rather than narrowing it: B against C is four times, not
+three. `docs/spikes/video-provider.md` §4 has the arithmetic, the per-bitrate
+range for the master, and why R2's Infrequent Access class is not worth it until
+masters pass ~1 TB.
+
+Provider figures come from ADR-002 §4.1's verified table, re-checked against
+Mux's pricing page on 2026-09-14: storage $0.0024/min at 720p, delivery
+$0.0008/min after 100,000 free monthly minutes. Both of ADR-002's numbers hold.
 
 ### 4.1 Option B is new, and it is a real option
 
