@@ -59,7 +59,13 @@ services:
     # Pinned to the version reported by `minio --version` inside this exact
     # image, not to a tag read from registry metadata — that is how the M0
     # mailpit pin ended up wrong.
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # quay.io, not Docker Hub. The same image at the same tag — MinIO publishes
+    # to both — but Docker Hub started refusing anonymous pulls of this
+    # repository ("pull access denied ... may require 'docker login'") and took
+    # CI down with it on 2026-09-14. Local machines with the image already
+    # cached kept working, which is exactly the shape of failure that looks
+    # like somebody's commit broke the build.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
     ports:
       - "${MINIO_PORT:-9000}:9000"

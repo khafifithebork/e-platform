@@ -368,3 +368,50 @@ class TestTheReleaseImageIsSmoked:
 
         assert script.exists()
         assert script.read_text(encoding="utf-8").startswith("#!/usr/bin/env bash")
+
+
+class TestCiAndComposeAgreeOnTheObjectStore:
+    """The suite must run against the same MinIO in both places.
+
+    **This is the fifth instance of the pattern this file exists for**, arriving
+    from a direction none of the checks above cover: not a missing variable, but
+    the same fact written in two files that can drift apart.
+
+    It surfaced on 2026-09-14 when Docker Hub began refusing anonymous pulls of
+    `minio/minio` and took CI down. Local machines had the image cached and kept
+    working, so the build looked broken by whichever commit happened to land
+    that morning. Repointing at quay.io fixed it — and *had* only one of the two
+    files been repointed, the suite would have tested one MinIO release locally
+    and a different one in CI, which is the kind of difference that surfaces as
+    a storage test nobody can reproduce.
+    """
+
+    @staticmethod
+    def _compose_image() -> str:
+        compose = yaml.safe_load((REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+        return compose["services"]["minio"]["image"]
+
+    @classmethod
+    def _ci_image(cls) -> str:
+        steps = _workflow()["jobs"]["backend"]["steps"]
+        script = next(s["run"] for s in steps if "docker run" in str(s.get("run", "")))
+        match = re.search(r"(\S*minio/minio:\S+)", script)
+        assert match, "no MinIO image found in the CI step that starts it"
+        return match.group(1)
+
+    def test_they_pull_the_same_image(self) -> None:
+        assert self._ci_image() == self._compose_image()
+
+    def test_the_tag_is_pinned_rather_than_floating(self) -> None:
+        """`latest` would mean the version under test changes without a commit,
+        and the failure would arrive on an unrelated pull request."""
+        image = self._compose_image()
+
+        assert ":" in image, image
+        assert not image.endswith(":latest"), image
+
+    def test_the_guard_would_notice_a_difference(self) -> None:
+        """The twin. Both halves read real files, so a regex that matched
+        nothing would make the first test compare two empty strings and pass."""
+        assert "minio/minio:" in self._compose_image()
+        assert "minio/minio:" in self._ci_image()
