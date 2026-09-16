@@ -27,7 +27,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.media_assets.models import MediaAsset, MediaAssetStatus
-from apps.media_assets.providers.fake_video import video_provider
+from apps.media_assets.providers import video_provider
 from apps.media_assets.providers.storage import object_storage
 from apps.media_assets.providers.video import ProviderAssetStatus
 

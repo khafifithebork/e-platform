@@ -214,14 +214,3 @@ class FakeVideoProvider:
         }
         payload = json.dumps(body).encode()
         return payload, self.sign_webhook(payload=payload)
-
-
-def video_provider() -> FakeVideoProvider:
-    """The provider this process should use.
-
-    A function rather than a module-level instance so settings are read when
-    it is called. When a real provider is added this is the one place that
-    chooses between them — ADR-012 §1's claim that the swap is one file rests
-    on nothing else importing a concrete provider directly.
-    """
-    return FakeVideoProvider()

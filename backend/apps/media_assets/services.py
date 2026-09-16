@@ -24,7 +24,7 @@ from apps.catalog.models import Lesson
 from apps.entitlements.exceptions import EntitlementDenied
 from apps.entitlements.resolver import resolve_access
 from apps.media_assets.models import MediaAsset, MediaAssetStatus
-from apps.media_assets.providers.fake_video import video_provider
+from apps.media_assets.providers import video_provider
 from apps.media_assets.providers.storage import (
     ObjectStorage,
     PresignedUpload,
