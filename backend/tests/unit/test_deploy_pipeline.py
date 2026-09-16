@@ -19,6 +19,7 @@ tests exist because some ways of being wrong are silent.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -235,3 +236,83 @@ class TestOneActionServesBothEnvironments:
 
         assert inputs["deploy-staging"]["api-origin"] != inputs["deploy-production"]["api-origin"]
         assert inputs["deploy-staging"]["worker-name"] != inputs["deploy-production"]["worker-name"]
+
+
+class TestTheDocumentedSecretsAreTheRealOnes:
+    """`deploying.md` is read while provisioning, with a browser open.
+
+    **Both directions matter, and the second one is what went wrong.** A secret
+    the workflow needs and the document omits is a failed deploy — annoying,
+    loud, quickly fixed. A secret the document lists and the workflow never
+    reads is worse: it is set, it looks done, and the thing it was supposed to
+    configure stays off while somebody wonders why.
+
+    `METRICS_TOKEN` was in that table from M14 T6 until 2026-09-16 and nothing
+    in CI ever read it — it is a container variable, so a GitHub secret by that
+    name does nothing at all. Found by cross-checking the two by hand before a
+    provisioning session; this is that check, automated.
+    """
+
+    DOC = REPO_ROOT / "infra" / "docs" / "deploying.md"
+
+    @classmethod
+    def _referenced_by_ci(cls) -> tuple[set[str], set[str]]:
+        raw = CI_WORKFLOW.read_text(encoding="utf-8")
+        return (
+            set(re.findall(r"secrets\.([A-Z0-9_]+)", raw)),
+            set(re.findall(r"vars\.([A-Z0-9_]+)", raw)),
+        )
+
+    @classmethod
+    def _named_in_the_doc(cls) -> set[str]:
+        """Backticked SHOUTING_NAMES, which is how the tables spell them."""
+        return set(re.findall(r"`([A-Z][A-Z0-9_]{4,})`", cls.DOC.read_text(encoding="utf-8")))
+
+    def test_every_secret_ci_needs_is_documented(self) -> None:
+        secrets, variables = self._referenced_by_ci()
+        documented = self._named_in_the_doc()
+
+        assert not (secrets | variables) - documented
+
+    def test_nothing_is_documented_as_a_ci_secret_that_ci_never_reads(self) -> None:
+        """The direction that caught the real bug. Scoped to the secrets table
+        rather than the whole document, because the prose legitimately names
+        runtime-only values while explaining which go where."""
+        text = self.DOC.read_text(encoding="utf-8")
+        section = text[text.index("### Environment secrets") : text.index("**Why the direct")]
+        # **Table rows only, not the whole section.** The prose around the table
+        # legitimately names runtime-only values while explaining which go
+        # where — including `METRICS_TOKEN`, naming the very mistake this test
+        # exists to catch. Reading the prose made the first version of this
+        # check fail on its own explanation.
+        rows = [line for line in section.splitlines() if line.startswith("|")]
+        listed = {name for row in rows for name in re.findall(r"`([A-Z][A-Z0-9_]{4,})`", row)}
+        # **No whitelist.** An earlier version exempted the runtime-only names
+        # so that the prose could mention them — and that exemption meant
+        # re-adding `METRICS_TOKEN` as a table row passed, so the guard could
+        # not catch the very bug it was written for. Provoked, found, removed.
+        # Scoping to table rows is what makes the exemption unnecessary.
+
+        secrets, _ = self._referenced_by_ci()
+
+        assert not listed - secrets
+
+    def test_the_media_storage_names_are_spelled_out(self) -> None:
+        """They were abbreviated to `MEDIA_STORAGE_*`, which is how three of
+        four get set and the fourth is discovered at deploy time."""
+        documented = self._named_in_the_doc()
+
+        for name in (
+            "MEDIA_STORAGE_ENDPOINT",
+            "MEDIA_STORAGE_BUCKET",
+            "MEDIA_STORAGE_ACCESS_KEY",
+            "MEDIA_STORAGE_SECRET_KEY",
+        ):
+            assert name in documented, name
+
+    def test_the_check_reads_real_names(self) -> None:
+        """The twin. A regex matching nothing would make all three pass."""
+        secrets, variables = self._referenced_by_ci()
+
+        assert "DOKPLOY_API_KEY" in secrets
+        assert "DEPLOY_ENABLED" in variables
