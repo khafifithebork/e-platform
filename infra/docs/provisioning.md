@@ -207,6 +207,44 @@ Dependencies, not preference.
 unattended, and the approval this pipeline claims to have is a claim it cannot
 keep.
 
+### 3.0 The worksheet
+
+**Approved 2026-09-16: the ~$5 tier.** Work down this table. Each row is
+something to create, what it gives you, and where that value goes — because the
+two destinations are different and putting a value in the wrong one fails
+silently rather than loudly.
+
+| # | Create | It gives you | Goes into |
+|---|---|---|---|
+| 1 | A domain, DNS on Cloudflare | Two hostnames — web and api | `*_API_ORIGIN`, `*_WEB_URL` (GitHub **variables**) and `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` (**Dokploy**) |
+| 2 | Cloudflare account | Account id, API token | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (GitHub **secrets**) |
+| 3 | R2 bucket | Endpoint, bucket, access key, secret | The four `MEDIA_STORAGE_*` — **both** GitHub secrets *and* Dokploy |
+| 4 | Neon project, EU, + a staging branch | **Two** connection strings per environment | Pooled → `DATABASE_URL` (**Dokploy**). Direct → `DATABASE_URL_DIRECT` (GitHub **secret**) |
+| 5 | Hetzner CX22 + Dokploy | Dokploy URL, API key, two application ids | `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_APPLICATION_IDS` (GitHub **secrets**) |
+| 6 | Redis — runs on the box | Two URLs, **different database numbers** | `REDIS_URL`, `REDIS_CACHE_URL` — both places |
+| 7 | Resend + domain verification | SPF and DKIM records | DNS, and `EMAIL_*` in **Dokploy** |
+| 8 | A secret key per environment | `python -c "import secrets; print(secrets.token_urlsafe(50))"` | `DJANGO_SECRET_KEY` — both places, **different values per environment** |
+| 9 | *(optional)* Sentry projects | One DSN per service | `SENTRY_DSN_BROWSER` (GitHub secret, **build-time only**); `SENTRY_DSN` (**Dokploy**) |
+| 10 | *(optional)* A metrics token | Any long random string | `METRICS_TOKEN` — **Dokploy only.** Nothing in CI reads it |
+
+**Two destinations, and the distinction is the thing to get right.**
+
+- **GitHub environment secrets** are what CI needs — to run migrations from the
+  runner and to build the Worker. A value only the running container needs does
+  nothing here.
+- **Dokploy's application environment** is what the containers read at runtime.
+  A value CI needs does nothing here either.
+
+Three values belong in **both**, for different reasons: the R2 credentials (CI's
+`check_database` loads production settings, which read them at import), the
+Redis URLs (same), and `DJANGO_SECRET_KEY`.
+
+**The one that is deliberately different in each place is the database.** The
+containers get the **pooled** string; the migration step gets the **direct**
+one, because `predeploy` takes a session-level advisory lock that Neon's
+transaction-mode pooler does not support. `predeploy` refuses rather than
+trusting it, so the symptom is a failed deploy rather than a silent one.
+
 ### 3.1 One environment, not two
 
 The pipeline deploys staging then production with different origins and Worker

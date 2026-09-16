@@ -70,19 +70,39 @@ already run somewhere.
 
 ### Environment secrets
 
-Set per environment, so staging cannot reach production's database.
+**There are two different places environment values live, and putting one in
+the other is a silent no-op.**
+
+- **GitHub environment secrets** — what *CI* needs: to run migrations from the
+  runner, and to build and deploy the Worker.
+- **Dokploy's application environment** — what the *running containers* need.
+  `infra/hetzner/README.md` has that list.
+
+`METRICS_TOKEN` was in the table below until 2026-09-16 and **nothing in CI has
+ever read it**. It is a container variable; setting it as a GitHub secret does
+nothing at all, and the endpoint stays a 404 while somebody wonders why.
+
+Set these per environment, so staging cannot reach production's database. Every
+one is required unless marked otherwise — the deploy action declares them so,
+and `test_deploy_pipeline.py` asserts the workflow passes them.
 
 | Secret | Note |
 |---|---|
 | `DATABASE_URL_DIRECT` | **Direct, not pooled.** See below |
 | `DJANGO_SECRET_KEY` | Different per environment |
-| `REDIS_URL` · `REDIS_CACHE_URL` | |
-| `MEDIA_STORAGE_*` | R2 |
+| `REDIS_URL` | Celery broker |
+| `REDIS_CACHE_URL` | Cache and throttle counters. **A different database number** from the broker |
+| `MEDIA_STORAGE_ENDPOINT` | R2 S3 API endpoint |
+| `MEDIA_STORAGE_BUCKET` | R2 bucket name |
+| `MEDIA_STORAGE_ACCESS_KEY` | R2 access key id |
+| `MEDIA_STORAGE_SECRET_KEY` | R2 secret access key |
 | `DOKPLOY_URL` · `DOKPLOY_API_KEY` | |
 | `DOKPLOY_APPLICATION_IDS` | Comma-separated: the `api` and the `worker` are separate Dokploy applications running the same image |
 | `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_ACCOUNT_ID` | |
-| `SENTRY_DSN_BROWSER` | **Baked into the bundle at build time**, so it can only be set here. Optional — empty means the browser SDK never initialises. Give each environment its own Sentry project (ADR-027 §2) |
-| `METRICS_TOKEN` | Bearer token for `/metrics` (ADR-028 §3). Optional — unset means the endpoint answers 404, which is correct until a scraper exists. Set it per environment, never shared |
+| `SENTRY_DSN_BROWSER` | **Optional.** Baked into the bundle at build time, so it can only be set here. Empty means the browser SDK never initialises. Give each environment its own Sentry project (ADR-027 §2) |
+
+The four `MEDIA_STORAGE_` names are spelled out rather than abbreviated to
+`MEDIA_STORAGE_*`, which is how three of four get set.
 
 **Why the direct connection.** `predeploy` takes a session-level advisory lock
 so two rollouts cannot migrate at once. Neon's documentation lists exactly that
