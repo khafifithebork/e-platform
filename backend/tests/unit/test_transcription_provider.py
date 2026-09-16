@@ -18,12 +18,13 @@ import json
 
 import pytest
 
+from apps.transcripts.providers import transcription_provider
 from apps.transcripts.providers.base import (
     TranscriptionProvider,
     TranscriptionStatus,
     WebhookSignatureInvalid,
 )
-from apps.transcripts.providers.fake import FakeTranscriptionProvider, transcription_provider
+from apps.transcripts.providers.fake import FakeTranscriptionProvider
 
 SOURCE = "https://storage.example.test/masters/abc/def.mp4?signature=x"
 
@@ -38,8 +39,14 @@ class TestTheInterfaceIsSatisfied:
         assert isinstance(provider, TranscriptionProvider)
 
     def test_the_factory_returns_a_provider(self) -> None:
-        """Nothing else may import a concrete provider — ADR-014 §1's claim
-        that swapping is one file rests entirely on that."""
+        """**Converted, not deleted.** This docstring used to end "nothing else
+        may import a concrete provider — ADR-014 §1's claim that swapping is one
+        file rests entirely on that", and nothing checked it. It was false: the
+        factory lived in this module, so importing it imported the fake by name.
+
+        The factory has moved to `apps.transcripts.providers`, and the claim is
+        now asserted structurally in `test_provider_selection.py`. What remains
+        here is what this test can honestly check."""
         assert isinstance(transcription_provider(), TranscriptionProvider)
 
 

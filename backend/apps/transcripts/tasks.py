@@ -31,8 +31,8 @@ from apps.transcripts.models import (
     TranscriptSegment,
     TranscriptStatus,
 )
+from apps.transcripts.providers import transcription_provider
 from apps.transcripts.providers.base import TranscriptionStatus
-from apps.transcripts.providers.fake import transcription_provider
 
 logger = logging.getLogger(__name__)
 

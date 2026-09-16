@@ -28,8 +28,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.models import WebhookEvent
+from apps.transcripts.providers import transcription_provider
 from apps.transcripts.providers.base import WebhookSignatureInvalid
-from apps.transcripts.providers.fake import transcription_provider
 from apps.transcripts.tasks import apply_transcription_callback
 
 logger = logging.getLogger(__name__)

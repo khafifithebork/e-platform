@@ -26,8 +26,12 @@ from pathlib import Path
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from apps.media_assets.providers import PROVIDERS, video_provider
+from apps.media_assets.providers import PROVIDERS as VIDEO_PROVIDERS
+from apps.media_assets.providers import video_provider
 from apps.media_assets.providers.video import VideoProvider
+from apps.transcripts.providers import PROVIDERS as TRANSCRIPTION_PROVIDERS
+from apps.transcripts.providers import transcription_provider
+from apps.transcripts.providers.base import TranscriptionProvider
 
 APPS_ROOT = Path(__file__).resolve().parents[2] / "apps"
 
@@ -36,9 +40,23 @@ APPS_ROOT = Path(__file__).resolve().parents[2] / "apps"
 SEAMS = {
     ("media_assets", "__init__.py"),
     ("media_assets", "fake_video.py"),
+    ("transcripts", "__init__.py"),
+    ("transcripts", "fake.py"),
 }
 
-CONCRETE_VIDEO_MODULES = {"fake_video"}
+# **Full dotted paths, not last segments.** Matching on the last segment alone
+# conflates three different modules named `fake` — video's, transcription's and
+# M4's billing provider — and the first version of this guard duly reported
+# `entitlements/management/commands/billing.py` as a transcription violation.
+CONCRETE_VIDEO_MODULES = {"apps.media_assets.providers.fake_video"}
+CONCRETE_TRANSCRIPTION_MODULES = {"apps.transcripts.providers.fake"}
+
+# **Billing is deliberately absent.** `apps.entitlements.providers` has no
+# factory at all — one management command imports `FakeBillingProvider`
+# directly — so there is no seam here to enforce yet. Building one is M8's, and
+# §5 names working ahead into a later milestone as needing approval. Recorded
+# in `docs/spikes/video-provider.md` §2 so M8 finds it rather than rediscovers
+# it.
 
 
 class TestTheFactoryChooses:
@@ -78,7 +96,7 @@ class TestTheFactoryChooses:
     def test_every_registered_provider_satisfies_the_protocol(self) -> None:
         """The registry is what a future provider is added to, so it is the
         place to check the contract rather than trusting the author."""
-        for name, implementation in PROVIDERS.items():
+        for name, implementation in VIDEO_PROVIDERS.items():
             assert isinstance(implementation(), VideoProvider), name
 
 
@@ -102,15 +120,11 @@ class TestNothingElseImportsAConcreteProvider:
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
-                if (
-                    isinstance(node, ast.ImportFrom)
-                    and node.module
-                    and node.module.rsplit(".", 1)[-1] in modules
-                ):
+                if isinstance(node, ast.ImportFrom) and node.module and node.module in modules:
                     offenders.append(f"{path.relative_to(APPS_ROOT).as_posix()}")
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        if alias.name.rsplit(".", 1)[-1] in modules:
+                        if alias.name in modules:
                             offenders.append(f"{path.relative_to(APPS_ROOT).as_posix()}")
         return sorted(set(offenders))
 
@@ -139,7 +153,41 @@ class TestNothingElseImportsAConcreteProvider:
             for node in ast.walk(planted)
             if isinstance(node, ast.ImportFrom)
             and node.module
-            and node.module.rsplit(".", 1)[-1] in CONCRETE_VIDEO_MODULES
+            and node.module in CONCRETE_VIDEO_MODULES
         ]
 
         assert found
+
+
+class TestTranscriptionHasTheSameSeam:
+    """The twin app, and the quieter failure of the two.
+
+    A path left on the fake video provider breaks when somebody presses play.
+    A path left on the fake *transcription* provider produces realistic
+    segments — deliberately, so M6 could test its review workflow against
+    something worth reviewing — which a human then approves. It would publish
+    invented subtitles under a reviewer's name.
+    """
+
+    def test_the_default_is_the_fake(self) -> None:
+        assert isinstance(transcription_provider(), TranscriptionProvider)
+
+    def test_an_unknown_name_raises_rather_than_falling_back(self, settings) -> None:
+        settings.TRANSCRIPTION_PROVIDER = "deepgram"
+
+        with pytest.raises(ImproperlyConfigured, match="not a transcription provider"):
+            transcription_provider()
+
+    def test_every_registered_provider_satisfies_the_protocol(self) -> None:
+        for name, implementation in TRANSCRIPTION_PROVIDERS.items():
+            assert isinstance(implementation(), TranscriptionProvider), name
+
+    def test_no_module_outside_the_seam_imports_the_fake(self) -> None:
+        offenders = TestNothingElseImportsAConcreteProvider._importers_of(
+            CONCRETE_TRANSCRIPTION_MODULES
+        )
+
+        assert offenders == [], (
+            "Import `transcription_provider` from `apps.transcripts.providers` "
+            f"instead. {offenders}"
+        )
