@@ -173,13 +173,3 @@ class FakeTranscriptionProvider:
         }
         payload = json.dumps(body).encode()
         return payload, self.sign_webhook(payload=payload)
-
-
-def transcription_provider() -> FakeTranscriptionProvider:
-    """The provider this process should use.
-
-    The one place that chooses between implementations — ADR-014 §1's claim
-    that swapping is a single file rests on nothing else importing a concrete
-    provider directly.
-    """
-    return FakeTranscriptionProvider()

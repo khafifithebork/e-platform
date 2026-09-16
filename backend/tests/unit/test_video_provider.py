@@ -21,7 +21,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from apps.media_assets.providers.fake_video import FakeVideoProvider, video_provider
+from apps.media_assets.providers import video_provider
+from apps.media_assets.providers.fake_video import FakeVideoProvider
 from apps.media_assets.providers.video import (
     ProviderAssetStatus,
     VideoProvider,
@@ -43,8 +44,15 @@ class TestTheInterfaceIsSatisfied:
         assert isinstance(provider, VideoProvider)
 
     def test_the_factory_returns_a_provider(self) -> None:
-        """Nothing else may import a concrete provider — ADR-012's claim that
-        swapping is one file rests entirely on that."""
+        """**Converted, not deleted.** This docstring used to end "nothing else
+        may import a concrete provider — ADR-012's claim that swapping is one
+        file rests entirely on that", and nothing checked it. It was false: the
+        factory lived in this module, so importing it imported the fake by name.
+
+        The factory has moved to `apps.media_assets.providers`, and the claim is
+        now asserted structurally in `test_provider_selection.py`. What is left
+        here is the narrower thing this test can honestly check — that the
+        factory returns something satisfying the protocol."""
         assert isinstance(video_provider(), VideoProvider)
 
     def test_the_interface_has_the_three_documented_methods(self) -> None:

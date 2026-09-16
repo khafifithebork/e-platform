@@ -40,7 +40,19 @@ apps/media_assets/webhooks.py:36
 
 Transcription has the identical shape (`tasks.py:35`, `webhooks.py:32`).
 
-So a swap currently means editing every import site, and **the failure of
+**Fixed 2026-09-16.** Both factories moved into their package `__init__`,
+selected by `VIDEO_PROVIDER` and `TRANSCRIPTION_PROVIDER`, with an unrecognised
+name raising rather than falling back — and a syntax-tree guard asserting that
+nothing outside the seam names a concrete provider. The paragraph below is what
+was true before that, and the reason the guard exists.
+
+**A third family is still in the old shape.** `apps/entitlements/providers` has
+no factory at all: one management command imports `FakeBillingProvider`
+directly. That is M8's to build, and §5 names working ahead into a later
+milestone as needing approval, so it was left alone — **M8 should build the seam
+before the adapter**, not after.
+
+So a swap *used to* mean editing every import site, and **the failure of
 missing one is the worst available**: some paths use the real provider and
 others the fake, with nothing raising. A settings-driven factory with the fake
 as default fixes it, needs no account, and is a prerequisite whichever provider

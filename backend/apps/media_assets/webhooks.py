@@ -33,7 +33,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.models import WebhookEvent
-from apps.media_assets.providers.fake_video import video_provider
+from apps.media_assets.providers import video_provider
 from apps.media_assets.providers.video import WebhookSignatureInvalid
 from apps.media_assets.tasks import apply_media_webhook
 

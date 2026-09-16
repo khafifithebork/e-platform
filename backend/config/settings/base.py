@@ -227,6 +227,17 @@ MEDIA_UPLOAD_URL_TTL_SECONDS = env.int("MEDIA_UPLOAD_URL_TTL_SECONDS", default=3
 
 # The cap the store cannot enforce on a presigned PUT (see providers/storage.py).
 # Checked after upload, before the asset advances.
+# Which video provider this process uses. `apps.media_assets.providers` is the
+# only module that reads it, and an unrecognised name raises at startup rather
+# than falling back — a fake provider against a real catalogue would mint
+# worthless playback tokens while every entitlement check passed.
+VIDEO_PROVIDER = env("VIDEO_PROVIDER", default="fake")
+
+# The same, for transcription. The quieter of the two failures: the fake
+# produces realistic segments on purpose, so a path left on it publishes
+# invented subtitles that pass human review rather than breaking visibly.
+TRANSCRIPTION_PROVIDER = env("TRANSCRIPTION_PROVIDER", default="fake")
+
 MEDIA_MAX_UPLOAD_BYTES = env.int("MEDIA_MAX_UPLOAD_BYTES", default=5 * 1024 * 1024 * 1024)
 
 # How long a minted playback token is good for. architecture.md section 7:
