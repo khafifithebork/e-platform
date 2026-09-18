@@ -1,15 +1,145 @@
 # STATUS
 
-**Last updated:** 2026-09-14
-**Updated by:** agent session (redesign pulled, CI repaired)
+**Last updated:** 2026-09-18
+**Updated by:** agent session (ready to provision)
 
 ---
 
 ## Current milestone
 
-**No milestone is in progress.** M14 stands at 6 of 10 and its remaining tasks
-need a deployment. What happened on 2026-09-14 was a contribution arriving and
-CI breaking for reasons unrelated to it.
+**No milestone is in progress, and nothing is left that can be started.**
+M14 stands at 6 of 10. Every remaining task in the project waits on an account,
+a payment, or a §5 decision — none of which is an agent's to make.
+
+**The ~$5/month tier is approved** (2026-09-16), answering the first of the five
+decisions in `infra/docs/provisioning.md`. **No provisioning has begun**: the
+repository has no environments configured and no repository variables set.
+
+**1532 backend tests, 362 frontend.** Master green.
+
+---
+
+### The one prerequisite that could be built was, and it found a false claim
+
+`providers/video.py` says swapping a video provider is "one file", and both
+provider factories called themselves "the one place that chooses between
+implementations — the claim rests on nothing else importing a concrete provider
+directly".
+
+**Both were false, for the same reason.** Each factory lived *inside* the
+concrete provider's own module, so every call site imported the fake by name,
+and `providers/__init__.py` — where the choice belongs — was empty in both apps.
+ADR-023 §1's shape for the sixth time, and the first found in a **test
+docstring** rather than an ADR.
+
+Each factory now lives in its package, selects on a setting, and **raises on an
+unrecognised name rather than falling back to the fake**. The two failure modes
+are worth keeping in mind because they differ:
+
+- **Video** — a path left on the fake mints playback tokens that verify against
+  our own key. Every entitlement check passes, every token is worthless, nothing
+  raises until a learner presses play.
+- **Transcription** — quieter and not smaller. The fake produces *realistic*
+  segments by design, so M6 could test its review workflow. A human reads them,
+  approves them, publishes them. It ships invented subtitles under a reviewer's
+  name.
+
+**A third provider family is deliberately untouched.**
+`apps/entitlements/providers` has no factory at all — one management command
+constructs `FakeBillingProvider` directly. **M8 should build that seam before
+the adapter**, and §5 names working ahead as needing approval, so it was left.
+
+---
+
+### Preparing to provision found a secret nothing reads
+
+Cross-checking the deploy action against the documentation before a provisioning
+session: **`METRICS_TOKEN` was listed as a GitHub environment secret and nothing
+in CI has ever read it.** It is a container variable, so setting it where the
+document said does nothing at all and `/metrics` stays a 404.
+
+That is the worse of the two drift directions. A secret CI needs and the
+document omits is a failed deploy — loud, quickly fixed. A secret the document
+lists and CI never reads is set, looks done, and configures nothing.
+
+The four `MEDIA_STORAGE_` names were also abbreviated to `MEDIA_STORAGE_*`,
+which is how three of four get set. Both fixed, with a guard covering all three
+directions, and `provisioning.md` §3.0 is now a worksheet: what to create, what
+it gives you, and **which of the two destinations** it goes to — GitHub secrets
+for what CI needs, Dokploy for what the containers read.
+
+---
+
+### The redesign's four open items are closed or handed back
+
+| | |
+|---|---|
+| `^` version ranges | **Pinned**, with a guard. This had already regressed once in M13 T7 |
+| ~1,700 untested lines | **Covered** where being wrong is quiet — 334 → 362 |
+| Worker bundle +18% | Recorded against the free-tier plan |
+| Five dependencies without a §5 gate | **Still the owner's** — a conversation, not a fix |
+
+---
+
+### A decision now held open by a test
+
+`Reveal` renders `opacity: 0` and waits for an `IntersectionObserver`, and that
+reaches the prerendered HTML: **the built landing page ships twelve elements
+carrying `style="opacity:0;transform:translateY(20px)"`**. The text is in the
+markup, so a crawler and a screen reader both reach it, but a browser shows
+nothing there until JavaScript runs. The `h1` sits outside a `Reveal`, so the
+page is not blank without it.
+
+Whether the sections below should behave the same way is the redesign author's
+call. The test pins current behaviour and fails whichever way somebody changes
+it, so it cannot be settled by accident.
+
+---
+
+### Two briefs that could have drifted
+
+`AGENTS.md` arrived untracked, and a `CLAUDE` → `AGENTS` find-and-replace had
+caught a **quotation**: ADR-001 says "`CLAUDE.md` §11 should be updated to
+strike decisions 2, 3 and 4", and the copy rendered it as "`AGENTS.md` §11".
+One of two files with identical authority misquoted its own source. Restored,
+tracked, and guarded as byte-identical except the title line.
+
+---
+
+### Three tests written this session could not fail, and were found by provoking
+
+Not a run of bad luck — the standing rate. A `matchMedia` stub that arrived
+after framer-motion had read the query; a `RUNTIME_ONLY` whitelist that exempted
+the very secret its guard existed to catch; and an unmount-guard test asserting
+a React 17 warning that React 18 removed, which passed against a hook with the
+guard deleted. The last is converted rather than kept, the same conclusion M16
+reached about `LessonPlayer`'s `readyRef`.
+
+---
+
+### What happens next, and none of it is mine
+
+1. **A domain**, with DNS on Cloudflare. Named in no document until now, and
+   everything downstream needs it.
+2. The worksheet in `infra/docs/provisioning.md` §3.0, in order.
+3. **Required reviewers on the production environment before `DEPLOY_ENABLED`**,
+   or the next merge deploys unattended.
+
+Two steps are one command each once credentials exist, and need no secret held
+here: `check_database` against the Neon staging branch (closing M12's `pg_trgm`
+handover), and the `wrangler dev` cookie check (closing ADR-025's last unknown).
+
+**Still open and still nobody's:** the Cloudflare Worker gap (ADR-027 §4), the
+video provider and its signing dependency (both §5), §11 #1's payment provider,
+and M9's trial scoping rule.
+
+---
+
+
+## Previous session — 2026-09-14
+
+M14 stood at 6 of 10 then too. What happened that day was a contribution
+arriving and CI breaking for reasons unrelated to it.
 
 ---
 
