@@ -1,143 +1,60 @@
 @import "tailwindcss";
 
-/*
- * Design tokens.
- *
- * The palette is warm ink-on-paper with a single terracotta accent —
- * deliberately not the blue-or-violet a product like this defaults to. A
- * curated language catalogue is closer to a well-set book than to a
- * dashboard, and the surface should say so before any copy is read. The
- * accent moved from ochre to terracotta (2026-09-13) for more warmth and
- * energy — same paper/ink structure, same accessibility discipline below.
- *
- * Every colour here is committed to in both schemes. Semantic names only:
- * nothing in a component should reference a raw value.
+/* Linglee-inspired spacing and indigo, adapted for Lingua's curated courses.
+ * Semantic tokens keep both schemes and all existing pages consistent.
  */
 @theme {
-  /* Warm near-black. Pure #000 on warm paper reads as a hole in the page. */
-  --color-ink: #1c1917;
-  --color-ink-muted: #57534e;
-  --color-ink-subtle: #78716c;
-
-  /* Paper, not white. */
-  --color-paper: #faf8f5;
+  --color-ink: #242442;
+  --color-ink-muted: #53576f;
+  --color-ink-subtle: #636980;
+  --color-paper: #f5f6fb;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f2efe9;
-
-  --color-line: #e3ddd3;
-  /*
-   * WCAG 1.4.11 wants a non-text boundary at 3:1 against what it sits on. The
-   * original #cec6b8 measured 1.69 — a border a sighted user reads as "there
-   * is a field here" and somebody with low vision does not see at all. This is
-   * 3.52.
-   */
-  --color-line-strong: #948770;
-
-  /*
-   * Terracotta, replacing the original ochre.
-   *
-   * Same structure and the same discipline — one accent, checked by
-   * `contrast.test.ts` in both schemes — but ochre read as muted/brown at the
-   * saturation AA allowed. This sits closer to red on the wheel at the same
-   * lightness, which reads as warmer and more alive without pushing into a
-   * tone the paper/ink system wasn't built for. 5.50 against paper, 5.84
-   * against surface — both with headroom, not scraping AA the way the
-   * original did.
-   */
-  --color-accent: #b23e1c;
-  --color-accent-hover: #8f3216;
-  --color-accent-subtle: #fdf1ea;
-
-  /*
-   * What goes *on* the accent, which is not simply white.
-   *
-   * In dark mode the accent is a bright orange, and white text on it measures
-   * 2.50 — every primary button on the site was unreadable for anyone with
-   * dark mode on, which on a reading surface is a lot of people. The fix is
-   * not to darken the dark-mode accent, which is doing its job as a highlight,
-   * but to put dark text on it: 7.29.
-   */
+  --color-surface-sunken: #eceef7;
+  --color-line: #dfe2ef;
+  --color-line-strong: #81869d;
+  --color-accent: #4945a5;
+  --color-accent-hover: #373380;
+  --color-accent-subtle: #eeedfc;
   --color-on-accent: #ffffff;
-
+  --color-brand-coral: #c44656;
   --color-danger: #9f1e39;
   --color-danger-subtle: #fdf0f2;
   --color-success: #2f6b46;
   --color-success-subtle: #eef6f0;
-
-  /*
-   * An editorial serif for display, from the system stack. No web font: it
-   * costs a network request, a layout shift, and — on this machine — a build
-   * that fails when the font CDN is unreachable.
-   */
-  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
-    "Times New Roman", serif;
-
-  /*
-   * A restrained radius scale. One value everywhere reads as a template;
-   * the difference between a field and a card is part of the hierarchy.
-   */
-  --radius-sm: 3px;
-  --radius-md: 5px;
-  --radius-lg: 8px;
-
-  /*
-   * Elevation, tinted with ink rather than pure black.
-   *
-   * A shadow is light blocked by the page's own surface, not a grey rectangle
-   * — keeping it ink-coloured at low opacity is what makes a raised card read
-   * as paper lifted off paper instead of a div with a CSS effect on it. Two
-   * steps only: a resting card and a hovered one, which is every elevation
-   * change this design uses.
-   */
-  --shadow-sm: 0 1px 3px rgb(28 25 23 / 0.09), 0 1px 2px rgb(28 25 23 / 0.06);
-  --shadow-md: 0 16px 32px rgb(28 25 23 / 0.14), 0 4px 10px rgb(28 25 23 / 0.08);
-  /*
-   * Each combines its drop shadow with a hairline of light along the top
-   * edge — the way a card lifted off paper catches light nearest the source.
-   * Combined here, not composed at each call site: `shadow-[--var]` and
-   * framer-motion's `boxShadow` both take one property value, and a card is
-   * the only thing in this design that is ever elevated.
-   */
-  --shadow-card-resting: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.5);
-  --shadow-card-hovered: var(--shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.5);
+  /* Local fonts keep the static build independent of a font service. */
+  --font-display: "Segoe UI", "Avenir Next", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 2px 8px rgb(36 36 66 / 0.04);
+  --shadow-md: 0 8px 24px rgb(36 36 66 / 0.09);
+  --shadow-card-resting: var(--shadow-sm);
+  --shadow-card-hovered: var(--shadow-md);
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-ink: #f5f1eb;
-    --color-ink-muted: #b8b0a5;
-    --color-ink-subtle: #928a7e;
-
-    --color-paper: #17150f;
-    --color-surface: #201d17;
-    --color-surface-sunken: #14120d;
-
-    --color-line: #332e25;
-    /* 1.74 before, 3.24 now. Same reasoning as the light scheme. */
-    --color-line-strong: #756c5b;
-
-    /* Lifted for contrast against the dark surface, same terracotta hue. */
-    --color-accent: #ef7a4a;
-    --color-accent-hover: #f4966b;
-    --color-accent-subtle: #2e1c12;
-    /* Dark ink on a bright accent, not white on it. See the light block. */
-    --color-on-accent: #17150f;
-
-    --color-danger: #e8798f;
-    --color-danger-subtle: #2c1319;
-    --color-success: #6fb98a;
-    --color-success-subtle: #12231a;
-
-    /*
-     * Deeper and more opaque than the light scheme's. A shadow this dark on a
-     * background this dark needs more of it to read as a boundary at all —
-     * the light scheme's values here would be invisible against `--color-paper`.
-     */
-    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.34), 0 1px 2px rgb(0 0 0 / 0.26);
-    --shadow-md: 0 16px 32px rgb(0 0 0 / 0.48), 0 4px 10px rgb(0 0 0 / 0.32);
-    /* Same hairline, dimmer — a bright top edge would read as a glow, not a bevel, this dark. */
-    --shadow-card-resting: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.06);
-    --shadow-card-hovered: var(--shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --color-ink: #f1f2fc;
+    --color-ink-muted: #bdc1d8;
+    --color-ink-subtle: #a2a8c2;
+    --color-paper: #171827;
+    --color-surface: #202238;
+    --color-surface-sunken: #191b2e;
+    --color-line: #393d57;
+    --color-line-strong: #777f9e;
+    --color-accent: #b5b0ff;
+    --color-accent-hover: #cbc7ff;
+    --color-accent-subtle: #30304d;
+    --color-on-accent: #20203b;
+    --color-brand-coral: #ff9caa;
+    --color-danger: #f38aa0;
+    --color-danger-subtle: #351e2b;
+    --color-success: #8dccaa;
+    --color-success-subtle: #172f29;
+    --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.18);
+    --shadow-md: 0 8px 24px rgb(0 0 0 / 0.28);
+    --shadow-card-resting: var(--shadow-sm);
+    --shadow-card-hovered: var(--shadow-md);
   }
 }
 

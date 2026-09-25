@@ -25,7 +25,7 @@ type CardProps = Omit<
  * The one bordered, elevated container this design uses.
  *
  * Every card-like element in the app — a course, a plan, an enrolment — was a
- * `<div className="rounded-[--radius-lg] border border-line bg-surface p-5">`
+ * `<div className="rounded-(--radius-lg) border border-line bg-surface p-5">`
  * repeated at each call site with small drifts. One primitive means a change
  * to how a card looks, or how it responds to a pointer, is one file.
  *
@@ -51,7 +51,7 @@ const MOTION_TAGS = {
 
 export function Card({ as = "div", className, hoverable = false, ...props }: CardProps) {
   const reduceMotion = useReducedMotion();
-  const base = "rounded-[--radius-lg] border border-line bg-surface p-5";
+  const base = "rounded-(--radius-lg) border border-line bg-surface p-5";
 
   if (!hoverable || reduceMotion || typeof as !== "string" || !(as in MOTION_TAGS)) {
     const Tag = as;
@@ -59,8 +59,8 @@ export function Card({ as = "div", className, hoverable = false, ...props }: Car
       <Tag
         className={cn(
           base,
-          "shadow-[--shadow-card-resting]",
-          hoverable && "transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-[--shadow-card-hovered]",
+          "shadow-(--shadow-card-resting)",
+          hoverable && "transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-(--shadow-card-hovered)",
           className,
         )}
         {...props}
@@ -75,7 +75,7 @@ export function Card({ as = "div", className, hoverable = false, ...props }: Car
       className={cn(base, "border-line", className)}
       initial={{ boxShadow: "var(--shadow-card-resting)" }}
       whileHover={{
-        y: -6,
+        y: -2,
         borderColor: "var(--color-line-strong)",
         boxShadow: "var(--shadow-card-hovered)",
       }}

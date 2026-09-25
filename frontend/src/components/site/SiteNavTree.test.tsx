@@ -13,7 +13,8 @@
  * consumer of it, and until now the untested one.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SiteNavTree } from "@/components/site/SiteNavTree";
@@ -124,5 +125,51 @@ describe("what it always shows", () => {
       .filter((a) => a.getAttribute("aria-current") === "page");
 
     expect(current.map((a) => a.getAttribute("href"))).toContain("/courses");
+  });
+});
+
+describe("mobile navigation keyboard access", () => {
+  it("releases the drawer and scroll lock when resized to desktop", async () => {
+    vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+    const user = userEvent.setup();
+    render(<SiteNavTree />);
+    await user.click(screen.getByRole("button", { name: "Site map" }));
+    vi.stubGlobal("innerWidth", 1440);
+    fireEvent(window, new Event("resize"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("keeps Tab inside the open drawer and restores focus on Escape", async () => {
+    vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+    const user = userEvent.setup();
+    render(<SiteNavTree />);
+    const toggle = screen.getByRole("button", { name: "Site map" });
+    await user.click(toggle);
+    const panel = screen.getByRole("dialog", { name: "Site map" });
+    const close = within(panel).getByRole("button", { name: "Close site map" });
+    const last = await within(panel).findByRole("link", { name: "Create account" });
+    last.focus();
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(last).toHaveFocus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(toggle).toHaveFocus();
+  });
+
+  it("restores page scrolling and focus when the close button is used", async () => {
+    vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+    const user = userEvent.setup();
+    render(<SiteNavTree />);
+    const toggle = screen.getByRole("button", { name: "Site map" });
+    const originalOverflow = document.body.style.overflow;
+    await user.click(toggle);
+    expect(document.body.style.overflow).toBe("hidden");
+    await user.click(screen.getByRole("button", { name: "Close site map" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.body.style.overflow).toBe(originalOverflow);
+    expect(toggle).toHaveFocus();
   });
 });
