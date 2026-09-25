@@ -36,7 +36,7 @@ export default function PricingPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-16">
       <header className="flex flex-col gap-4">
-        <h1 className="font-display text-4xl tracking-tight text-ink">Pricing</h1>
+        <h1 className="font-display text-4xl leading-tight tracking-tight text-ink">Pricing</h1>
         <p className="max-w-prose text-lg leading-relaxed text-ink-muted">
           One subscription, every course. No per-course purchases, no tiers that
           hold half the catalogue back.

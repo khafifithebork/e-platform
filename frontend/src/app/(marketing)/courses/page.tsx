@@ -35,7 +35,7 @@ export default async function CoursesPage() {
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <h1 className="font-display text-4xl tracking-tight text-ink">Courses</h1>
+        <h1 className="font-display text-4xl leading-tight tracking-tight text-ink">Courses</h1>
         <p className="max-w-xl text-ink-muted">
           Every course here was reviewed and approved before it was published.
         </p>
