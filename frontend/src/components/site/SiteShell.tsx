@@ -42,15 +42,15 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
        */}
       <a
         href="#main"
-        className="sr-only rounded-[--radius-sm] bg-accent px-4 py-2 text-sm
+        className="sr-only rounded-(--radius-md) bg-accent px-4 py-2 text-sm
           font-medium text-on-accent focus:not-sr-only focus:absolute focus:left-4
           focus:top-4 focus:z-50"
       >
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5">
+      <header className="sticky top-0 z-40 border-b border-line bg-surface">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5">
           <Link
             href="/"
             className="flex items-center gap-2 font-display text-xl tracking-tight
@@ -64,10 +64,11 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
              */}
             <span
               aria-hidden="true"
-              className="flex h-6 w-6 items-center justify-center rounded-[--radius-sm]
-                bg-accent text-sm font-semibold text-on-accent"
+              className="relative flex h-9 w-9 items-center justify-center rounded-(--radius-md)
+                bg-accent text-lg font-semibold text-on-accent"
             >
               L
+              <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-surface bg-brand-coral" />
             </span>
             Lingua
           </Link>
@@ -77,7 +78,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
            * below already is — and "navigation" twice in the landmark list
            * tells a screen-reader user nothing about which is which.
            */}
-          <nav aria-label="Main" className="flex items-center gap-6 text-sm">
+          <nav aria-label="Main" className="flex flex-wrap items-center gap-3 text-sm sm:gap-6">
             <NavLinks items={NAV} />
 
             {/*
@@ -95,7 +96,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
        * browser scrolls to the anchor and leaves focus on the link, so the
        * next Tab goes straight back into the navigation the user just skipped.
        */}
-      <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
+      <main id="main" tabIndex={-1} className="flex flex-1 flex-col focus:outline-none">
         {/*
          * The sidebar and the page content share this row so `SiteNavTree`'s
          * column sits in the margin a fixed content width otherwise leaves
@@ -107,15 +108,15 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
          * at all — its mobile form is a fixed-position toggle — so
          * `min-w-0 flex-1` is simply the whole width down there.
          */}
-        <div className="flex w-full">
+        <div className="flex w-full flex-1">
           <SiteNavTree />
           <div className="min-w-0 flex-1">{children}</div>
         </div>
       </main>
 
-      <footer className="border-t border-line">
+      <footer className="border-t border-line bg-surface">
         <div
-          className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-8 text-sm
+          className="mx-auto flex max-w-7xl flex-col gap-4 px-6 pb-24 pt-8 text-sm xl:pb-8
             text-ink-subtle sm:flex-row sm:items-center sm:justify-between"
         >
           <p>Every course here is reviewed before it is published.</p>

@@ -51,33 +51,44 @@ services:
     # Redis is disposable by design (architecture.md 3.4): it holds the queue
     # and cache and never the only copy of anything, so there is no volume.
 
-  minio:
+  storage:
     # An S3-compatible store so presigned uploads are exercised for real
-    # without a bill (ADR-012 section 1). Production is Cloudflare R2; the
-    # difference is the endpoint and the credentials, not the code.
+    # without a bill (ADR-012 §1). Production is Cloudflare R2; the difference
+    # is the endpoint and the credentials, not the code.
     #
-    # Pinned to the version reported by `minio --version` inside this exact
-    # image, not to a tag read from registry metadata — that is how the M0
-    # mailpit pin ended up wrong.
-    # quay.io, not Docker Hub. The same image at the same tag — MinIO publishes
-    # to both — but Docker Hub started refusing anonymous pulls of this
-    # repository ("pull access denied ... may require 'docker login'") and took
-    # CI down with it on 2026-09-14. Local machines with the image already
-    # cached kept working, which is exactly the shape of failure that looks
-    # like somebody's commit broke the build.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address ":9001"
+    # **Named for its role, not its vendor.** It was `minio` until 2026-09-25,
+    # and renaming it is the lesson of having replaced the vendor twice in
+    # eleven days: the next swap should touch this block and little else.
+    #
+    # **Why not MinIO any more.** MinIO gated their official images. Docker Hub
+    # refused anonymous pulls on 2026-09-14, quay.io followed within eleven
+    # days, and both now return 401 for *every* tag — `latest` and a 2024
+    # release alike. Checked against both registry APIs directly rather than
+    # inferred from a failed `docker pull`.
+    #
+    # **`S3_SKIP_SIGNATURE_VALIDATION=0` is load-bearing and is not the
+    # default.** LocalStack ships with presigned-signature validation *off*,
+    # and two tests in `test_object_storage.py` assert the store answers 403
+    # when the content type or the object key is tampered with — abuse case 2,
+    # and the reason ADR-012 §1 made this adapter real rather than fake.
+    # Provoked: at the default those two fail and the other fifteen pass, so
+    # deleting this line turns a security control green and meaningless rather
+    # than red.
+    #
+    # **`latest` will not do.** `localstack/localstack:latest` is the
+    # licence-gated Pro image: it boots, then exits 55 demanding an auth token.
+    # Pinned community releases need none.
+    image: localstack/localstack:4.0.3
     ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${STORAGE_PORT:-4566}:4566"
     environment:
-      MINIO_ROOT_USER: ${MEDIA_STORAGE_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MEDIA_STORAGE_SECRET_KEY:-minioadmin}
+      SERVICES: s3
+      S3_SKIP_SIGNATURE_VALIDATION: "0"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:4566/_localstack/health"]
       interval: 5s
       timeout: 3s
-      retries: 20
+      retries: 30
     # No volume: development uploads are disposable, and a persisted bucket
     # would quietly accumulate test videos.
 
@@ -113,13 +124,17 @@ services:
       REDIS_CACHE_URL: redis://redis:6379/1
       EMAIL_HOST: mailpit
       EMAIL_PORT: "1025"
-      # Reached over the compose network, so the container name rather than
-      # localhost. The presigned URLs it generates carry this host, which is
-      # why a browser on the host machine needs MINIO_PUBLIC_ENDPOINT below.
-      MEDIA_STORAGE_ENDPOINT: http://minio:9000
+      # Reached over the compose network, so the service name rather than
+      # localhost. The presigned URLs it generates carry this host, so the
+      # upload flow is exercised from inside the network or from the test
+      # suite against the published port.
+      #
+      # The comment here previously pointed at a `MINIO_PUBLIC_ENDPOINT`
+      # variable "below" that this file has never defined.
+      MEDIA_STORAGE_ENDPOINT: http://storage:4566
       MEDIA_STORAGE_BUCKET: ${MEDIA_STORAGE_BUCKET:-media}
-      MEDIA_STORAGE_ACCESS_KEY: ${MEDIA_STORAGE_ACCESS_KEY:-minioadmin}
-      MEDIA_STORAGE_SECRET_KEY: ${MEDIA_STORAGE_SECRET_KEY:-minioadmin}
+      MEDIA_STORAGE_ACCESS_KEY: ${MEDIA_STORAGE_ACCESS_KEY:-test}
+      MEDIA_STORAGE_SECRET_KEY: ${MEDIA_STORAGE_SECRET_KEY:-test}
     volumes:
       # Source is mounted so --reload works. /opt/venv lives outside /app, so
       # the mount cannot shadow the installed dependencies.
@@ -131,7 +146,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
+      storage:
         condition: service_healthy
     healthcheck:
       # A real request to /healthz, not the TCP probe this used to be. An open
@@ -173,7 +188,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
+      storage:
         condition: service_healthy
 
   web:

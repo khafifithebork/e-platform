@@ -25,22 +25,22 @@ import { cn } from "@/lib/utils/cn";
  * where keyboard focus is.
  */
 const button = cva(
-  `inline-flex items-center justify-center gap-2 rounded-[--radius-sm]
+  `inline-flex items-center justify-center gap-2 rounded-(--radius-md)
    text-sm font-medium transition-colors duration-150
    disabled:cursor-not-allowed disabled:opacity-60`,
   {
     variants: {
       variant: {
-        primary: `bg-accent text-on-accent shadow-[--shadow-sm]
-          hover:bg-accent-hover hover:shadow-[--shadow-md]
-          disabled:hover:bg-accent disabled:hover:shadow-[--shadow-sm]`,
+        primary: `bg-accent text-on-accent shadow-(--shadow-sm)
+          hover:bg-accent-hover hover:shadow-(--shadow-sm)
+          disabled:hover:bg-accent disabled:hover:shadow-(--shadow-sm)`,
         secondary: `border border-line-strong bg-surface text-ink
           hover:border-ink-subtle hover:bg-surface-sunken`,
         ghost: `text-ink-muted hover:bg-surface-sunken hover:text-ink`,
       },
       size: {
-        md: "px-4 py-2",
-        sm: "px-3 py-1.5 text-[0.8125rem]",
+        md: "min-h-11 px-5 py-2.5",
+        sm: "min-h-10 px-3.5 py-2 text-[0.8125rem]",
       },
     },
     defaultVariants: {

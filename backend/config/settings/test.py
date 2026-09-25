@@ -29,14 +29,19 @@ os.environ.setdefault("DJANGO_SECRET_KEY", secrets.token_urlsafe(50))
 os.environ.setdefault("DJANGO_ALLOWED_HOSTS", "testserver")
 os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/test")
 
-# The MinIO container's documented defaults, not secrets: they are the same
-# values printed in MinIO's own quickstart, they reach a local container only,
-# and compose and CI both supply their own. Present so `pytest` on a bare
-# machine still imports — the storage tests skip when nothing answers.
-os.environ.setdefault("MEDIA_STORAGE_ENDPOINT", "http://localhost:9000")
+# LocalStack's documented defaults, not secrets: they are the values its own
+# quickstart prints, they reach a local container only, and compose and CI both
+# supply their own. Present so `pytest` on a bare machine still imports — the
+# storage tests skip when nothing answers.
+#
+# **The credentials are not arbitrary any more.** With
+# `S3_SKIP_SIGNATURE_VALIDATION=0` LocalStack verifies the presigned signature
+# against credentials it knows, so the old `minioadmin` pair fails five tests
+# rather than none. Measured before changing them.
+os.environ.setdefault("MEDIA_STORAGE_ENDPOINT", "http://localhost:4566")
 os.environ.setdefault("MEDIA_STORAGE_BUCKET", "media-test")
-os.environ.setdefault("MEDIA_STORAGE_ACCESS_KEY", "minioadmin")
-os.environ.setdefault("MEDIA_STORAGE_SECRET_KEY", "minioadmin")
+os.environ.setdefault("MEDIA_STORAGE_ACCESS_KEY", "test")
+os.environ.setdefault("MEDIA_STORAGE_SECRET_KEY", "test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("REDIS_CACHE_URL", "redis://localhost:6379/1")
 

@@ -87,17 +87,17 @@ jobs:
         run: |
           # Ephemeral, reachable only from this runner, destroyed with the
           # job — the same reasoning as the Postgres credentials above.
-          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          docker run -d --name storage -p 4566:4566 -e SERVICES=s3 -e S3_SKIP_SIGNATURE_VALIDATION=0 localstack/localstack:4.0.3
           # Poll rather than sleep: a fixed wait is either flaky or wasted.
-          # /minio/health/live is MinIO's own probe, confirmed against the
+          # /_localstack/health is LocalStack's own probe, confirmed against the
           # running image rather than taken from documentation.
           for attempt in $(seq 30); do
-            if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+            if curl -fsS http://localhost:4566/_localstack/health >/dev/null; then
               echo "object storage ready after ${attempt}s"; exit 0
             fi
             sleep 1
           done
-          echo "object storage did not become ready"; docker logs minio; exit 1
+          echo "object storage did not become ready"; docker logs storage; exit 1
 
       # The preflight, against CI's own Postgres.
       #
@@ -123,10 +123,10 @@ jobs:
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
           REDIS_URL: redis://localhost:6379/0
           REDIS_CACHE_URL: redis://localhost:6379/1
-          MEDIA_STORAGE_ENDPOINT: http://localhost:9000
+          MEDIA_STORAGE_ENDPOINT: http://localhost:4566
           MEDIA_STORAGE_BUCKET: media-ci
-          MEDIA_STORAGE_ACCESS_KEY: minioadmin
-          MEDIA_STORAGE_SECRET_KEY: minioadmin
+          MEDIA_STORAGE_ACCESS_KEY: test
+          MEDIA_STORAGE_SECRET_KEY: test
         run: |
           # Not a credential and not reused: a throwaway for a process that
           # lives for one step. base.py reads DJANGO_SECRET_KEY with no default.
@@ -137,10 +137,10 @@ jobs:
       - name: Tests
         env:
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
-          MEDIA_STORAGE_ENDPOINT: http://localhost:9000
+          MEDIA_STORAGE_ENDPOINT: http://localhost:4566
           MEDIA_STORAGE_BUCKET: media-ci
-          MEDIA_STORAGE_ACCESS_KEY: minioadmin
-          MEDIA_STORAGE_SECRET_KEY: minioadmin
+          MEDIA_STORAGE_ACCESS_KEY: test
+          MEDIA_STORAGE_SECRET_KEY: test
         run: pytest
 
       # architecture.md §8.4: "pip-audit and npm audit in CI, CI fails on
@@ -173,10 +173,10 @@ jobs:
       - name: Entitlement resolver coverage
         env:
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
-          MEDIA_STORAGE_ENDPOINT: http://localhost:9000
+          MEDIA_STORAGE_ENDPOINT: http://localhost:4566
           MEDIA_STORAGE_BUCKET: media-ci
-          MEDIA_STORAGE_ACCESS_KEY: minioadmin
-          MEDIA_STORAGE_SECRET_KEY: minioadmin
+          MEDIA_STORAGE_ACCESS_KEY: test
+          MEDIA_STORAGE_SECRET_KEY: test
         run: >
           pytest tests/unit/test_resolve_access.py
           --cov=apps.entitlements.resolver
@@ -388,7 +388,7 @@ jobs:
           # Pointing at a port with nothing on it is honest: if a build ever
           # starts needing storage, it fails here rather than silently working
           # against something it should not be using.
-          MEDIA_STORAGE_ENDPOINT: http://localhost:9000
+          MEDIA_STORAGE_ENDPOINT: http://localhost:4566
           MEDIA_STORAGE_BUCKET: media-ci
           MEDIA_STORAGE_ACCESS_KEY: not-a-credential
           MEDIA_STORAGE_SECRET_KEY: not-a-credential

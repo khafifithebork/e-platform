@@ -32,7 +32,7 @@ overwrites an existing key) and starts seven services:
 | worker | — | Celery, with Beat embedded at one replica |
 | postgres | localhost:5432 | Set `POSTGRES_PORT` if a native Postgres already holds it |
 | redis | localhost:6379 | Broker on db 0, cache on db 1 |
-| minio | http://localhost:9001 | S3-compatible storage. Console on 9001, API on 9000 |
+| storage | localhost:4566 | S3-compatible store (LocalStack). Presigned uploads are exercised for real |
 | mailpit | http://localhost:8025 | Catches all outbound mail |
 
 Host ports are overridable when something else already holds one:
@@ -41,9 +41,15 @@ Host ports are overridable when something else already holds one:
 WEB_PORT=3001 make dev
 ```
 
-**Run the suite with MinIO up.** Object-storage tests skip when nothing answers,
-and each skip waits for a connection to time out first — a full run against a
-dead MinIO measured 963s against 82s with it running.
+**Run the suite with the storage service up.** Object-storage tests skip when
+nothing answers, and each skip waits for a connection to time out first — a full
+run against a dead store measured 963s against 82s with it running.
+
+**It is LocalStack, not MinIO, since 2026-09-25**, and the pinned version and the
+`S3_SKIP_SIGNATURE_VALIDATION=0` beside it are both load-bearing — `latest` is
+licence-gated, and without the flag two presigned-tampering tests pass without
+checking anything. `docker-compose.yml` explains both; MinIO gated its images on
+Docker Hub and then on quay.io within eleven days.
 
 To run the backend tests directly, create a virtualenv and install from
 `backend/pyproject.toml`:

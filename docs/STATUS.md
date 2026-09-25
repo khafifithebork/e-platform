@@ -1,13 +1,33 @@
 # STATUS
 
-**Last updated:** 2026-09-18
-**Updated by:** agent session (ready to provision)
+**Last updated:** 2026-09-25
+**Updated by:** Codex (approved frontend redesign, shared shell stage)
 
 ---
 
 ## Current milestone
 
-**No milestone is in progress, and nothing is left that can be started.**
+**The owner has approved a frontend redesign; its shared shell stage is in progress.**
+ADR-029 records the Linglee reference and scope. Tokens, navigation, buttons,
+and cards have been refreshed; mobile keyboard navigation has regression tests.
+Page-specific redesign work remains. No new product milestone is started.
+
+Local verification: frontend typecheck and ESLint pass; Ruff check and format
+pass. Final frontend verification: 365 tests pass across 26 files, including
+focus containment, scroll restoration, and desktop resize cleanup. TypeScript
+and ESLint were rerun after the final changes and passed. Git diff check passes.
+The shell was visually inspected at mobile and desktop widths in dark mode.
+The preview shows the real API-unavailable state, not invented course data.
+
+Build compilation passes, but static generation is blocked by the unavailable
+local catalogue API. Docker Desktop's engine is unavailable. The production
+deploy check cannot load because DJANGO_SECRET_KEY is not configured in the
+command environment. No production settings or credentials were changed.
+Claude Code still crashes before model selection, so no Claude collaboration
+or Opus 5.5 access has been established. The owner requested this stage be
+committed on the `redesign` branch and submitted for pull-request review.
+
+**Prior milestone and provisioning status:**
 M14 stands at 6 of 10. Every remaining task in the project waits on an account,
 a payment, or a §5 decision — none of which is an agent's to make.
 

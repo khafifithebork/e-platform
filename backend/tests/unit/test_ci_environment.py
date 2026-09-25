@@ -371,7 +371,7 @@ class TestTheReleaseImageIsSmoked:
 
 
 class TestCiAndComposeAgreeOnTheObjectStore:
-    """The suite must run against the same MinIO in both places.
+    """The suite must run against the same object store in both places.
 
     **This is the fifth instance of the pattern this file exists for**, arriving
     from a direction none of the checks above cover: not a missing variable, but
@@ -380,38 +380,114 @@ class TestCiAndComposeAgreeOnTheObjectStore:
     It surfaced on 2026-09-14 when Docker Hub began refusing anonymous pulls of
     `minio/minio` and took CI down. Local machines had the image cached and kept
     working, so the build looked broken by whichever commit happened to land
-    that morning. Repointing at quay.io fixed it — and *had* only one of the two
-    files been repointed, the suite would have tested one MinIO release locally
-    and a different one in CI, which is the kind of difference that surfaces as
-    a storage test nobody can reproduce.
+    that morning. Eleven days later quay.io refused it too — every tag, `latest`
+    and a 2024 release alike — and the store was replaced with LocalStack.
+
+    **The vendor has now changed twice, so this no longer names one.** The
+    image is read from compose and compared, whatever it is; `_ci_image`
+    matches the argument that looks like an image reference rather than a
+    particular repository. Naming the vendor here would mean this guard needs
+    editing every time the thing it guards is replaced — and a guard that must
+    be edited to keep passing is one somebody edits without thinking.
     """
 
     @staticmethod
     def _compose_image() -> str:
         compose = yaml.safe_load((REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
-        return compose["services"]["minio"]["image"]
+        return compose["services"]["storage"]["image"]
+
+    @classmethod
+    def _storage_step(cls) -> str:
+        steps = _workflow()["jobs"]["backend"]["steps"]
+        return next(s["run"] for s in steps if "docker run" in str(s.get("run", "")))
 
     @classmethod
     def _ci_image(cls) -> str:
-        steps = _workflow()["jobs"]["backend"]["steps"]
-        script = next(s["run"] for s in steps if "docker run" in str(s.get("run", "")))
-        match = re.search(r"(\S*minio/minio:\S+)", script)
-        assert match, "no MinIO image found in the CI step that starts it"
-        return match.group(1)
+        """The image argument of the `docker run` line.
+
+        Read from that line alone, not the whole script: the first version
+        searched the step and matched the health-probe URL, which also contains
+        a slash and a colon. An image reference never starts with a dash, never
+        contains `//`, and — unlike a `4566:4566` port mapping — does not have
+        digits on both sides of its colon.
+        """
+        line = next(row for row in cls._storage_step().splitlines() if "docker run" in row)
+        candidates = [
+            token
+            for token in line.split()
+            if ":" in token
+            and not token.startswith("-")
+            and "//" not in token
+            and not token.rsplit(":", 1)[0].isdigit()
+        ]
+        assert candidates, f"no image reference found in: {line}"
+        return candidates[-1]
 
     def test_they_pull_the_same_image(self) -> None:
         assert self._ci_image() == self._compose_image()
 
     def test_the_tag_is_pinned_rather_than_floating(self) -> None:
         """`latest` would mean the version under test changes without a commit,
-        and the failure would arrive on an unrelated pull request."""
+        and the failure would arrive on an unrelated pull request.
+
+        It is also a concrete refusal now rather than a precaution:
+        `localstack/localstack:latest` is the licence-gated Pro image, which
+        boots and then exits 55 demanding an auth token."""
         image = self._compose_image()
 
         assert ":" in image, image
         assert not image.endswith(":latest"), image
 
     def test_the_guard_would_notice_a_difference(self) -> None:
-        """The twin. Both halves read real files, so a regex that matched
+        """The twin. Both halves read real files, so a matcher that found
         nothing would make the first test compare two empty strings and pass."""
-        assert "minio/minio:" in self._compose_image()
-        assert "minio/minio:" in self._ci_image()
+        assert ":" in self._compose_image()
+        assert ":" in self._ci_image()
+        assert "/" in self._ci_image()
+
+
+class TestPresignedSignaturesAreActuallyVerified:
+    """**The control that is one deleted line from being meaningless.**
+
+    `test_object_storage.py` asserts twice that the store answers 403 when a
+    presigned URL is tampered with — once for a substituted content type, once
+    for a retargeted object key. Both are abuse case 2, and they are the reason
+    ADR-012 §1 made this adapter real rather than fake.
+
+    LocalStack ships with presigned-signature validation **off**. Measured on
+    2026-09-25: with `S3_SKIP_SIGNATURE_VALIDATION` at its default those two
+    tests fail and the other fifteen pass. So the flag is what makes those
+    assertions mean anything, and dropping it from either file would turn a
+    security control green rather than red — which is the failure this whole
+    file exists to catch, in its most expensive form.
+
+    Adobe's `s3mock` was the first candidate and was rejected for exactly this:
+    its own documentation says presigned URLs are "accepted but not validated
+    (expiration, signature, HTTP verb not checked)".
+    """
+
+    FLAG = "S3_SKIP_SIGNATURE_VALIDATION"
+
+    def test_ci_starts_the_store_with_validation_on(self) -> None:
+        steps = _workflow()["jobs"]["backend"]["steps"]
+        script = next(s["run"] for s in steps if "docker run" in str(s.get("run", "")))
+
+        assert f"{self.FLAG}=0" in script
+
+    def test_compose_starts_the_store_with_validation_on(self) -> None:
+        compose = yaml.safe_load((REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+        environment = compose["services"]["storage"]["environment"]
+
+        assert str(environment[self.FLAG]) == "0"
+
+    def test_the_two_assertions_it_protects_still_exist(self) -> None:
+        """**Without this, the guard above guards nothing.** Deleting the two
+        403 tests would leave the flag set, correct, and pointless — and every
+        test in this file would still pass."""
+        source = (
+            REPO_ROOT / "backend" / "tests" / "integration" / "test_object_storage.py"
+        ).read_text(encoding="utf-8")
+
+        assert "def test_the_store_refuses_a_different_content_type" in source
+        assert "def test_the_url_authorises_one_key_only" in source
+        assert source.count("== 403") >= 2

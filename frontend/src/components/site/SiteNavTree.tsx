@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
+import { BookOpen, CircleUserRound, House, Menu, Wallet, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -9,27 +10,8 @@ import type { AuthState } from "@/lib/auth/useCurrentUser";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
 
-/**
- * A branch-style map of the app's own pages, standing in the margin a fixed
- * shell width otherwise leaves empty.
- *
- * **Lists pages, not the DOM.** The alternative — reflecting the current
- * page's actual heading/landmark structure — is an accessibility-inspector
- * feature, not a navigation aid, and this app already has one skip link and
- * one labelled `<nav>` per landmark; a second tool for inspecting that
- * structure would duplicate what a browser's own accessibility tree already
- * shows. This is the header's link set, redrawn as a tree, plus the one
- * branch the header's `AuthMenu` covers with dynamic content instead of a
- * link: the account section shows the sign-in/register pair or "My courses"
- * for exactly the same reason `AuthMenu` waits for `unknown` to resolve
- * before choosing — see `useCurrentUser`.
- *
- * **Two renderings behind one component**, not two components, so the page
- * data (pathname, auth state) is fetched once and the tree markup — `TreeList`
- * — is written once: a sticky sidebar from `xl` up, and a floating toggle
- * that opens a slide-in panel below it. Below `xl` there is no room beside a
- * `max-w-7xl` page for a permanent column without shrinking the content back
- * to the width this component exists to stop being empty.
+/** Shared route list for the desktop rail and mobile drawer. Account links
+ * wait for the session response so subscribers never flash a sign-in prompt.
  */
 export function SiteNavTree() {
   // `usePathname` can return `null` outside a router (Next's own type
@@ -60,16 +42,46 @@ export function SiteNavTree() {
     // a keyboard user opening this lands somewhere inside it rather than on
     // whatever was next in the background tab order.
     panelRef.current?.focus();
+    const toggle = toggleRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function onResize() {
+      // Match the xl rail: a hidden mobile panel must not keep scrolling locked.
+      if (window.innerWidth >= 1280) setOpen(false);
+    }
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
         toggleRef.current?.focus();
       }
+      if (event.key === "Tab") {
+        const panel = panelRef.current;
+        // Preserve DOM order when filtering different kinds of controls.
+        const controls = Array.from(panel?.querySelectorAll<HTMLElement>("*") ?? [])
+          .filter((element) => element.matches("a[href], button:not(:disabled)"));
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first || !last) return;
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     }
 
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onResize);
+      document.body.style.overflow = previousOverflow;
+      toggle?.focus();
+    };
   }, [open]);
 
   return (
@@ -84,7 +96,7 @@ export function SiteNavTree() {
         aria-label="Site map"
         className="hidden shrink-0 border-r border-line bg-surface xl:block xl:w-64"
       >
-        <div className="sticky top-24 px-6 py-10">
+        <div className="sticky top-24 px-5 py-8">
           <TreeList pathname={pathname} auth={auth} />
         </div>
       </nav>
@@ -97,11 +109,9 @@ export function SiteNavTree() {
         aria-controls="site-map-panel"
         className="fixed bottom-5 left-5 z-40 flex items-center gap-2 rounded-full border
           border-line-strong bg-surface px-4 py-2.5 text-sm font-medium text-ink
-          shadow-[--shadow-card-hovered] transition-colors hover:border-ink-subtle xl:hidden"
+          shadow-(--shadow-card-hovered) transition-colors hover:border-ink-subtle xl:hidden"
       >
-        <span aria-hidden="true" className="font-mono">
-          ├─
-        </span>
+        <Menu aria-hidden="true" size={18} />
         Site map
       </button>
 
@@ -130,19 +140,19 @@ export function SiteNavTree() {
               exit={reduceMotion ? { x: 0 } : { x: "-100%" }}
               transition={{ duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] }}
               className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] overflow-y-auto border-r
-                border-line bg-surface p-6 shadow-[--shadow-card-hovered] focus:outline-none xl:hidden"
+                border-line bg-surface p-6 shadow-(--shadow-card-hovered) focus:outline-none xl:hidden"
             >
               <div className="mb-5 flex items-center justify-between">
-                <span className="font-display text-xs uppercase tracking-widest text-ink-subtle">
+                <span className="font-display text-lg font-semibold text-ink">
                   Site map
                 </span>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   aria-label="Close site map"
-                  className="rounded-[--radius-sm] p-1 text-ink-subtle transition-colors hover:text-ink"
+                  className="rounded-(--radius-sm) p-3 text-ink-muted transition-colors hover:text-ink"
                 >
-                  ✕
+                  <X aria-hidden="true" size={20} />
                 </button>
               </div>
 
@@ -171,17 +181,17 @@ function TreeList({ pathname, auth }: { pathname: string; auth: AuthState }) {
     <ul className="flex flex-col gap-1 text-sm">
       <TreeItem href="/" label="Home" active={isActive(pathname, "/")} />
       <TreeItem href="/courses" label="Courses" active={isActive(pathname, "/courses")} />
-      <TreeItem href="/pricing" label="Pricing" active={isActive(pathname, "/pricing")} last={!accountKnown} />
+      <TreeItem href="/pricing" label="Pricing" active={isActive(pathname, "/pricing")} />
 
       {accountKnown &&
         (auth.status === "signed-in" ? (
-          <TreeBranch label="Account" last>
-            <TreeItem href="/my-courses" label="My courses" active={isActive(pathname, "/my-courses")} last />
+          <TreeBranch label="Account">
+            <TreeItem href="/my-courses" label="My courses" active={isActive(pathname, "/my-courses")} />
           </TreeBranch>
         ) : (
-          <TreeBranch label="Account" last>
+          <TreeBranch label="Account">
             <TreeItem href="/login" label="Sign in" active={isActive(pathname, "/login")} />
-            <TreeItem href="/register" label="Create account" active={isActive(pathname, "/register")} last />
+            <TreeItem href="/register" label="Create account" active={isActive(pathname, "/register")} />
           </TreeBranch>
         ))}
     </ul>
@@ -192,12 +202,10 @@ function TreeItem({
   href,
   label,
   active,
-  last = false,
 }: {
   href: string;
   label: string;
   active: boolean;
-  last?: boolean;
 }) {
   return (
     <li>
@@ -205,29 +213,25 @@ function TreeItem({
         href={href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex items-center gap-1.5 rounded-[--radius-sm] py-1 pr-2 transition-colors",
-          active ? "font-medium text-accent" : "text-ink-muted hover:text-ink",
+          "flex min-h-12 items-center gap-3 rounded-(--radius-md) px-4 py-3 transition-colors",
+          active ? "bg-accent-subtle font-semibold text-accent" : "text-ink-muted hover:bg-surface-sunken hover:text-ink",
         )}
       >
-        <span aria-hidden="true" className="font-mono text-ink-subtle">
-          {last ? "└─" : "├─"}
-        </span>
+        {href === "/" ? <House aria-hidden="true" size={19} /> :
+          href === "/pricing" ? <Wallet aria-hidden="true" size={19} /> :
+          href === "/courses" || href === "/my-courses" ? <BookOpen aria-hidden="true" size={19} /> :
+          <CircleUserRound aria-hidden="true" size={19} />}
         {label}
       </Link>
     </li>
   );
 }
 
-function TreeBranch({ label, last = false, children }: { label: string; last?: boolean; children: ReactNode }) {
+function TreeBranch({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <li className="flex flex-col gap-1">
-      <span className="flex items-center gap-1.5 py-1 text-ink-subtle">
-        <span aria-hidden="true" className="font-mono">
-          {last ? "└─" : "├─"}
-        </span>
-        {label}
-      </span>
-      <ul className="ml-[3px] flex flex-col gap-1 border-l border-line pl-4">{children}</ul>
+    <li className="mt-6 flex flex-col gap-2 border-t border-line pt-6">
+      <span className="px-4 text-sm font-medium text-ink-muted">{label}</span>
+      <ul className="flex flex-col gap-1">{children}</ul>
     </li>
   );
 }
