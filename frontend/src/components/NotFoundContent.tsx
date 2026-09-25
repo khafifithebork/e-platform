@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 
 /**
@@ -28,11 +28,10 @@ import Link from "next/link";
  * to a course that was unpublished since the last build.
  */
 export function NotFoundContent() {
-  const reduceMotion = useReducedMotion();
 
   return (
     <motion.div
-      initial={reduceMotion ? undefined : { opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-24"

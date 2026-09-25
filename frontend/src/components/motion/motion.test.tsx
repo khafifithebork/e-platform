@@ -14,7 +14,7 @@
  * is the fix, and these tests are what stop it being removed as redundant.
  */
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Reveal } from "@/components/motion/Reveal";
@@ -94,18 +94,42 @@ describe("Reveal", () => {
     expect(screen.getByText("Below the fold.")).not.toBeVisible();
   });
 
-  it("renders no animation wrapper at all when motion is reduced", () => {
-    prefersReducedMotion(true);
-
-    const { container } = render(
+  it("renders identical markup whether or not motion is reduced", () => {
+    /**
+     * **The test that replaces the one this bug hid behind.**
+     *
+     * Until 2026-09-25 `Reveal` returned a plain `<div>` when
+     * `useReducedMotion()` was true, and a test here asserted exactly that —
+     * and passed, because it mocked the hook. The branch was correct and its
+     * *placement* was fatal: the hook reads a media query, the server has
+     * none, so the server always rendered the animated branch with
+     * `opacity: 0` inline while a reduced-motion client rendered the plain
+     * one. React reported the hydration mismatch and declined to patch it, so
+     * the landing page stayed blank for exactly the people who had asked for
+     * less motion.
+     *
+     * No unit test that supplies the value itself can see that fault — it
+     * lives in the difference between server and client. What a unit test
+     * *can* assert is the property that makes the fault impossible: **the
+     * rendered markup must not depend on the preference at all.**
+     * `MotionProvider` applies it inside Motion, when the animation runs.
+     */
+    prefersReducedMotion(false);
+    const normal = render(
       <Reveal className="marker">
-        <p>Still here.</p>
+        <p>Same either way.</p>
       </Reveal>,
-    );
+    ).container.innerHTML;
+    cleanup();
 
-    expect(screen.getByText("Still here.")).toBeVisible();
-    // The plain branch returns a bare div: no inline opacity to get stuck at.
-    expect(container.querySelector(".marker")?.getAttribute("style")).toBeNull();
+    prefersReducedMotion(true);
+    const reduced = render(
+      <Reveal className="marker">
+        <p>Same either way.</p>
+      </Reveal>,
+    ).container.innerHTML;
+
+    expect(reduced).toBe(normal);
   });
 
   it("keeps the caller's className on both branches", () => {
@@ -153,15 +177,26 @@ describe("StaggerList", () => {
     expect(screen.getByText("One")).toBeInTheDocument();
   });
 
-  it("renders its children when motion is reduced", () => {
-    prefersReducedMotion(true);
-
-    render(
+  it("renders identical markup whether or not motion is reduced", () => {
+    // The same property as `Reveal`'s, for the same reason: a structural
+    // branch here put `opacity: 0` in the server's HTML and nothing in the
+    // client's, and React leaves that mismatch in place.
+    prefersReducedMotion(false);
+    const normal = render(
       <StaggerList>
         <li>Spanish</li>
       </StaggerList>,
-    );
+    ).container.innerHTML;
+    cleanup();
 
-    expect(screen.getByText("Spanish")).toBeVisible();
+    prefersReducedMotion(true);
+    const reduced = render(
+      <StaggerList>
+        <li>Spanish</li>
+      </StaggerList>,
+    ).container.innerHTML;
+
+    expect(reduced).toBe(normal);
+    expect(screen.getByText("Spanish")).toBeInTheDocument();
   });
 });

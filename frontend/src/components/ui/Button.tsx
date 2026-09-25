@@ -1,7 +1,7 @@
 "use client";
 
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { ButtonHTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils/cn";
@@ -75,7 +75,6 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const reduceMotion = useReducedMotion();
   const isDisabled = disabled || pending;
 
   return (
@@ -87,10 +86,13 @@ export function Button({
       aria-busy={pending}
       className={cn(button({ variant, size }), className)}
       // A press should read as a press: a slight compression on pointer-down,
-      // released on up. Skipped when reduced motion is requested or the
-      // control cannot be pressed at all — animating a scale on a disabled
-      // button would be motion with nothing for it to mean.
-      whileTap={!reduceMotion && !isDisabled ? { scale: 0.97 } : undefined}
+      // released on up. Skipped when the control cannot be pressed at all —
+      // animating a scale on a disabled button would be motion with nothing
+      // for it to mean. Reduced motion is no longer decided here: `whileTap`
+      // makes Motion add a `tabindex`, so branching on it during render
+      // changed the markup and mismatched hydration. `MotionProvider`
+      // disables the scale instead, after the tree is identical.
+      whileTap={!isDisabled ? { scale: 0.97 } : undefined}
       transition={{ type: "spring", stiffness: 500, damping: 30 }}
     >
       {pending ? pendingLabel : children}

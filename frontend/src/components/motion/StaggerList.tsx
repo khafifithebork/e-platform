@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import type { ReactNode } from "react";
 
 /**
@@ -56,16 +56,6 @@ export function StaggerList({
   as?: "ul" | "dl" | "div";
   children: ReactNode;
 }) {
-  const reduceMotion = useReducedMotion();
-
-  if (reduceMotion) {
-    const Plain = as;
-    return (
-      <Plain className={className} {...props}>
-        {children}
-      </Plain>
-    );
-  }
 
   const Motion = as === "dl" ? motion.dl : as === "div" ? motion.div : motion.ul;
 
@@ -92,16 +82,6 @@ export function StaggerItem({
   as?: "li" | "div";
   children: ReactNode;
 }) {
-  const reduceMotion = useReducedMotion();
-
-  if (reduceMotion) {
-    const Plain = as;
-    return (
-      <Plain className={className} {...props}>
-        {children}
-      </Plain>
-    );
-  }
 
   const Motion = as === "div" ? motion.div : motion.li;
 
