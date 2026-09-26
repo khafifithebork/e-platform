@@ -7,6 +7,7 @@ import { CourseProgress } from "@/components/catalogue/CourseProgress";
 import { Curriculum } from "@/components/catalogue/Curriculum";
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Badge } from "@/components/ui/Badge";
+import { PageTitle } from "@/components/ui/PageTitle";
 import {
   CatalogueNotFound,
   publishedCourse,
@@ -92,9 +93,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
           <span>{course.language.name}</span>
         </p>
 
-        <h1 className="font-display text-4xl leading-tight tracking-tight text-ink">
-          {course.title}
-        </h1>
+        <PageTitle>{course.title}</PageTitle>
 
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
           <span>{course.language.name}</span>

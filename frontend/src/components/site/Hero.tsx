@@ -1,8 +1,10 @@
 "use client";
 
-import { motion, useReducedMotion, useScroll, useTransform, type Variants } from "framer-motion";
+import { motion, useScroll, useTransform, type Variants } from "framer-motion";
 import Link from "next/link";
 import { useRef } from "react";
+
+import { PAGE_TITLE } from "@/components/ui/PageTitle";
 
 const containerVariants: Variants = {
   hidden: {},
@@ -37,7 +39,6 @@ const itemVariants: Variants = {
  * one).
  */
 export function Hero() {
-  const reduceMotion = useReducedMotion();
   const sectionRef = useRef<HTMLElement>(null);
 
   // The background glow drifts slightly slower than the page scrolls — a
@@ -47,17 +48,25 @@ export function Hero() {
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
   const glowY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
 
-  const container = reduceMotion
-    ? {}
-    : { initial: "hidden" as const, animate: "visible" as const, variants: containerVariants };
+  // **Not branched on `useReducedMotion()` any more.** These props render into
+  // the markup — `initial` becomes an inline `opacity: 0`, and `whileTap` makes
+  // Motion add a `tabindex` — so deciding them from a media query the server
+  // cannot read produced a hydration mismatch React declined to patch, and the
+  // hero stayed invisible for anyone who preferred reduced motion.
+  // `MotionProvider` makes that decision inside Motion instead.
+  const container = {
+    initial: "hidden" as const,
+    animate: "visible" as const,
+    variants: containerVariants,
+  };
 
-  const item = reduceMotion ? {} : { variants: itemVariants };
+  const item = { variants: itemVariants };
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden">
       <motion.div
         aria-hidden="true"
-        style={reduceMotion ? undefined : { y: glowY }}
+        style={{ y: glowY }}
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem]
           bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,var(--color-accent-subtle),transparent)]"
       />
@@ -66,7 +75,7 @@ export function Hero() {
         <motion.div className="flex max-w-2xl flex-col gap-6" {...container}>
           <motion.h1
             {...item}
-            className="font-display text-4xl leading-tight tracking-tight text-ink sm:text-5xl"
+            className={`${PAGE_TITLE.page} sm:text-5xl`}
           >
             Language courses, reviewed before they are published.
           </motion.h1>
@@ -78,7 +87,7 @@ export function Hero() {
           </motion.p>
 
           <motion.div {...item} className="flex flex-col gap-3 sm:flex-row">
-            <motion.div whileTap={reduceMotion ? undefined : { scale: 0.97 }}>
+            <motion.div whileTap={{ scale: 0.97 }}>
               <Link
                 href="/courses"
                 className="block rounded-[--radius-md] bg-accent px-5 py-2.5 text-center
@@ -88,7 +97,7 @@ export function Hero() {
                 Browse the catalogue
               </Link>
             </motion.div>
-            <motion.div whileTap={reduceMotion ? undefined : { scale: 0.97 }}>
+            <motion.div whileTap={{ scale: 0.97 }}>
               <Link
                 href="/pricing"
                 className="block rounded-[--radius-md] border border-line-strong bg-surface
@@ -105,21 +114,21 @@ export function Hero() {
             already-tight copy on a phone screen is clutter, not depth. */}
         <div aria-hidden="true" className="relative hidden h-64 lg:block">
           <motion.div
-            initial={reduceMotion ? undefined : { opacity: 0, y: 30, rotate: -6 }}
+            initial={{ opacity: 0, y: 30, rotate: -6 }}
             animate={{ opacity: 1, y: 0, rotate: -6 }}
             transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className="absolute left-8 top-6 h-40 w-56 rounded-[--radius-lg] border
               border-line bg-surface-sunken shadow-[--shadow-sm]"
           />
           <motion.div
-            initial={reduceMotion ? undefined : { opacity: 0, y: 30, rotate: 4 }}
+            initial={{ opacity: 0, y: 30, rotate: 4 }}
             animate={{ opacity: 1, y: 0, rotate: 4 }}
             transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="absolute right-4 top-2 h-40 w-56 rounded-[--radius-lg] border
               border-line bg-surface shadow-[--shadow-md]"
           />
           <motion.div
-            initial={reduceMotion ? undefined : { opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="absolute inset-x-10 bottom-0 flex h-40 w-56 flex-col justify-between

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { refusalFor } from "@/lib/entitlements/denial";
 import { TranscriptPanel } from "@/components/learn/TranscriptPanel";
 import {
@@ -306,7 +307,7 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
     <div className="grid gap-8 lg:grid-cols-[3fr_2fr]">
       <div className="space-y-4">
         <header>
-          <h1 className="font-display text-2xl text-ink">{lesson.title}</h1>
+          <PageTitle variant="section">{lesson.title}</PageTitle>
           <p className="text-sm text-ink-subtle">{lesson.course_slug}</p>
         </header>
 

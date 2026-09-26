@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { MotionProvider } from "@/components/motion/MotionProvider";
+
 import "./globals.css";
 
 /*
@@ -28,7 +30,17 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-full">{children}</body>
+      {/*
+       * `MotionProvider` is a client component, and wrapping the tree in one
+       * does not make any page dynamic — the `(marketing)` group still
+       * prerenders (invariant 15, asserted by `verify:static`). It sits at the
+       * root because reduced motion is a property of the visitor, not of a
+       * route, and because the bug it fixes was every component answering that
+       * question separately during render.
+       */}
+      <body className="min-h-full">
+        <MotionProvider>{children}</MotionProvider>
+      </body>
     </html>
   );
 }

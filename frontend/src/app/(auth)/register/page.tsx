@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { ApiError, api } from "@/lib/api/client";
 
 export default function RegisterPage() {
@@ -48,9 +49,9 @@ export default function RegisterPage() {
   if (submitted) {
     return (
       <>
-        <h1 className="font-display text-3xl tracking-tight text-ink">
+        <PageTitle variant="interstitial">
           Check your inbox
-        </h1>
+        </PageTitle>
         <div className="mt-6">
           <Notice tone="success" title="Almost there">
             If <span className="font-medium">{email}</span> can be registered,
@@ -70,9 +71,9 @@ export default function RegisterPage() {
 
   return (
     <>
-      <h1 className="font-display text-3xl tracking-tight text-ink">
+      <PageTitle variant="interstitial">
         Create an account
-      </h1>
+      </PageTitle>
       <p className="mt-2 text-ink-muted">
         Already have one?{" "}
         <Link href="/login" className="text-accent underline underline-offset-4">

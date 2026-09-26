@@ -1,7 +1,9 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
+
+import { PageTitle } from "@/components/ui/PageTitle";
 
 /**
  * What a 404 says, in one place.
@@ -28,18 +30,17 @@ import Link from "next/link";
  * to a course that was unpublished since the last build.
  */
 export function NotFoundContent() {
-  const reduceMotion = useReducedMotion();
 
   return (
     <motion.div
-      initial={reduceMotion ? undefined : { opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-24"
     >
-      <h1 className="font-display text-3xl tracking-tight text-ink">
+      <PageTitle variant="interstitial">
         That page is not here
-      </h1>
+      </PageTitle>
 
       <p className="max-w-prose leading-relaxed text-ink-muted">
         The link may be old, or the course may have been taken down. Courses are

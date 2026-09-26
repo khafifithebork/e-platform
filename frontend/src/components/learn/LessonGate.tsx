@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { LessonPlayer } from "@/components/learn/LessonPlayer";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { ApiError, api, type GatedLesson } from "@/lib/api/client";
 import { refusalFor } from "@/lib/entitlements/denial";
 
@@ -122,9 +123,9 @@ export function LessonGate({
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 py-16">
       {state.status === "missing" && (
         <>
-          <h1 className="font-display text-3xl tracking-tight text-ink">
+          <PageTitle variant="interstitial">
             That lesson is not here
-          </h1>
+          </PageTitle>
           <p className="text-ink-muted">
             The link may be old, or the course may have been taken down.
           </p>
@@ -135,9 +136,9 @@ export function LessonGate({
 
       {state.status === "failed" && (
         <>
-          <h1 className="font-display text-3xl tracking-tight text-ink">
+          <PageTitle variant="interstitial">
             This lesson could not be loaded
-          </h1>
+          </PageTitle>
           <p className="text-ink-muted">Something went wrong. Try again in a moment.</p>
         </>
       )}
@@ -163,7 +164,7 @@ function Refused({ reason }: { reason: string }) {
 
   return (
     <>
-      <h1 className="font-display text-3xl tracking-tight text-ink">{refusal.title}</h1>
+      <PageTitle variant="interstitial">{refusal.title}</PageTitle>
       <p className="text-ink-muted">{refusal.detail}</p>
 
       {refusal.action && (

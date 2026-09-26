@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { ElementType } from "react";
 
 import { cn } from "@/lib/utils/cn";
@@ -50,10 +50,9 @@ const MOTION_TAGS = {
 } as const;
 
 export function Card({ as = "div", className, hoverable = false, ...props }: CardProps) {
-  const reduceMotion = useReducedMotion();
   const base = "rounded-(--radius-lg) border border-line bg-surface p-5";
 
-  if (!hoverable || reduceMotion || typeof as !== "string" || !(as in MOTION_TAGS)) {
+  if (!hoverable || typeof as !== "string" || !(as in MOTION_TAGS)) {
     const Tag = as;
     return (
       <Tag

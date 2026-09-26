@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 
 /**
@@ -19,7 +19,6 @@ import Link from "next/link";
  * `(marketing)` server-only — there is no equivalent constraint to protect.
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  const reduceMotion = useReducedMotion();
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -33,7 +32,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <div className="flex flex-1 items-center py-12">
           <motion.div
-            initial={reduceMotion ? undefined : { opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-sm"
@@ -63,7 +62,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         />
 
         <motion.blockquote
-          initial={reduceMotion ? undefined : { opacity: 0, x: 16 }}
+          initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="relative max-w-md"

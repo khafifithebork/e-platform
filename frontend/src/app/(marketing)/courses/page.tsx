@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { CourseCatalogue } from "@/components/catalogue/CourseCatalogue";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { allPublishedCourses, catalogueLanguages } from "@/lib/catalogue/courses";
 
 export const metadata: Metadata = {
@@ -35,7 +36,7 @@ export default async function CoursesPage() {
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <h1 className="font-display text-4xl tracking-tight text-ink">Courses</h1>
+        <PageTitle>Courses</PageTitle>
         <p className="max-w-xl text-ink-muted">
           Every course here was reviewed and approved before it was published.
         </p>
