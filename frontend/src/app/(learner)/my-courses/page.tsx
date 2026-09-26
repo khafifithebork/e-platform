@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { MyCourses } from "@/components/learn/MyCourses";
+import { PageTitle } from "@/components/ui/PageTitle";
 
 /**
  * The page the header has linked to since T2 and which did not exist until now.
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 export default function MyCoursesPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-16">
-      <h1 className="font-display text-4xl tracking-tight text-ink">My courses</h1>
+      <PageTitle>My courses</PageTitle>
       <MyCourses />
     </div>
   );

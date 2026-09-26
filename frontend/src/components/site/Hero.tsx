@@ -4,6 +4,8 @@ import { motion, useScroll, useTransform, type Variants } from "framer-motion";
 import Link from "next/link";
 import { useRef } from "react";
 
+import { PAGE_TITLE } from "@/components/ui/PageTitle";
+
 const containerVariants: Variants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
@@ -73,7 +75,7 @@ export function Hero() {
         <motion.div className="flex max-w-2xl flex-col gap-6" {...container}>
           <motion.h1
             {...item}
-            className="font-display text-4xl leading-tight tracking-tight text-ink sm:text-5xl"
+            className={`${PAGE_TITLE.page} sm:text-5xl`}
           >
             Language courses, reviewed before they are published.
           </motion.h1>
