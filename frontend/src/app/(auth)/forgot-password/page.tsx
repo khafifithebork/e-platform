@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { ApiError, api } from "@/lib/api/client";
 
 export default function ForgotPasswordPage() {
@@ -41,9 +42,9 @@ export default function ForgotPasswordPage() {
   if (submitted) {
     return (
       <>
-        <h1 className="font-display text-3xl tracking-tight text-ink">
+        <PageTitle variant="interstitial">
           Check your inbox
-        </h1>
+        </PageTitle>
         <div className="mt-6">
           <Notice tone="success" title="Sent, if we could">
             If <span className="font-medium">{email}</span> has an account, a
@@ -61,9 +62,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <>
-      <h1 className="font-display text-3xl tracking-tight text-ink">
+      <PageTitle variant="interstitial">
         Reset your password
-      </h1>
+      </PageTitle>
       <p className="mt-2 text-ink-muted">
         We will email you a link to set a new one.
       </p>

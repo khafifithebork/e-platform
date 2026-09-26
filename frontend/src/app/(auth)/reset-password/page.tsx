@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { ApiError, api } from "@/lib/api/client";
 
 function ResetPasswordForm() {
@@ -44,9 +45,9 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <>
-        <h1 className="font-display text-3xl tracking-tight text-ink">
+        <PageTitle variant="interstitial">
           This link is incomplete
-        </h1>
+        </PageTitle>
         <div className="mt-6">
           <Notice tone="error">
             The reset link is missing its token. Links can be truncated by email
@@ -68,9 +69,9 @@ function ResetPasswordForm() {
   if (done) {
     return (
       <>
-        <h1 className="font-display text-3xl tracking-tight text-ink">
+        <PageTitle variant="interstitial">
           Password changed
-        </h1>
+        </PageTitle>
         <div className="mt-6">
           <Notice tone="success" title="You are signed out everywhere">
             Any other device that was signed in has been signed out. Sign in
@@ -88,9 +89,9 @@ function ResetPasswordForm() {
 
   return (
     <>
-      <h1 className="font-display text-3xl tracking-tight text-ink">
+      <PageTitle variant="interstitial">
         Choose a new password
-      </h1>
+      </PageTitle>
 
       <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-5">
         {problem && <Notice tone="error">{problem}</Notice>}
@@ -131,9 +132,9 @@ export default function ResetPasswordPage() {
         // outline, which is how a screen-reader user establishes where they
         // are before anything has hydrated.
         <>
-          <h1 className="font-display text-3xl tracking-tight text-ink">
+          <PageTitle variant="interstitial">
             Choose a new password
-          </h1>
+          </PageTitle>
           <p className="mt-6 text-ink-muted">Loading…</p>
         </>
       }

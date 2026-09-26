@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { ApiError, api } from "@/lib/api/client";
 
 export default function LoginPage() {
@@ -44,7 +45,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <h1 className="font-display text-3xl tracking-tight text-ink">Sign in</h1>
+      <PageTitle variant="interstitial">Sign in</PageTitle>
       <p className="mt-2 text-ink-muted">
         New here?{" "}
         <Link href="/register" className="text-accent underline underline-offset-4">
