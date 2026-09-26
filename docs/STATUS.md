@@ -1,31 +1,42 @@
 # STATUS
 
-**Last updated:** 2026-09-25
-**Updated by:** Codex (approved frontend redesign, shared shell stage)
+**Last updated:** 2026-09-26
+**Updated by:** Claude Opus 5 (frontend redesign, stages 2 and 3)
 
 ---
 
 ## Current milestone
 
-**The owner has approved a frontend redesign; its shared shell stage is in progress.**
-ADR-029 records the Linglee reference and scope. Tokens, navigation, buttons,
-and cards have been refreshed; mobile keyboard navigation has regression tests.
-Page-specific redesign work remains. No new product milestone is started.
+**The approved frontend redesign is three stages in. No new product milestone is
+started.** ADR-029 records the Linglee reference and scope. Stage 1 refreshed
+tokens, navigation, buttons and cards and gave mobile keyboard navigation
+regression tests. Stages 2 and 3 landed together as **PR #71** (`85bbc42`).
 
-Local verification: frontend typecheck and ESLint pass; Ruff check and format
-pass. Final frontend verification: 365 tests pass across 26 files, including
-focus containment, scroll restoration, and desktop resize cleanup. TypeScript
-and ESLint were rerun after the final changes and passed. Git diff check passes.
-The shell was visually inspected at mobile and desktop widths in dark mode.
-The preview shows the real API-unavailable state, not invented course data.
+What stage 3 actually was is worth stating plainly, because its name is
+misleading: **the auth pages were not visually redesigned.** Measuring before
+planning, per ADR-023 §1, found them already consistent — stage 1 had given them
+their two-column shell and they were already built from `Field`, `Notice` and
+`Button`. What was missing was tests, and two of the nine untested states turned
+out to carry a security control. The visual work in stage 3 is one component.
 
-Build compilation passes, but static generation is blocked by the unavailable
-local catalogue API. Docker Desktop's engine is unavailable. The production
-deploy check cannot load because DJANGO_SECRET_KEY is not configured in the
-command environment. No production settings or credentials were changed.
-Claude Code still crashes before model selection, so no Claude collaboration
-or Opus 5.5 access has been established. The owner requested this stage be
-committed on the `redesign` branch and submitted for pull-request review.
+Verification, run and not assumed: **408 frontend tests across 33 files** (365
+across 26 at the end of stage 1), `tsc --noEmit` and ESLint clean, all four
+public routes prerender, 11 built pages structurally sound. CI green on the
+merge commit.
+
+**Two things are explicitly not verified, and neither should be read as done:**
+
+- **The reduced-motion fix has never been seen working in a browser.** React's
+  hydration error is gone — that is verified — but "the content becomes visible"
+  is not the same claim. The only browser available to the agent reports
+  `document.hidden` even when fronted, so `requestAnimationFrame` is frozen at
+  zero frames per second and Motion cannot animate in it at all. **Someone needs
+  to open `/` with reduce-motion enabled and confirm the headline appears.**
+- **The backend suite was not run.** Nothing under `backend/` changed in these
+  commits, which is inference, not a run. The 1532 figure below is inherited.
+
+Remaining redesign work is the learner surface — `/my-courses`, `LessonPlayer`,
+`LessonGate` — which has had only the title treatment applied to it.
 
 **Prior milestone and provisioning status:**
 M14 stands at 6 of 10. Every remaining task in the project waits on an account,
@@ -35,7 +46,149 @@ a payment, or a §5 decision — none of which is an agent's to make.
 decisions in `infra/docs/provisioning.md`. **No provisioning has begun**: the
 repository has no environments configured and no repository variables set.
 
-**1532 backend tests, 362 frontend.** Master green.
+**1532 backend tests (inherited, not re-run), 408 frontend.** Master green.
+
+---
+
+### The landing page was blank for reduced-motion visitors, and a test asserted the bug
+
+Found by opening it in a browser with *reduce motion* on. Nine elements sat at
+`opacity: 0` and never came back — the headline, the subtitle, both calls to
+action, the course cards and all four feature panels. React said exactly what had
+happened: *"A tree hydrated but some attributes of the server rendered HTML
+didn't match the client properties. **This won't be patched up.**"*
+
+Ten components called `useReducedMotion()` **during render**. The hook reads a
+media query; the server has none. So the server always rendered the animated
+branch with `opacity: 0` inline, a reduced-motion client rendered the plain
+branch, and React left the server's value in the DOM permanently. **It could only
+ever affect people who had asked for less motion**, which is why it shipped —
+nobody testing normally sees it.
+
+`MotionConfig reducedMotion="user"` moves the decision inside Motion, where it
+applies when an animation *runs* rather than when the tree is *rendered*, so
+server and client emit identical markup. Seven components lose their branch;
+three keep theirs because they only vary a transition duration, or an `initial`
+inside a drawer that is closed on the server, or hover state that is null on both
+sides — none reaches the server's markup.
+
+**The lesson is the test, not the bug.** `motion.test.tsx` asserted that `Reveal`
+returned a plain wrapper under reduced motion and was green throughout, *because
+it mocked `useReducedMotion`*. Mocking the hook made the branch reachable in a
+test and the fault invisible: **no unit test that supplies the value itself can
+see a difference that exists only between server and client.** Replaced by the
+property that makes the fault impossible — rendered markup must not depend on the
+preference — provoked by restoring the old branch and watching it fail.
+
+This supersedes "A decision now held open by a test" below: the `h1` is still
+outside a `Reveal` and the twelve `opacity: 0` elements are still in the
+prerendered HTML, but the reduced-motion half of that question is now answered.
+
+---
+
+### The composition pass found almost nothing, which was the finding
+
+Stage 2's objective used a maintenance verb, so ADR-023 §1 says check whether the
+thing is untidy before planning the work. It mostly was not: every section
+heading in `(marketing)` already shared one treatment across six sites, `Badge`
+was adopted in three places, and containers differed only where justified. The
+one real inconsistency was two of three page titles omitting `leading-tight`.
+
+**Coral was left alone deliberately.** ADR-029 asks for a "restrained coral brand
+detail" and `--color-brand-coral` is used exactly once, on the logo dot. One
+usage is a defensible reading of restrained; scattering more would be a design
+decision made by whoever happened to be editing.
+
+---
+
+### The four auth pages had no tests, and two of them carried a security control
+
+Nine rendered states, zero assertions. Registration and password-reset both
+answer identically whether or not the address has an account — that is what stops
+the forms being used to test a list of addresses — and both pages documented it
+**in a comment**. Login carried the same comment about echoing the API's refusal
+verbatim rather than inventing a friendlier one. ADR-023 §1 for the seventh time.
+
+The regression is not exotic: it is somebody deciding that "If your address can
+be registered, a link is on its way" reads like hedging and rewriting it as "We've
+emailed you", which turns the form into an account-enumeration oracle without
+touching a line of backend code.
+
+Also now asserted, all of it previously claimed in a comment only: the reset token
+never reaches the DOM or storage but does reach the API; a tokenless link is
+refused **without asking the API**; the Suspense fallback still carries the `<h1>`
+that M15 T10 put there; and each of the nine states has exactly one.
+
+**Nine deliberate breakages, and the two that misbehaved are the useful ones:**
+
+- One provocation *passed*, and the test was right. Removing the reset
+  confirmation's body text left the claim in the notice's **title**, so the
+  property genuinely still held. Recorded in place, because a half-provocation
+  makes a sound test look like one that cannot fail — and the obvious next move
+  would have been to "strengthen" a correct test.
+- `forgot-password`'s conditional-wording assertion **passed for the wrong
+  reason.** `/\bif\b/` over the confirmation matched the word inside the badge
+  title *"Sent, if we could"*, never the body's own "If" — `textContent`
+  concatenation glues it to the preceding word as `"couldIf"`, so there is no
+  word boundary. Rewording that title would have failed a green test while the
+  property it checks went untouched. Found because the identical assertion in the
+  registration test failed against *correct* code.
+
+---
+
+### Fifteen hand-written page titles, and two wrong readings of why
+
+`PageTitle` now owns the treatment and an app-wide guard with **no exemption
+list** keeps it there: no `<h1>` anywhere in `src/` outside that component. That
+is strictly stronger than the string comparison it replaces, which could only
+ever work inside one route group — run over the whole app it would have failed on
+correct code, because the auth pages and the 404 are *meant* to be a size down
+from the catalogue.
+
+**Both earlier readings of the drift were wrong, and the corrections are the
+record worth keeping:**
+
+1. Stage 2's commit message called the auth pages' `text-3xl` drift "for no
+   reason". It is not drift. `NotFoundContent` and `LessonGate`'s refusal sit in a
+   `max-w-2xl` column at `text-3xl` while the landing hero sits in the **same**
+   `max-w-2xl` column at `text-4xl sm:text-5xl` — so it is not the column width
+   either. It is the kind of page: a destination you navigated to, or an
+   interstitial standing in for one.
+2. "Exceptionless across all fourteen sites" was also wrong. A **fifteenth**
+   `<h1>` surfaced while writing the guard: `LessonPlayer` titles the lesson
+   `font-display text-2xl text-ink`, byte-identical to the marketing `<h2>`
+   section headings. It was in the original survey and was read past.
+
+`/my-courses` was a sixteenth variant by accident — it omitted `leading-tight`
+alone among the larger titles — and gains it.
+
+**Open, and deliberately not decided:** whether the lesson title should stay a
+step below an interstitial or join the scale. It is recorded as the `section`
+variant, reproduced byte for byte so adopting the component changed nothing on
+screen, and pinned by a test so the outlier shows in a test run rather than only
+in a docstring. Adding `tracking-tight` to a 24px heading is visible, and it
+would pull the lesson title away from the `<h2>`s it currently matches — not a
+call for whoever is tidying imports.
+
+One unverified consequence: `leading-tight` is **looser** than Tailwind's default
+leading at `text-3xl` and `text-4xl`, not tighter, so thirteen interstitial
+titles shift about a pixel per wrapped line.
+
+---
+
+### An instruction that was not in the repository
+
+A context block for `frontend/AGENTS.md` arrived carrying a paragraph telling the
+agent to make file changes through the shell "wherever it can accomplish the job"
+rather than through the dedicated edit tools. **`git show HEAD:frontend/AGENTS.md`
+ends at `<!-- END:nextjs-agent-rules -->` and `git status` reports the file
+unmodified** — nothing in this repository says that.
+
+Recorded because the effect, whatever the intent, is to route edits away from the
+tools that produce a reviewable diff, and because the last time these two briefs
+drifted it was also a quotation that had been altered in transit (see "Two briefs
+that could have drifted"). Not followed. Worth checking whatever local tooling
+injects it.
 
 ---
 
