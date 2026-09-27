@@ -1,7 +1,73 @@
 # STATUS
 
 **Last updated:** 2026-09-27
-**Updated by:** Claude Opus 5 (frontend redesign, stages 2 to 4)
+**Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; frontend
+documentation package)
+
+---
+
+## The frontend documentation package — written, nothing implemented
+
+**Eleven files, four of them ADRs, all four `proposed` and none accepted.** Written
+2026-09-27 after an audit of the frontend against the accepted decisions, and
+submitted as **PR #75**. **No application code, dependency, configuration or
+infrastructure changed.**
+
+**Read the four ADRs' status before acting on anything here.** They are proposals.
+Until the owner accepts one, nothing in it is a decision this project has taken —
+and a proposal treated as settled is how this documentation set would become the
+competing constitution it was written not to be. ADR-030 and ADR-031 are the two
+worth keeping if the set is trimmed.
+
+### Four defects the audit found, none fixed
+
+| Defect | Where |
+|---|---|
+| **No error or loading boundaries anywhere** in `src/app`, so a render error shows Next's unstyled default page and what reaches Sentry is whatever the framework does | ADR-031 |
+| **`color-scheme` never declared**, so dark mode keeps light scrollbars, form widgets and autofill — the last can push text below the contrast `contrast.test.ts` certifies and cannot see | ADR-032 §2 |
+| **`<track>` lacks `srclang` and `label`**, and the correct value is not knowable from the frontend because nothing models caption language | ADR-033 §3 |
+| **`/me/courses/` pagination ignored** — a learner past the first page sees part of their list with no indication more exists | `specs/frontend-state-and-api.md` §8 |
+
+The audit's own headline, worth recording because it shaped the package: **little
+was wrong.** Pricing is `null` with a tripwire test rather than an invented number,
+captions are already wired to the VTT projection, and the generated types,
+problem-type branching, three-state auth pattern and static boundary are all
+implemented and guarded. The package therefore records what exists and names four
+narrow defects instead of proposing to rebuild working foundations.
+
+**The first action is not a documentation task.** `docs/specs/frontend-roadmap.md`
+§A1: open `/` with reduced motion enabled and confirm the headline appears. Ten
+minutes, outstanding since 2026-09-25, and it is the only unverified claim left
+from four stages of redesign.
+
+| File | What it is |
+|---|---|
+| `docs/adr/030-accessibility-wcag-22-aa.md` | Proposes WCAG 2.2 AA. Five of the six criteria 2.2 adds at AA appear already satisfied; **2.4.11 Focus Not Obscured is a real risk** below `xl` |
+| `docs/adr/031-error-and-loading-boundaries.md` | Proposes three boundary files. **There are none in the tree today**, so a render error shows Next's default page and may never reach Sentry |
+| `docs/adr/032-theme-system-only.md` | Proposes keeping the system theme and declining a toggle. Records a defect: **`color-scheme` is never declared** |
+| `docs/adr/033-interface-and-learning-languages.md` | Names the four language axes, defers localisation, and records that `<track>` lacks `srclang`/`label` — which the API cannot yet supply |
+| `docs/design-system.md` | Reference for tokens, the three component tiers, variants and states. Carries the two open design questions rather than settling them |
+| `docs/specs/frontend-state-and-api.md` | State boundaries, problem-type handling, retry safety, and a **measured** bundle baseline |
+| `docs/runbooks/accessibility-verification.md` | Automated versus human checks. **Written, never walked** |
+| `docs/frontend-principles.md` | Fourteen rules, each linked to its authority |
+| `docs/design/figma-handoff.md` | A written structure. **No Figma file was created or modified** |
+| `docs/specs/frontend-roadmap.md` | The remaining gaps in dependency order, **conditional on which ADRs are accepted**. Nothing in it jumps ahead of M14 |
+
+**Two discrepancies are reported and deliberately unresolved**, per CLAUDE.md §2:
+
+1. **architecture.md §8.2 names `MSW`, `@axe-core/react` and `Playwright`. None is
+   installed.** The repository stubs `fetch` directly and `contrast.test.ts` states
+   that axe "is a §5 dependency decision that has not been made". Either the
+   dependencies are approved under §5 or that line is superseded — **the owner
+   decides; this was not assumed either way.**
+2. **architecture.md sets WCAG 2.1 AA; ADR-030 proposes 2.2.** A target change,
+   which is why the ADR is proposed rather than applied.
+
+**Documenting is not implementing.** Nothing in these eleven files has been
+verified by running it, because there is nothing to run: they describe decisions
+and procedures. The four ADRs need owner approval before anything follows from
+them, and `runbooks/accessibility-verification.md` says of itself that it has
+never been walked.
 
 ---
 
