@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Card } from "@/components/ui/Card";
 import { ApiError, api, type Enrollment } from "@/lib/api/client";
+import { resumePoint } from "@/lib/learn/resume";
 
 /**
  * What a learner has started, and where to pick it up.
@@ -112,7 +113,7 @@ export function MyCourses() {
 function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
   const done = enrollment.completed_lesson_count;
   const total = enrollment.lesson_count;
-  const finished = enrollment.next_lesson_slug === null;
+  const resume = resumePoint(enrollment);
 
   return (
     <Card
@@ -146,24 +147,19 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
         </span>
       </div>
 
-      {finished ? (
-        // `next_lesson` is null when nothing is left. Offering "resume" here
-        // would send somebody back into a course they have finished.
+      {resume.status === "finished" ? (
         <p className="text-sm text-success">Finished</p>
       ) : (
         <Link
-          href={`/courses/${enrollment.course_slug}/lessons/${enrollment.next_lesson_slug}`}
+          href={resume.href}
           className="self-start rounded-(--radius-md) bg-accent px-4 py-2 text-sm
             font-medium text-on-accent shadow-(--shadow-sm) transition-all
             hover:bg-accent-hover hover:shadow-(--shadow-md)"
         >
-          {/*
-           * "Continue" only once something has been watched. A course with an
-           * enrolment but no bookmark was started and abandoned before the
-           * first lesson, and "continue" would be describing something that
-           * did not happen.
-           */}
-          {enrollment.last_lesson_slug ? "Continue" : "Start"}
+          {/* Short wording, because this sits on a card in a list.
+              `CourseProgress` says the same thing at length in a one-line
+              strip; `resumePoint` owns the rule, each caller owns its voice. */}
+          {resume.started ? "Continue" : "Start"}
         </Link>
       )}
     </Card>
