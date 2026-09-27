@@ -140,7 +140,7 @@ export function SiteNavTree() {
               exit={reduceMotion ? { x: 0 } : { x: "-100%" }}
               transition={{ duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] }}
               className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] overflow-y-auto border-r
-                border-line bg-surface p-6 shadow-(--shadow-card-hovered) focus:outline-none xl:hidden"
+                border-line bg-surface p-6 shadow-(--shadow-card-hovered) focus:outline-hidden xl:hidden"
             >
               <div className="mb-5 flex items-center justify-between">
                 <span className="font-display text-lg font-semibold text-ink">

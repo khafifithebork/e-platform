@@ -27,6 +27,20 @@
  * Neither check replaces the other. The source one fails in a second without a
  * build; this one is the check that is actually about the rendered result.
  *
+ * **A comment can fail this, and that is correct rather than a false positive.**
+ * Tailwind's source detection cannot tell code from prose, so a `src/` file that
+ * merely *mentions* `rounded-[--radius-md]` in a docstring compiles an invalid
+ * rule into the stylesheet exactly as a real class would. `Button.tsx` proves the
+ * mechanism harmlessly: its comment names `focus-visible:outline-none` and the
+ * built CSS contains a rule for it, used by nothing.
+ *
+ * So the broken form must not appear in any *scanned* file, prose included. The
+ * two places it legitimately does are both outside the scan: this script, which
+ * lives in `scripts/`, and `src/test/css-tokens.test.ts`, which needs the literal
+ * strings to prove its pattern matches them and is covered by the `@source not`
+ * exclusion in `globals.css`. That exclusion is load-bearing for this check, not
+ * only a bundle-size nicety.
+ *
  * Deliberately no dependency — no CSS parser. The declarations this looks for
  * have a shape a scanner can find exactly: `: --name` with nothing else in the
  * value. A parser would be a §5 decision to buy precision that is not needed.
