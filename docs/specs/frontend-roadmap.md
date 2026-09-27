@@ -1,20 +1,22 @@
 # Frontend roadmap — the remaining gaps, in dependency order
 
-**Status:** proposed. Written 2026-09-27, **partly unblocked the same day.**
-**Depends on:** ADR-030 and ADR-031 **accepted by the owner 2026-09-27**; ADR-032
-and ADR-033 **still `proposed`.** Items below are marked with the approval each
-waits on.
+**Status:** written 2026-09-27 and **substantially overtaken the same day.**
+**Depends on:** nothing outstanding — **all four ADRs were accepted by the owner on
+2026-09-27**, and two of the four defects were fixed in the process.
 
-| ADR | Status | Unblocks |
+| ADR | Status | Left to do |
 |---|---|---|
-| ADR-030 | **accepted** | C3, C4, D2 (D2 also needs A2) |
-| ADR-031 | **accepted** | D1 |
-| ADR-032 | proposed — **§2 extracted and fixed** | §3's toggle question only; C1 is done |
-| ADR-033 | proposed — **§2 extracted and fixed** | §4's deferral only; C2 is done |
+| ADR-030 — WCAG 2.2 AA | **accepted** | C3, C4, and D2 once A2 reproduces the fault |
+| ADR-031 — boundaries | **accepted** | D1, which wants a plan first |
+| ADR-032 — theme, toggle declined | **accepted** | nothing. §2's defect fixed; A4 still confirms it |
+| ADR-033 — localisation deferred | **accepted** | §3's `<track>` gap, blocked on backend (D4) |
 
-**Accepted does not mean implemented, and nothing here has been.** The four
-defects the audit found are all still present. Acceptance means the decision is
-settled, so the work may be planned — not that it may skip CLAUDE.md §7.
+**Two of the four defects are fixed**: `color-scheme` is declared, and
+inline-direction utilities are logical with a pinned guard. **Two remain** — no
+error or loading boundaries (D1), and `/me/courses/` pagination (D3).
+
+**Accepted still does not mean implemented.** Acceptance settles the decision so
+the work may be planned; it does not skip CLAUDE.md §7.
 
 **This does not change the milestone plan.** `docs/STATUS.md` holds current state
 and `CLAUDE.md` §10 holds milestone order; M14 stands at 6 of 10 and nothing here
@@ -92,18 +94,17 @@ believed claim into a known one, and two of them gate later work.
 
 ## B — Documentation only
 
-### B1 · Decide the four proposed ADRs — **half done**
+### B1 · Decide the four proposed ADRs — **done 2026-09-27**
 
-- **Done 2026-09-27:** ADR-030 and ADR-031 accepted by the owner. C3, C4, D1 and
-  D2 are unblocked.
-- **Remaining:** ADR-032 (theme, and the `color-scheme` defect) and ADR-033
-  (language axes, logical properties, the `<track>` attributes) are still
-  `proposed`. C1 and C2 wait on them.
-- **ADR-032 was split 2026-09-27.** Its §2 defect — `color-scheme` undeclared —
-  needed no product decision and is fixed. What remains proposed is only §3's
-  toggle question. The same question is worth asking of ADR-033: its §2 (logical
-  properties) and §3 (`<track>` attributes) are separable from §4's deferral.
-- **Approval:** the owner, for the two remaining.
+All four accepted. ADR-030 (WCAG 2.2 AA) and ADR-031 (boundaries) first; then
+ADR-032 declining the theme toggle and ADR-033 deferring localisation.
+
+**Both of the latter two were split before being decided**, on the owner's
+instruction and on one principle worth keeping: **a defect with no product question
+attached should not wait behind one that has.** ADR-032 §2 (`color-scheme`) and
+ADR-033 §2 (logical properties) shipped hours before the decisions they were
+sitting behind. Worth reaching for again — the pattern is a file that mixes "this
+is broken" with "what should we do", and the first half never needed the meeting.
 
 ### B2 · Resolve the architecture.md §8.2 discrepancy
 
@@ -251,8 +252,10 @@ revisiting. **No design work belongs here until the trigger fires.**
 ## The order, if you want one line
 
 **A1 today** — ten minutes, and still the only unverified claim from four stages of
-redesign. Then **C3 and C4, and plan D1**, all three unblocked by the two
-acceptances. **A2 next**, because D2 cannot be scoped until it says what the fault
-is. ADR-032 and ADR-033 when you get to them, which releases C1 and C2. D3, D4 and
-D5 each want their own conversation first. E waits on you or on money; F waits on
+redesign. Then **C3, C4, and plan D1**. **A2 next**, because D2 cannot be scoped
+until it says what the fault is; **A3 and A4** close out the two fixes that shipped
+on specification rather than observation. D3 and D5 each want their own
+conversation; D4 needs backend modelling. E waits on you or on money; F waits on
 evidence.
+
+No item is waiting on a decision any more.
