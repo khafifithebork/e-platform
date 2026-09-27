@@ -80,6 +80,30 @@
   }
 }
 
+/*
+ * Tell the browser this page supports both schemes.
+ *
+ * **Without this, the parts of the page our stylesheet does not control stay
+ * light.** The media query above swaps 17 tokens and two shadows, and that is
+ * everything *we* paint — but scrollbars, an `<input>`'s native chrome, a
+ * `<select>`'s dropdown, the video element's built-in controls and the autofill
+ * background are painted by the browser, which assumes light until told
+ * otherwise. So a dark-mode visitor got dark surfaces with light furniture.
+ *
+ * The autofill case is the one with teeth: browsers paint their own background
+ * over an autofilled field, computed for the scheme they think they are in,
+ * which can drop the text below the 4.5:1 `contrast.test.ts` certifies for our
+ * colours — and that test cannot see a background the browser painted.
+ *
+ * `light dark`, not a scheme per media query. This declares support for both and
+ * lets the browser follow the user's own preference, which is exactly the
+ * system-only behaviour ADR-032 keeps. A single value here would override the
+ * visitor's choice, which is the opposite of the intent.
+ */
+:root {
+  color-scheme: light dark;
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);

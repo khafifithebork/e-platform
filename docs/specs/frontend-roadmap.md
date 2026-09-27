@@ -9,7 +9,7 @@ waits on.
 |---|---|---|
 | ADR-030 | **accepted** | C3, C4, D2 (D2 also needs A2) |
 | ADR-031 | **accepted** | D1 |
-| ADR-032 | proposed | C1 |
+| ADR-032 | proposed — **§2 extracted and fixed** | §3's toggle question only; C1 is done |
 | ADR-033 | proposed | C2 |
 
 **Accepted does not mean implemented, and nothing here has been.** The four
@@ -70,7 +70,10 @@ believed claim into a known one, and two of them gate later work.
 - **Scope:** look at the transcript panel's scrollbar and an autofilled login
   field in dark mode.
 - **Acceptance:** a note in ADR-032's verification section saying what was seen.
-- **Gates:** C1. If the defect is not real, C1 shrinks to a one-line tidy.
+- **No longer gates C1** — C1 shipped first, on the specification. A4 is now the
+  confirmation that it did what it was meant to. **Measurement already corrected
+  part of ADR-032 §2**: form-control boxes are unaffected, because Tailwind's
+  Preflight resets them, so what is left to look at is scrollbars and autofill.
 - **Approval:** none.
 
 ### A5 · Per-route first-load JS
@@ -96,9 +99,10 @@ believed claim into a known one, and two of them gate later work.
 - **Remaining:** ADR-032 (theme, and the `color-scheme` defect) and ADR-033
   (language axes, logical properties, the `<track>` attributes) are still
   `proposed`. C1 and C2 wait on them.
-- **Note on ADR-032:** its §2 records a real defect — `color-scheme` is never
-  declared — and that half needs no product decision. If the toggle question is
-  what is holding it, the defect can be split out and fixed on its own.
+- **ADR-032 was split 2026-09-27.** Its §2 defect — `color-scheme` undeclared —
+  needed no product decision and is fixed. What remains proposed is only §3's
+  toggle question. The same question is worth asking of ADR-033: its §2 (logical
+  properties) and §3 (`<track>` attributes) are separable from §4's deferral.
 - **Approval:** the owner, for the two remaining.
 
 ### B2 · Resolve the architecture.md §8.2 discrepancy
@@ -124,14 +128,15 @@ All small. Each needs its ADR accepted first, and each needs a provoked guard
 
 | # | Fix | Waits on | Size |
 |---|---|---|---|
-| **C1** | Declare `color-scheme` on `:root` | ADR-032 *(still proposed)* + A4 | 1 line + 1 test |
+| ~~**C1**~~ | ~~Declare `color-scheme` on `:root`~~ | **Done 2026-09-27** — split out of ADR-032 by the owner | shipped with 5 provoked tests |
 | **C2** | Four physical→logical utility swaps | ADR-033 *(still proposed)* | 4 classes, no-op in LTR |
 | **C3** | `contrast.test.ts` docstring cites 2.2 AA | **ADR-030 accepted — ready** | 1 line |
 | **C4** | Three accessibility tests: `autoComplete` present on auth fields; `sm`/`md` button minimum heights ≥24px; the 2.4.11 remedy | **ADR-030 accepted**; the third test also needs A2 | ~3 tests |
 
-**C1 acceptance:** a dark-mode scrollbar and an autofilled field look right (A4
-re-checked), `contrast.test.ts` still passes both schemes, and a test asserts the
-declaration exists — it is exactly the kind of one-liner a later reformat drops.
+**C1 is done.** `contrast.test.ts` still passes both schemes and `theme.test.ts`
+pins the declaration. **A4 is still outstanding** and is now the only unverified
+part: nobody has looked at a dark-mode scrollbar or an autofilled field, neither
+being observable in the agent's browser.
 
 **C2 acceptance:** `npm test` and `verify:a11y` unchanged. This is a no-op in LTR,
 **so any visible change means a swap was wrong.**
