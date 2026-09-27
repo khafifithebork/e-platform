@@ -12,43 +12,37 @@ documentation package)
 frontend against the accepted decisions, and submitted as **PR #75**. **No
 application code, dependency, configuration or infrastructure changed.**
 
-**Two ADRs accepted by the owner on 2026-09-27; two still proposed.**
+**All four ADRs accepted by the owner on 2026-09-27, and two defects fixed in the
+process.**
 
-| ADR | Status | Unblocks |
+| ADR | Decision | Left to do |
 |---|---|---|
-| **ADR-030** — WCAG 2.2 AA | **accepted 2026-09-27**. Supersedes architecture.md's 2.1 AA baseline, on the level only | roadmap C3, C4, D2 |
-| **ADR-031** — error and loading boundaries | **accepted 2026-09-27** | roadmap D1 |
-| ADR-032 — theme stays system-only | proposed — **§2 extracted and fixed 2026-09-27** | §3's toggle question only |
-| ADR-033 — language axes, localisation deferred | proposed — **§2 extracted and fixed 2026-09-27** | §4's deferral only |
+| **ADR-030** | WCAG 2.2 AA. **Supersedes architecture.md's 2.1 AA baseline**, on the level only | C3 and two of C4's three tests **done 2026-09-27**; D2 waits on A2 |
+| **ADR-031** | Three boundary files, each reporting to Sentry | roadmap D1 — **nothing built yet** |
+| **ADR-032** | Theme follows the system; **manual toggle declined** | nothing. §2's defect fixed; A4 confirms it |
+| **ADR-033** | Localisation **deferred** with a named trigger | §3's `<track>` gap, blocked on backend (D4) |
 
-**Accepted is not implemented, and none of it has been.** All four defects below
-are still present, including the missing boundaries ADR-031 now settles the design
-of. Acceptance means the decision is made, so the work may be *planned* — it does
-not skip CLAUDE.md §7, and D2 may still reopen a layout ADR-029 accepted.
+**Accepted is not built.** A decision being made means the work may be *planned* —
+it does not skip CLAUDE.md §7, and D2 may still reopen a layout ADR-029 accepted.
 
-**A proposal is not a decision.** ADR-032 §3 and ADR-033 record no settled
-position yet. Treating either as one is how this documentation set would become
-the competing constitution it was written not to be.
+**One practice from this round is worth keeping.** Both of the later ADRs were
+*split* before being decided: each mixed "this is broken" with "what should we
+do", and **the broken half never needed the decision.** ADR-032 §2
+(`color-scheme`) and ADR-033 §2 (logical properties) shipped hours ahead of the
+questions they had been sitting behind. When an ADR contains both, split it.
 
-**Both remaining ADRs were split on 2026-09-27**, on the owner's instruction, on
-the same principle: a defect with no product question attached should not wait
-behind one that has.
+### The four defects the audit found — two fixed, two open
 
-- **ADR-032 §2** — `color-scheme` undeclared. Fixed. §3's toggle question open.
-- **ADR-033 §2** — physical direction utilities. Fixed, and the estimate of "about
-  four" was wrong: there were nine, six of them content flow and now logical, two
-  navigation chrome pinned as a layout decision ADR-029 owns. §4's deferral of
-  localisation is open, and §3 (`<track>` language attributes) is blocked on
-  backend modelling rather than on a decision.
-
-### Four defects the audit found, none fixed
-
-| Defect | Where |
+| Defect | State |
 |---|---|
-| **No error or loading boundaries anywhere** in `src/app`, so a render error shows Next's unstyled default page and what reaches Sentry is whatever the framework does | ADR-031 |
-| **`color-scheme` never declared**, so dark mode keeps light scrollbars, form widgets and autofill — the last can push text below the contrast `contrast.test.ts` certifies and cannot see | ADR-032 §2 |
-| **`<track>` lacks `srclang` and `label`**, and the correct value is not knowable from the frontend because nothing models caption language | ADR-033 §3 |
-| **`/me/courses/` pagination ignored** — a learner past the first page sees part of their list with no indication more exists | `specs/frontend-state-and-api.md` §8 |
+| **No error or loading boundaries anywhere** in `src/app`, so a render error shows Next's unstyled default page and what reaches Sentry is whatever the framework does | **Open.** ADR-031 settles the design; nothing built. Roadmap D1 |
+| **`/me/courses/` pagination ignored** — a learner past the first page sees part of their list with no indication more exists | **Open.** Roadmap D3. `specs/frontend-state-and-api.md` §8 |
+| **`color-scheme` never declared**, so dark mode kept light scrollbars and autofill — the latter can push text below the contrast `contrast.test.ts` certifies and cannot see | **Fixed** 2026-09-27, with a provoked test. Measurement corrected the ADR on the way: form-control boxes were never affected, because Tailwind's Preflight already resets them |
+| **`<track>` lacks `srclang` and `label`** | **Blocked, not open** — the correct value is not knowable from the frontend because nothing models caption language. Backend work, roadmap D4. Hardcoding a guess would be wrong for exactly the courses that matter most |
+
+A fifth, found while fixing the fourth: **physical inline-direction utilities**.
+**Fixed** — six swapped to logical, two pinned as navigation chrome ADR-029 owns.
+The ADR had estimated "about four"; counting properly found nine.
 
 The audit's own headline, worth recording because it shaped the package: **little
 was wrong.** Pricing is `null` with a tripwire test rather than an invented number,
@@ -88,11 +82,13 @@ from four stages of redesign.
    architecture.md's baseline so the older document cannot be read as current on
    the level.
 
-**Documenting is not implementing.** Nothing in these eleven files has been
-verified by running it, because there is nothing to run: they describe decisions
-and procedures. ADR-032 and ADR-033 still need owner approval; ADR-030 and ADR-031
-have it and are still unimplemented. `runbooks/accessibility-verification.md` says
-of itself that it has never been walked.
+**Documenting is not implementing, and all four ADRs being accepted has not
+changed that.** The documents describe decisions and procedures; two of the
+defects they identified were then fixed in code with provoked tests, and the rest
+is still unbuilt. `runbooks/accessibility-verification.md` says of itself that it
+has never been walked, and section A of the roadmap — five verification items,
+including the reduced-motion check outstanding since 2026-09-25 — needs a person
+with a browser rather than an agent.
 
 ---
 

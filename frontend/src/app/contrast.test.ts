@@ -6,7 +6,11 @@
  * written once when a palette is chosen and then quietly invalidated by a
  * later tweak to one hex value.
  *
- * WCAG 2.1 AA, which is what architecture.md's accessibility line asks for:
+ * WCAG 2.2 AA, the target ADR-030 sets. **The thresholds below are unchanged from
+ * 2.1** — 2.2 adds six criteria at AA and touches none of the contrast ones — so
+ * this file needed no new arithmetic when the target moved. ADR-030 supersedes
+ * architecture.md's 2.1 AA baseline on the level, which is why the citation here
+ * changed and nothing else did.
  *
  * - 4.5:1 for normal body text
  * - 3:1 for large text (≥18.66px bold or ≥24px) and for UI component

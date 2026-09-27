@@ -1,6 +1,7 @@
 # ADR-032 — The theme follows the system, and `color-scheme` was missing
 
-**Status:** proposed — **except §2, which was extracted and fixed 2026-09-27**
+**Status:** accepted by the owner 2026-09-27 (§2 was extracted and fixed the same
+day, ahead of the decision on §3)
 **Date:** 2026-09-27
 **Decides:** whether the product gets a manual theme control, and one defect
 found while asking
@@ -11,8 +12,8 @@ refresh: semantic light/dark tokens), CLAUDE.md invariant 9 and invariant 15
 
 ## Decision
 
-**Keep following the operating system. Do not add a manual toggle.** — *proposed,
-still awaiting the owner.*
+**Keep following the operating system. Do not add a manual toggle.** — *accepted
+by the owner 2026-09-27.*
 
 And the thing found while looking: **`color-scheme` was never declared**, so in
 dark mode the browser rendered its own furniture — scrollbars, autofill, native
@@ -20,8 +21,8 @@ video controls — from the light palette against `#171827` surfaces. **Fixed
 2026-09-27**, split out of this ADR at the owner's instruction because a defect
 with no product question attached should not wait behind one that has.
 
-The two halves are now in different states, which is the point of having split
-them: §2 shipped, §3 is still a question. §2 also had a claim in it that
+Splitting them meant the fix shipped a few hours before the decision, which was
+the point: §2 was never waiting on anything. §2 also had a claim in it that
 measurement disproved — see "What measurement corrected".
 
 ---
@@ -46,8 +47,8 @@ difference.
 ## 2. The defect: `color-scheme` — **extracted and fixed 2026-09-27**
 
 **Split out of this ADR at the owner's instruction**, because it was a defect with
-no product question attached while the rest of this file is a product decision
-still awaiting one. Fixed in `globals.css` with
+no product question attached while the rest of this file was a product decision
+then still open. Fixed in `globals.css` with
 `:root { color-scheme: light dark; }` and pinned by `src/app/theme.test.ts`.
 
 `color-scheme` tells the browser which palette to use for the parts of the page
@@ -183,7 +184,13 @@ side benefit, not the reason.
 ADR-024, ADR-029, ADR-030, `docs/design-system.md` §1 and §7,
 `docs/runbooks/accessibility-verification.md` §3.5.
 
-**Approval required:** the owner, because §3 declines a feature a user might
-reasonably expect. **§2 needed no product decision and is done** — the owner split
-it out on 2026-09-27 and it shipped with a test. What remains proposed here is
-only the toggle question.
+**Approval:** granted by the owner on 2026-09-27, declining the toggle. §2 had
+already been split out and fixed the same day.
+
+**What this closes and what it does not.** The theme mechanism is settled: one
+media query, semantic tokens, no toggle, no stored preference, and a test that
+fails if a `data-theme` selector appears. It does **not** close roadmap A4 — nobody
+has yet looked at a dark-mode scrollbar or an autofilled field, and §2 says so.
+Declining the toggle also does not forbid one forever: a real user request
+supersedes this ADR explicitly, and §3 records the cost so that conversation starts
+from a number rather than an impression.

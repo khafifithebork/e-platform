@@ -1,6 +1,7 @@
 # ADR-033 — Four kinds of language, and deferring localisation without paying for it later
 
-**Status:** proposed — **except §2, which was extracted and fixed 2026-09-27**
+**Status:** accepted by the owner 2026-09-27 (§2 was extracted and fixed the same
+day, ahead of the decision on §4)
 **Date:** 2026-09-27
 **Decides:** the vocabulary for four language axes a language-learning product
 confuses at its peril, and what we do *now* so an RTL interface is cheap later
@@ -21,9 +22,9 @@ the cost of retrofitting them grows with every page written.
 | 2 | Prefer **logical** CSS properties over physical ones | **done 2026-09-27** — §2, six swaps and a guard |
 | 3 | Give `<track>` its `srclang` and `label` | **blocked** — §3, the API cannot supply the value yet |
 
-**Deliberately not decided:** which interface languages we will support, when, or
-with what library. §4 states the trigger, and that is the only part of this ADR
-still awaiting the owner.
+**Localisation is deferred — accepted by the owner 2026-09-27.** No interface
+language is committed to, and §4 states the trigger that would reopen it: a named
+launch locale, not a possibility.
 
 ---
 
@@ -239,7 +240,14 @@ ADR-014, ADR-015 (transcripts are rows; VTT is a projection), ADR-020 (language 
 a catalogue filter), ADR-026, ADR-030, `docs/design-system.md`,
 `docs/runbooks/accessibility-verification.md`.
 
-**Approval:** §2 needed no product decision and is **done** — the owner split it
-out on 2026-09-27, as with ADR-032 §2. **§4's deferral still needs the owner**,
-because it declines to plan localisation. §3 needs backend work that is not
-scheduled and belongs to whichever milestone owns caption metadata.
+**Approval:** granted by the owner on 2026-09-27, deferring localisation. §2 had
+already been split out and fixed the same day, as with ADR-032 §2.
+
+**What deferral does not mean.** It does not mean the product is English-only
+forever, and it does not license writing English-only assumptions into the code —
+§2's habit is precisely so that it stays cheap to change. Nor does it close §3:
+`<track>` still lacks `srclang` and `label`, that is a defect rather than a
+decision, and it is **blocked on backend modelling** (roadmap D4) because the
+correct value is not knowable from the frontend. Deferring the interface language
+and failing to say what language the captions are in are different problems, and
+only one of them is settled here.
