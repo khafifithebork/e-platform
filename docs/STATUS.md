@@ -1,16 +1,26 @@
 # STATUS
 
-**Last updated:** 2026-09-26
-**Updated by:** Claude Opus 5 (frontend redesign, stages 2 and 3)
+**Last updated:** 2026-09-27
+**Updated by:** Claude Opus 5 (frontend redesign, stages 2 to 4)
 
 ---
 
 ## Current milestone
 
-**The approved frontend redesign is three stages in. No new product milestone is
-started.** ADR-029 records the Linglee reference and scope. Stage 1 refreshed
-tokens, navigation, buttons and cards and gave mobile keyboard navigation
-regression tests. Stages 2 and 3 landed together as **PR #71** (`85bbc42`).
+**The approved frontend redesign is four stages in and the visual work is done.
+No new product milestone is started.** ADR-029 records the Linglee reference and
+scope. Stage 1 refreshed tokens, navigation, buttons and cards and gave mobile
+keyboard navigation regression tests. Stages 2 and 3 landed as **PR #71**
+(`85bbc42`); stage 4 as **PR #73** (`44e6ca0`).
+
+**Stage 4 is the one worth reading, because none of it was a redesign.** It set
+out as a composition pass over the learner surface and instead found that **45
+utility classes across 15 components had never applied in any release** —
+`rounded-[--radius-md]`, Tailwind 3's spelling, which Tailwind 4 compiles to an
+invalid declaration the browser drops. This repository has been on `^4` since its
+first frontend commit, so nothing that used it has ever rendered a radius or a
+shadow. Everything in that stage was found by measuring the running app rather
+than by reading code, and the measurements are in the sections below.
 
 What stage 3 actually was is worth stating plainly, because its name is
 misleading: **the auth pages were not visually redesigned.** Measuring before
@@ -19,10 +29,20 @@ their two-column shell and they were already built from `Field`, `Notice` and
 `Button`. What was missing was tests, and two of the nine untested states turned
 out to carry a security control. The visual work in stage 3 is one component.
 
-Verification, run and not assumed: **408 frontend tests across 33 files** (365
-across 26 at the end of stage 1), `tsc --noEmit` and ESLint clean, all four
-public routes prerender, 11 built pages structurally sound. CI green on the
-merge commit.
+Verification, run and not assumed, on the merged tree rather than the branch:
+**416 frontend tests across 35 files** (365 across 26 at the end of stage 1),
+`tsc --noEmit` and ESLint clean, all four public routes prerender, 11 built pages
+structurally sound, and the three `verify:*` scripts pass. CI green on both merge
+commits.
+
+**Three guards now run in CI that did not before**, and each exists because
+something got through every check that already existed:
+
+| Guard | Catches |
+|---|---|
+| `verify:css` (`scripts/assert-css-tokens.mjs`) | any declaration in the compiled CSS whose value is a bare custom-property name |
+| `src/test/css-tokens.test.ts` | the Tailwind 3 bracket spelling in source, in a second, without a build |
+| `src/components/ui/PageTitle.test.tsx` | any `<h1>` in `src/` that sizes itself by hand |
 
 **Two things are explicitly not verified, and neither should be read as done:**
 
@@ -31,12 +51,23 @@ merge commit.
   is not the same claim. The only browser available to the agent reports
   `document.hidden` even when fronted, so `requestAnimationFrame` is frozen at
   zero frames per second and Motion cannot animate in it at all. **Someone needs
-  to open `/` with reduce-motion enabled and confirm the headline appears.**
-- **The backend suite was not run.** Nothing under `backend/` changed in these
-  commits, which is inference, not a run. The 1532 figure below is inherited.
+  to open `/` with reduce-motion enabled and confirm the headline appears.** This
+  is the only item outstanding from four stages of work, and it is a thirty-second
+  check.
+- **The backend suite has not been run since M14 T6.** Nothing under `backend/`
+  has changed across these four stages, which is inference, not a run. The 1532
+  figure below is inherited.
 
-Remaining redesign work is the learner surface — `/my-courses`, `LessonPlayer`,
-`LessonGate` — which has had only the title treatment applied to it.
+**Two design questions are open and deliberately were not answered by whoever was
+editing:**
+
+- Whether a `<button>` should adopt the calls to action's hover lift, or they drop
+  it. `buttonStyles` currently carries a `lift` variant that preserves both, which
+  is honest about the disagreement and is still two behaviours where a design
+  system wants one.
+- Whether `LessonPlayer`'s lesson title joins the type scale. It is `text-2xl`,
+  byte-identical to the marketing `<h2>`s, recorded as `PAGE_TITLE.section` and
+  pinned by a test so it cannot drift silently either way.
 
 **Prior milestone and provisioning status:**
 M14 stands at 6 of 10. Every remaining task in the project waits on an account,
@@ -46,7 +77,111 @@ a payment, or a §5 decision — none of which is an agent's to make.
 decisions in `infra/docs/provisioning.md`. **No provisioning has begun**: the
 repository has no environments configured and no repository variables set.
 
-**1532 backend tests (inherited, not re-run), 408 frontend.** Master green.
+**1532 backend tests (inherited, not re-run), 416 frontend.** Master green.
+
+---
+
+### 45 utility classes had never applied, in any release
+
+Tailwind 4 reads the two custom-property syntaxes differently, and only one of
+them works:
+
+```css
+.rounded-\(--radius-md\) { border-radius: var(--radius-md) }   /* 12px */
+.rounded-\[--radius-md\] { border-radius: --radius-md }        /* invalid, dropped */
+```
+
+The bracket form is Tailwind 3's spelling. **`tailwindcss` has been `^4` since the
+first frontend commit**, so those 45 classes across 15 components have never
+rendered a radius or a shadow — not a regression, a class of styling written by
+people who could not see that it did nothing, copied forward for fifteen
+milestones.
+
+Measured on `/login` before the change, one page and one token: the submit button
+computed `border-radius: 12px` and the two inputs directly above it computed
+`0px`. A rounded button under square-cornered fields.
+
+**Nothing automated could have caught it.** Both spellings are valid strings in a
+`className`, so `tsc` and ESLint pass either way, and jsdom runs no Tailwind, so
+no component test can tell. Invisible to every check and visible only to eyes is
+why it survived.
+
+**The build was compiling CSS from the tests.** `verify:css` failed on a clean,
+fully-fixed tree, and the offending declarations turned out to be the example
+strings inside the test and the script written to catch them — Tailwind 4 detects
+its own sources and the sweep included `*.test.ts(x)` and `scripts/*.mjs`. A guard
+compiled into existence by its own description of what it guards. `src/test/source.ts`
+documents four earlier versions of that shape; this is the same trap one layer
+further out, because here the *build* reads the test rather than a test reading
+the source. `@import "tailwindcss" source("../")` plus `@source not` for tests
+fixes it, and drops the shipped stylesheet from 27,013 to 26,584 bytes.
+
+---
+
+### A focus ring lost to a rename, not to an edit
+
+Swept for other Tailwind 3 spellings that changed meaning in 4 rather than
+breaking outright. `outline-none` is the only live case, at two sites —
+`SiteNavTree`'s drawer and `SiteShell`'s `<main>`, both `tabIndex={-1}` and
+focused programmatically.
+
+Verified against the installed version's own source rather than from memory:
+`outline-hidden` is what `outline-none` used to mean, and carries a
+`@media (forced-colors: active)` fallback restoring a transparent outline that
+`outline-none` no longer does. The intent at both sites — no visible ring around a
+whole drawer or the entire main region — is unchanged and this is not a visual
+change. What was lost is that somebody in Windows High Contrast following the skip
+link had no indication where focus had gone.
+
+`Button.tsx` already carried a comment about how easily a utility class defeats
+the global `:where(...):focus-visible` ring, since zero specificity only ever
+loses. This is that hazard arriving through a rename instead of a deliberate edit,
+which is the version no code review would have flagged.
+
+---
+
+### Two calls to action that never lined up, and three of my own errors
+
+44px and 46px, side by side on the landing page, measured in a browser. Five `<a>`
+elements were reimplementing `Button`'s styling by hand and had drifted into three
+different `transition-*` values, two paddings and no `min-height` at all.
+`buttonStyles` is now exported and they compose it — a link is not a `<button>`,
+so it takes the styles rather than the component.
+
+**Each of the three mistakes was caught by measuring, not by review**, and they
+are recorded because the pattern is the point:
+
+1. **`min-h-11` does not fix the misalignment**, though the first attempt claimed
+   it did. A minimum is a floor, not a cap. At `text-sm` the floor was binding for
+   both variants so they matched at 44px *by accident*; at `text-base` the content
+   grew past it and they were 44 and 46 again. `border border-transparent` in the
+   base is the actual fix.
+2. **The first version silently shrank both calls to action from 16px to 14px**,
+   with every test green. `buttonStyles` is the raw `cva` and does not run
+   `tailwind-merge` the way `Button` does, so the base's `text-sm` and `lg`'s
+   `text-base` both applied and CSS order picked the smaller. Each size now owns
+   its type size.
+3. **A provocation that read as a pass was a no-op.** A `perl -pi -e` pattern
+   containing `${...}` interpolates it as a Perl expression, so the substitution
+   never applied and the suite came back green. The tell was the test count — 51
+   where sibling runs collected 85. Provocations are now written with an asserted
+   substitution that fails loudly when the pattern is absent.
+
+The same stage extracted `lib/learn/resume.ts`, because `MyCourses` and
+`CourseProgress` were each deciding where a learner picks a course back up, with
+near-identical paragraphs of comment: finished means no next lesson rather than
+`completed == total`, resume follows `next_lesson` and never the bookmark, and
+`started` is whether anything has been watched. The wording stays with the callers
+— "Continue" on a card, "Continue where you left off" in a strip.
+
+**A fourth correction belongs with the three above.** That extraction was
+introduced with a docstring claiming neither component tested the rule. **Both
+did, properly** — one has the skipper case spelled out, the other uses a fixture
+whose bookmark and next lesson differ on purpose, and provoking the extraction
+fails five tests, three of them theirs. So the duplication was two copies of the
+rule *and* two copies of its tests, which is a weaker argument than the one first
+written down, and the claim was corrected before committing rather than shipped as
+a false statement about the codebase.
 
 ---
 
