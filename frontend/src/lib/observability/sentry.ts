@@ -92,3 +92,32 @@ export function initialiseServerErrorReporting(): void {
  * Re-exported so the entry point does not have to import the SDK.
  */
 export const onRequestError = Sentry.captureRequestError;
+
+/**
+ * Report a render error caught by a React error boundary.
+ *
+ * **This is the gap ADR-031 found.** The SDK's automatic instrumentation catches
+ * unhandled window errors and promise rejections; a render error is caught by
+ * *React* and handed to whatever error boundary exists. With no boundary, Next's
+ * own handler takes it — so what reached Sentry was whatever the framework
+ * happened to do, which is the situation ADR-027 §1 set out to end.
+ *
+ * Here rather than in the boundary, because `observability.test.ts` asserts this
+ * module is the only file in `frontend/` that names the vendor. A boundary
+ * importing the SDK directly would fail that, and it should: two entry points to
+ * the same reporting path is how the privacy options come to differ between them.
+ *
+ * Takes `digest` separately because Next attaches it to the error it passes a
+ * boundary, and it is the only thing that correlates a client-visible failure
+ * with the server log that produced it. `beforeSend` still redacts addresses on
+ * the way out.
+ */
+export function reportBoundaryError(error: Error & { digest?: string }): void {
+  Sentry.captureException(error, {
+    tags: { boundary: true },
+    // `digest` and nothing else from the error. A message can carry a URL or a
+    // fragment of a response, and `redactAddresses` is the net rather than the
+    // first line of defence.
+    extra: error.digest ? { digest: error.digest } : undefined,
+  });
+}

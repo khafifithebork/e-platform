@@ -169,7 +169,7 @@ remedy to test until the fault is reproduced.
 
 ## D — Larger, each needing its own plan
 
-### D1 · Error and loading boundaries
+### D1 · Error and loading boundaries — **done 2026-09-27**
 
 - **Benefit:** a learner who hits a render error gets a page that says what
   happened and how to get out, instead of Next's unstyled default — and the
@@ -177,12 +177,22 @@ remedy to test until the fault is reproduced.
   framework does.
 - **Scope:** `global-error.tsx`, `(learner)/error.tsx`, the lesson `loading.tsx`,
   plus `captureException` and a test per boundary.
-- **Dependencies:** **ADR-031 accepted 2026-09-27 — ready to plan.** ADR-027 already in place.
-- **Acceptance:** each boundary renders with one `<h1>`; **the error's own message
-  is absent from the DOM**; `captureException` called once; `verify:static` still
-  reports four prerendered routes, proving no boundary pulled a static route
-  dynamic.
-- **Approval:** owner. No dependency, no cost.
+- **Dependencies:** ADR-031, accepted and now implemented. ADR-027 already in place.
+- **Acceptance, all met:** each boundary renders with one `<h1>`; **the error's own
+  message, digest and the address inside it are absent from the DOM**; the report
+  fires exactly once; and `verify:static` still reports four prerendered routes,
+  confirming no boundary pulled a static route dynamic.
+- **Two things worth knowing for next time.** Reporting goes through
+  `reportBoundaryError` in `lib/observability/sentry.ts`, not through the SDK — a
+  test asserts that module is the only file in `frontend/` naming the vendor, and
+  a boundary importing it directly would rightly fail. And `global-error.tsx`
+  forced two guards to grow a pinned entry: it needs a raw `<h1>` and a plain
+  `<a>`, because it replaces the document precisely when the design system and the
+  router may be what failed.
+- **Not verified in a browser.** Inducing a real render error means changing code
+  to break it; the 11 tests cover the behaviour, and nobody has watched a learner
+  hit one of these pages.
+- **Approval:** granted with ADR-031.
 
 ### D2 · The 2.4.11 remedy
 
