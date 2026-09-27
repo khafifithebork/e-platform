@@ -9,9 +9,14 @@
  *
  * With `PageTitle` owning both treatments the question changes shape, and the
  * new question is the stronger one — **no `<h1>` anywhere may size itself.** It
- * holds app-wide, it needs no exemption list, and unlike a string comparison it
- * fails on the *first* page that reintroduces a hand-written title rather than
- * on the second.
+ * holds app-wide, and unlike a string comparison it fails on the *first* page
+ * that reintroduces a hand-written title rather than on the second.
+ *
+ * Two files are **pinned** rather than exempted: this component, and
+ * `global-error.tsx`, which replaces the document when the root layout fails and
+ * so cannot import anything from the design system. A pinned set fails if an entry
+ * is removed as well as added, which is what keeps it a record of a decision
+ * instead of a hole that widens quietly.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -23,6 +28,15 @@ import { PAGE_TITLE, PageTitle } from "@/components/ui/PageTitle";
 import { codeOnly, sourceFilesIn } from "@/test/source";
 
 const SRC = join(import.meta.dirname, "..", "..");
+
+/**
+ * The only two files permitted a hand-written `<h1>`.
+ *
+ * `PageTitle.tsx` is the component itself. `global-error.tsx` is the boundary
+ * that replaces the document when the root layout fails and therefore cannot
+ * depend on the design system at all — see the pinned test below.
+ */
+const ALLOWED = ["PageTitle.tsx", "global-error.tsx"] as const;
 
 /** Every `<h1 …>` opening tag in the app's own source, comments stripped. */
 function rawTitleTags(): { path: string; tag: string }[] {
@@ -41,14 +55,34 @@ describe("nothing writes its own page title", () => {
      * This component's own source discusses `<h1>` at length, and two of the
      * pages it replaced explain in a comment why their heading matters.
      */
-    const outsideThisComponent = rawTitleTags().filter(
-      ({ path }) => !path.endsWith("PageTitle.tsx"),
+    const unexpected = rawTitleTags().filter(
+      ({ path }) => !ALLOWED.some((name) => path.endsWith(name)),
     );
 
-    expect(outsideThisComponent.map(({ path, tag }) => `${path}: ${tag}`)).toEqual([]);
+    expect(unexpected.map(({ path, tag }) => `${path}: ${tag}`)).toEqual([]);
   });
 
-  it("is looking at real source files and finding the one legitimate <h1>", () => {
+  it("allows a raw <h1> in exactly the two places that cannot use the component", () => {
+    /**
+     * **Pinned, not exempted**, the same technique as
+     * `test/logical-properties.test.ts`: this fails if either file stops having
+     * one, so the set is a record of a decision rather than a hole that silently
+     * widens.
+     *
+     * `global-error.tsx` replaces the document when the root layout fails
+     * (ADR-031 §2). It cannot import `PageTitle` — or anything else from the
+     * design system — because the scenario it exists for is that system being
+     * what broke, and `boundaries.test.tsx` asserts it reaches for no custom
+     * property at all. So its heading is written out, and that is the point of it.
+     */
+    const pinned = rawTitleTags().map(({ path }) =>
+      ALLOWED.find((name) => path.endsWith(name)),
+    );
+
+    expect(pinned.sort()).toEqual([...ALLOWED].sort());
+  });
+
+  it("is looking at real source files and finding the pinned <h1>s", () => {
     /**
      * The twin, and it does two jobs. An empty list satisfies the test above,
      * so a broken path or a regex that matched nothing would pass it — and
@@ -56,8 +90,7 @@ describe("nothing writes its own page title", () => {
      * than returning `[]`, so the count is the check that matters.
      */
     expect(sourceFilesIn(SRC).length).toBeGreaterThan(30);
-    expect(rawTitleTags()).toHaveLength(1);
-    expect(rawTitleTags()[0].path).toContain("PageTitle.tsx");
+    expect(rawTitleTags()).toHaveLength(ALLOWED.length);
   });
 
   it("does not count a title that only a comment mentions", () => {

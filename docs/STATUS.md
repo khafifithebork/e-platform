@@ -18,7 +18,7 @@ process.**
 | ADR | Decision | Left to do |
 |---|---|---|
 | **ADR-030** | WCAG 2.2 AA. **Supersedes architecture.md's 2.1 AA baseline**, on the level only | C3 and two of C4's three tests **done 2026-09-27**; D2 waits on A2 |
-| **ADR-031** | Three boundary files, each reporting to Sentry | roadmap D1 — **nothing built yet** |
+| **ADR-031** | Three boundary files, each reporting to Sentry | **D1 done 2026-09-27** — built, 11 tests, unverified in a browser |
 | **ADR-032** | Theme follows the system; **manual toggle declined** | nothing. §2's defect fixed; A4 confirms it |
 | **ADR-033** | Localisation **deferred** with a named trigger | §3's `<track>` gap, blocked on backend (D4) |
 
@@ -35,7 +35,7 @@ questions they had been sitting behind. When an ADR contains both, split it.
 
 | Defect | State |
 |---|---|
-| **No error or loading boundaries anywhere** in `src/app`, so a render error shows Next's unstyled default page and what reaches Sentry is whatever the framework does | **Open.** ADR-031 settles the design; nothing built. Roadmap D1 |
+| **No error or loading boundaries anywhere** in `src/app`, so a render error showed Next's unstyled default page and what reached Sentry was whatever the framework did | **Fixed** 2026-09-27. Three boundaries, reporting through the one Sentry seam, and an assertion that no error message, digest or address reaches the DOM |
 | **`/me/courses/` pagination ignored** — a learner past the first page sees part of their list with no indication more exists | **Open.** Roadmap D3. `specs/frontend-state-and-api.md` §8 |
 | **`color-scheme` never declared**, so dark mode kept light scrollbars and autofill — the latter can push text below the contrast `contrast.test.ts` certifies and cannot see | **Fixed** 2026-09-27, with a provoked test. Measurement corrected the ADR on the way: form-control boxes were never affected, because Tailwind's Preflight already resets them |
 | **`<track>` lacks `srclang` and `label`** | **Blocked, not open** — the correct value is not knowable from the frontend because nothing models caption language. Backend work, roadmap D4. Hardcoding a guess would be wrong for exactly the courses that matter most |
