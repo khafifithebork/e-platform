@@ -1,16 +1,28 @@
 # STATUS
 
 **Last updated:** 2026-09-27
-**Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; frontend
-documentation package)
+**Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
+its four ADRs, and the fixes that followed)
 
 ---
 
-## The frontend documentation package — written, nothing implemented
+## The frontend audit — documented, decided, and three of five defects fixed
 
-**Eleven files, four of them ADRs.** Written 2026-09-27 after an audit of the
-frontend against the accepted decisions, and submitted as **PR #75**. **No
-application code, dependency, configuration or infrastructure changed.**
+**Eleven documents, four ADRs, and five follow-up changes**, all on 2026-09-27.
+The audit itself (**PR #75**) changed no application code; everything after it did.
+
+| PR | |
+|---|---|
+| #75 | The audit package — 11 documents, four ADRs proposed |
+| #76 | ADR-030 and ADR-031 accepted |
+| #77 | `color-scheme` declared |
+| #78 | Inline-direction utilities made logical, with a pinned guard |
+| #79 | Theme toggle declined, localisation deferred — all four accepted |
+| #80 | WCAG 2.2 guards for 3.3.8 and 2.5.8 |
+| #81 | Error and loading boundaries, reporting through the Sentry seam |
+
+**No dependency was added and no service or cost changed.** The frontend suite went
+from 416 tests across 35 files to **450 across 40**.
 
 **All four ADRs accepted by the owner on 2026-09-27, and two defects fixed in the
 process.**
@@ -31,7 +43,31 @@ do", and **the broken half never needed the decision.** ADR-032 §2
 (`color-scheme`) and ADR-033 §2 (logical properties) shipped hours ahead of the
 questions they had been sitting behind. When an ADR contains both, split it.
 
-### The four defects the audit found — two fixed, two open
+### Correct by reasoning, unconfirmed by eye — the thing to watch
+
+**Four claims are now believed on argument and a passing test, and nobody has
+looked at any of them.** Individually each is defensible; as a set it is the
+largest risk this workstream carries, because the test count going up reads as
+reassurance while this list quietly grows.
+
+| Claim | Why no agent can close it |
+|---|---|
+| The landing page is not blank for a reduced-motion visitor | The agent's browser reports `document.hidden` even when fronted, so `requestAnimationFrame` is frozen and the pane cannot tell a working page from a broken one. **Outstanding since 2026-09-25** |
+| `color-scheme` fixed dark-mode scrollbars and autofill | A scrollbar's colours are not exposed to `getComputedStyle`, and autofill needs a real interaction |
+| Logical properties flip under `dir="rtl"` | That browser does not re-resolve logical properties on a direction change — proven with an isolated inline-styled element, which also fails to flip |
+| A learner hitting an error boundary gets a usable page | Inducing a real render error means changing code to break it |
+
+Each is roadmap section A. **All four are minutes of work for a person with a
+browser**, and three of the four are confirmations of fixes that shipped on
+specification rather than observation.
+
+**Three tooling artefacts in one session, each of which first read as a bug in the
+code**: the frozen `requestAnimationFrame`, a stylesheet that had not loaded
+reporting every border radius as `0px`, and the direction change above. Isolating
+before concluding is what separated them — and in the last case, not doing so would
+have cost a revert of a correct change.
+
+### The five defects — three fixed, one open, one blocked
 
 | Defect | State |
 |---|---|
@@ -40,9 +76,13 @@ questions they had been sitting behind. When an ADR contains both, split it.
 | **`color-scheme` never declared**, so dark mode kept light scrollbars and autofill — the latter can push text below the contrast `contrast.test.ts` certifies and cannot see | **Fixed** 2026-09-27, with a provoked test. Measurement corrected the ADR on the way: form-control boxes were never affected, because Tailwind's Preflight already resets them |
 | **`<track>` lacks `srclang` and `label`** | **Blocked, not open** — the correct value is not knowable from the frontend because nothing models caption language. Backend work, roadmap D4. Hardcoding a guess would be wrong for exactly the courses that matter most |
 
-A fifth, found while fixing the fourth: **physical inline-direction utilities**.
-**Fixed** — six swapped to logical, two pinned as navigation chrome ADR-029 owns.
-The ADR had estimated "about four"; counting properly found nine.
+And the fifth, found while fixing the fourth: **physical inline-direction
+utilities**. **Fixed** — six swapped to logical, two pinned as navigation chrome
+ADR-029 owns. The ADR had estimated "about four"; counting properly found nine.
+
+**Only D3 is open work.** `<track>` is blocked on backend modelling rather than on
+anyone's decision, and the 2.4.11 remedy cannot be scoped until A2 reproduces the
+fault.
 
 The audit's own headline, worth recording because it shaped the package: **little
 was wrong.** Pricing is `null` with a tripwire test rather than an invented number,
