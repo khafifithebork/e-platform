@@ -67,12 +67,12 @@ reporting every border radius as `0px`, and the direction change above. Isolatin
 before concluding is what separated them — and in the last case, not doing so would
 have cost a revert of a correct change.
 
-### The five defects — three fixed, one open, one blocked
+### The five defects — four fixed, one blocked
 
 | Defect | State |
 |---|---|
 | **No error or loading boundaries anywhere** in `src/app`, so a render error showed Next's unstyled default page and what reached Sentry was whatever the framework did | **Fixed** 2026-09-27. Three boundaries, reporting through the one Sentry seam, and an assertion that no error message, digest or address reaches the DOM |
-| **`/me/courses/` pagination ignored** — a learner past the first page sees part of their list with no indication more exists | **Open.** Roadmap D3. `specs/frontend-state-and-api.md` §8 |
+| **`/me/courses/` pagination ignored** — a learner past the first page saw part of their list with no indication more existed | **Fixed** 2026-09-27. Root cause was a hand-written response type omitting `next` (invariant 16). A "load more" control, and `next` is **not followed** — Django builds it from the internal host |
 | **`color-scheme` never declared**, so dark mode kept light scrollbars and autofill — the latter can push text below the contrast `contrast.test.ts` certifies and cannot see | **Fixed** 2026-09-27, with a provoked test. Measurement corrected the ADR on the way: form-control boxes were never affected, because Tailwind's Preflight already resets them |
 | **`<track>` lacks `srclang` and `label`** | **Blocked, not open** — the correct value is not knowable from the frontend because nothing models caption language. Backend work, roadmap D4. Hardcoding a guess would be wrong for exactly the courses that matter most |
 
@@ -80,9 +80,9 @@ And the fifth, found while fixing the fourth: **physical inline-direction
 utilities**. **Fixed** — six swapped to logical, two pinned as navigation chrome
 ADR-029 owns. The ADR had estimated "about four"; counting properly found nine.
 
-**Only D3 is open work.** `<track>` is blocked on backend modelling rather than on
-anyone's decision, and the 2.4.11 remedy cannot be scoped until A2 reproduces the
-fault.
+**No defect is open work any more.** `<track>` is blocked on backend modelling
+rather than on anyone's decision, and the 2.4.11 remedy cannot be scoped until A2
+reproduces the fault — which needs a person, not an agent.
 
 The audit's own headline, worth recording because it shaped the package: **little
 was wrong.** Pricing is `null` with a tripwire test rather than an invented number,
