@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 
+import { buttonStyles } from "@/components/ui/Button";
 import { PageTitle } from "@/components/ui/PageTitle";
 
 /**
@@ -51,18 +52,11 @@ export function NotFoundContent() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Link
           href="/courses"
-          className="rounded-(--radius-md) bg-accent px-5 py-2.5 text-center
-            font-medium text-on-accent shadow-(--shadow-sm) transition-all
-            hover:bg-accent-hover hover:shadow-(--shadow-md)"
+          className={buttonStyles({ variant: "primary", size: "lg", lift: true })}
         >
           Browse the catalogue
         </Link>
-        <Link
-          href="/"
-          className="rounded-(--radius-md) border border-line-strong bg-surface px-5 py-2.5
-            text-center font-medium text-ink transition-colors hover:border-ink-subtle
-            hover:bg-surface-sunken"
-        >
+        <Link href="/" className={buttonStyles({ variant: "secondary", size: "lg" })}>
           Go to the home page
         </Link>
       </div>

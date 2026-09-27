@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
+import { buttonStyles } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ApiError, api, type Enrollment } from "@/lib/api/client";
 import { resumePoint } from "@/lib/learn/resume";
@@ -152,9 +153,11 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
       ) : (
         <Link
           href={resume.href}
-          className="self-start rounded-(--radius-md) bg-accent px-4 py-2 text-sm
-            font-medium text-on-accent shadow-(--shadow-sm) transition-all
-            hover:bg-accent-hover hover:shadow-(--shadow-md)"
+          // `sm`, not `lg`: this sits inside a card in a list, not at the top of
+          // a page. It was `px-4 py-2` with no minimum height and came out 36px
+          // tall — below the 44px target the primitive has always set, which is
+          // what opting out of the primitive costs.
+          className={buttonStyles({ size: "sm", lift: true, className: "self-start" })}
         >
           {/* Short wording, because this sits on a card in a list.
               `CourseProgress` says the same thing at length in a one-line

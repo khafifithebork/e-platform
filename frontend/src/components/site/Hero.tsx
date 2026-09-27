@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform, type Variants } from "framer-motion";
 import Link from "next/link";
 import { useRef } from "react";
 
+import { buttonStyles } from "@/components/ui/Button";
 import { PAGE_TITLE } from "@/components/ui/PageTitle";
 
 const containerVariants: Variants = {
@@ -87,12 +88,14 @@ export function Hero() {
           </motion.p>
 
           <motion.div {...item} className="flex flex-col gap-3 sm:flex-row">
+            {/* `w-full`, because the flex item is the wrapper rather than the
+                link: in the column layout the wrapper stretches and an
+                inline-flex link inside it would shrink to its text, which is
+                not how these read on a phone. */}
             <motion.div whileTap={{ scale: 0.97 }}>
               <Link
                 href="/courses"
-                className="block rounded-(--radius-md) bg-accent px-5 py-2.5 text-center
-                  font-medium text-on-accent shadow-(--shadow-sm) transition-shadow
-                  hover:bg-accent-hover hover:shadow-(--shadow-md)"
+                className={buttonStyles({ variant: "primary", size: "lg", lift: true, className: "w-full" })}
               >
                 Browse the catalogue
               </Link>
@@ -100,9 +103,7 @@ export function Hero() {
             <motion.div whileTap={{ scale: 0.97 }}>
               <Link
                 href="/pricing"
-                className="block rounded-(--radius-md) border border-line-strong bg-surface
-                  px-5 py-2.5 text-center font-medium text-ink transition-colors
-                  hover:border-ink-subtle hover:bg-surface-sunken"
+                className={buttonStyles({ variant: "secondary", size: "lg", className: "w-full" })}
               >
                 See pricing
               </Link>
