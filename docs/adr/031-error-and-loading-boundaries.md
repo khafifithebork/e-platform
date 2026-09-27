@@ -1,6 +1,6 @@
 # ADR-031 — Error and loading boundaries, and the report nobody receives
 
-**Status:** proposed
+**Status:** accepted by the owner 2026-09-27
 **Date:** 2026-09-27
 **Decides:** where App Router boundaries go, what they say, and how a client
 render error reaches Sentry
@@ -208,5 +208,11 @@ to the DOM. Also no error detail in a URL, ever — that is the privacy rule
 ADR-004, ADR-024, ADR-026, ADR-027, ADR-030 (an error page is an accessibility
 surface). `docs/specs/frontend-state-and-api.md` for the state taxonomy.
 
-**Approval required:** the owner. No dependency, no service, no cost — three
-files and a reporting call.
+**Approval:** granted by the owner on 2026-09-27. No dependency, no service, no
+cost — three files and a reporting call.
+
+**Accepted is not implemented.** None of the three files exists yet; the work is
+item D1 in `docs/specs/frontend-roadmap.md` and still wants the plan-and-wait step
+in CLAUDE.md §7 before any of it is written. Until then, a render error in the
+learner surface still shows Next's default page, and this file records the
+intended behaviour rather than the current one.

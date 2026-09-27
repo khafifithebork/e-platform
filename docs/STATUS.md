@@ -8,16 +8,29 @@ documentation package)
 
 ## The frontend documentation package — written, nothing implemented
 
-**Eleven files, four of them ADRs, all four `proposed` and none accepted.** Written
-2026-09-27 after an audit of the frontend against the accepted decisions, and
-submitted as **PR #75**. **No application code, dependency, configuration or
-infrastructure changed.**
+**Eleven files, four of them ADRs.** Written 2026-09-27 after an audit of the
+frontend against the accepted decisions, and submitted as **PR #75**. **No
+application code, dependency, configuration or infrastructure changed.**
 
-**Read the four ADRs' status before acting on anything here.** They are proposals.
-Until the owner accepts one, nothing in it is a decision this project has taken —
-and a proposal treated as settled is how this documentation set would become the
-competing constitution it was written not to be. ADR-030 and ADR-031 are the two
-worth keeping if the set is trimmed.
+**Two ADRs accepted by the owner on 2026-09-27; two still proposed.**
+
+| ADR | Status | Unblocks |
+|---|---|---|
+| **ADR-030** — WCAG 2.2 AA | **accepted 2026-09-27**. Supersedes architecture.md's 2.1 AA baseline, on the level only | roadmap C3, C4, D2 |
+| **ADR-031** — error and loading boundaries | **accepted 2026-09-27** | roadmap D1 |
+| ADR-032 — theme stays system-only | proposed | roadmap C1 |
+| ADR-033 — language axes, localisation deferred | proposed | roadmap C2 |
+
+**Accepted is not implemented, and none of it has been.** All four defects below
+are still present, including the missing boundaries ADR-031 now settles the design
+of. Acceptance means the decision is made, so the work may be *planned* — it does
+not skip CLAUDE.md §7, and D2 may still reopen a layout ADR-029 accepted.
+
+**A proposal is not a decision.** ADR-032 and ADR-033 record no settled position
+yet. Treating either as one is how this documentation set would become the
+competing constitution it was written not to be. **ADR-032 §2 is worth splitting
+if the theme question is what holds it** — the undeclared `color-scheme` is a
+defect and needs no product decision.
 
 ### Four defects the audit found, none fixed
 
@@ -58,16 +71,19 @@ from four stages of redesign.
 1. **architecture.md §8.2 names `MSW`, `@axe-core/react` and `Playwright`. None is
    installed.** The repository stubs `fetch` directly and `contrast.test.ts` states
    that axe "is a §5 dependency decision that has not been made". Either the
-   dependencies are approved under §5 or that line is superseded — **the owner
-   decides; this was not assumed either way.**
-2. **architecture.md sets WCAG 2.1 AA; ADR-030 proposes 2.2.** A target change,
-   which is why the ADR is proposed rather than applied.
+   dependencies are approved under §5 or that line is superseded — **still open.**
+   Accepting ADR-030 did not resolve it: that ADR is explicit that the target
+   stands without it, and everything it relies on today needs no dependency.
+2. ~~architecture.md sets WCAG 2.1 AA; ADR-030 proposes 2.2.~~ **Resolved
+   2026-09-27** — ADR-030 accepted, and it now carries a `Supersedes` line naming
+   architecture.md's baseline so the older document cannot be read as current on
+   the level.
 
 **Documenting is not implementing.** Nothing in these eleven files has been
 verified by running it, because there is nothing to run: they describe decisions
-and procedures. The four ADRs need owner approval before anything follows from
-them, and `runbooks/accessibility-verification.md` says of itself that it has
-never been walked.
+and procedures. ADR-032 and ADR-033 still need owner approval; ADR-030 and ADR-031
+have it and are still unimplemented. `runbooks/accessibility-verification.md` says
+of itself that it has never been walked.
 
 ---
 

@@ -1,9 +1,12 @@
 # ADR-030 — WCAG 2.2 AA, and the one criterion we might already fail
 
-**Status:** proposed
+**Status:** accepted by the owner 2026-09-27
 **Date:** 2026-09-27
 **Decides:** the accessibility target, which architecture.md sets at 2.1 AA and
 no ADR has ever stated
+**Supersedes:** architecture.md's 2.1 AA accessibility baseline, on the level
+only. Everything else in §8.2 stands, including the unresolved tooling question
+in §5 below
 **Depends on:** architecture.md §8.2 and its accessibility line, ADR-006
 (provoke every control), ADR-023 §1 (a decision is not a control until something
 asserts it), ADR-024 (the public catalogue stays static), ADR-029 (visual
@@ -151,9 +154,11 @@ and not silently resolved. Two ways out, and the owner picks:
   exist, and accept that the rendered-tree class of fault is caught by the human
   pass instead.
 
-**This ADR does not need that answered to stand.** The target is the decision;
-the tooling is a separate approval. Everything in §4's "already automated" column
-exists today with no dependency at all.
+**This ADR did not need that answered to stand, and it was accepted without it.**
+The target is the decision; the tooling is a separate approval, **still open as of
+2026-09-27**. Everything in §4's "already automated" column exists today with no
+dependency at all, so acceptance of this ADR changes nothing about what is
+installed.
 
 ---
 
@@ -209,6 +214,11 @@ ADR-006, ADR-023, ADR-024, ADR-029, ADR-031 (boundaries: an error state is also
 an accessibility state), ADR-033 (language metadata is 3.1.1 and 3.1.2).
 `docs/runbooks/accessibility-verification.md`, `docs/design-system.md`.
 
-**Approval required:** the owner, because this commits the project to a
-verifiable standard. §5 approval is separately required for any testing
-dependency, and is not requested here.
+**Approval:** granted by the owner on 2026-09-27. §5 approval for any testing
+dependency is separate, was not requested here, and remains outstanding — see §5.
+
+**What acceptance does and does not authorise.** It fixes the target and the
+verification split. It does not by itself authorise the code changes that follow
+from it: the three tests in §4 and the 2.4.11 remedy are tracked as items C3, C4
+and D2 in `docs/specs/frontend-roadmap.md`, and D2 in particular may reopen a
+layout ADR-029 accepted, which needs its own decision.
