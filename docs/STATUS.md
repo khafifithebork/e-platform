@@ -1,7 +1,47 @@
 # STATUS
 
 **Last updated:** 2026-09-27
-**Updated by:** Claude Opus 5 (frontend redesign, stages 2 to 4)
+**Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; frontend
+documentation package)
+
+---
+
+## The frontend documentation package — written, nothing implemented
+
+**Ten files, four of them ADRs, all four `proposed` and none accepted.** Written
+2026-09-27 after an audit of the frontend against the accepted decisions. **No
+application code, dependency, configuration or infrastructure changed.**
+
+| File | What it is |
+|---|---|
+| `docs/adr/030-accessibility-wcag-22-aa.md` | Proposes WCAG 2.2 AA. Five of the six criteria 2.2 adds at AA appear already satisfied; **2.4.11 Focus Not Obscured is a real risk** below `xl` |
+| `docs/adr/031-error-and-loading-boundaries.md` | Proposes three boundary files. **There are none in the tree today**, so a render error shows Next's default page and may never reach Sentry |
+| `docs/adr/032-theme-system-only.md` | Proposes keeping the system theme and declining a toggle. Records a defect: **`color-scheme` is never declared** |
+| `docs/adr/033-interface-and-learning-languages.md` | Names the four language axes, defers localisation, and records that `<track>` lacks `srclang`/`label` — which the API cannot yet supply |
+| `docs/design-system.md` | Reference for tokens, the three component tiers, variants and states. Carries the two open design questions rather than settling them |
+| `docs/specs/frontend-state-and-api.md` | State boundaries, problem-type handling, retry safety, and a **measured** bundle baseline |
+| `docs/runbooks/accessibility-verification.md` | Automated versus human checks. **Written, never walked** |
+| `docs/frontend-principles.md` | Fourteen rules, each linked to its authority |
+| `docs/design/figma-handoff.md` | A written structure. **No Figma file was created or modified** |
+
+**Four defects were found by the audit and none is fixed:** no error boundaries
+anywhere; `color-scheme` undeclared; `<track>` missing its language attributes;
+`/me/courses/` pagination silently ignored, so a learner past the first page sees
+part of their list with no indication more exists.
+
+**Two discrepancies are reported and deliberately unresolved**, per CLAUDE.md §2:
+
+1. **architecture.md §8.2 names `MSW`, `@axe-core/react` and `Playwright`. None is
+   installed.** The repository stubs `fetch` directly and `contrast.test.ts` states
+   that axe "is a §5 dependency decision that has not been made". Either the
+   dependencies are approved under §5 or that line is superseded — **the owner
+   decides; this was not assumed either way.**
+2. **architecture.md sets WCAG 2.1 AA; ADR-030 proposes 2.2.** A target change,
+   which is why the ADR is proposed rather than applied.
+
+**Documenting is not implementing.** Nothing in these ten files has been verified
+by running it, because there is nothing to run: they describe decisions and
+procedures. The four ADRs need owner approval before anything follows from them.
 
 ---
 
