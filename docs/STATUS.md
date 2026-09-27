@@ -8,9 +8,14 @@ documentation package)
 
 ## The frontend documentation package — written, nothing implemented
 
-**Ten files, four of them ADRs, all four `proposed` and none accepted.** Written
+**Eleven files, four of them ADRs, all four `proposed` and none accepted.** Written
 2026-09-27 after an audit of the frontend against the accepted decisions. **No
 application code, dependency, configuration or infrastructure changed.**
+
+**The first action is not a documentation task.** `docs/specs/frontend-roadmap.md`
+§A1: open `/` with reduced motion enabled and confirm the headline appears. Ten
+minutes, outstanding since 2026-09-25, and it is the only unverified claim left
+from four stages of redesign.
 
 | File | What it is |
 |---|---|
@@ -23,6 +28,7 @@ application code, dependency, configuration or infrastructure changed.**
 | `docs/runbooks/accessibility-verification.md` | Automated versus human checks. **Written, never walked** |
 | `docs/frontend-principles.md` | Fourteen rules, each linked to its authority |
 | `docs/design/figma-handoff.md` | A written structure. **No Figma file was created or modified** |
+| `docs/specs/frontend-roadmap.md` | The remaining gaps in dependency order, **conditional on which ADRs are accepted**. Nothing in it jumps ahead of M14 |
 
 **Four defects were found by the audit and none is fixed:** no error boundaries
 anywhere; `color-scheme` undeclared; `<track>` missing its language attributes;
