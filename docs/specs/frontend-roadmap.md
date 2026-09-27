@@ -6,7 +6,7 @@
 
 | ADR | Status | Left to do |
 |---|---|---|
-| ADR-030 — WCAG 2.2 AA | **accepted** | C3, C4, and D2 once A2 reproduces the fault |
+| ADR-030 — WCAG 2.2 AA | **accepted** | C3 done; two of C4's three tests done; D2 once A2 reproduces the fault |
 | ADR-031 — boundaries | **accepted** | D1, which wants a plan first |
 | ADR-032 — theme, toggle declined | **accepted** | nothing. §2's defect fixed; A4 still confirms it |
 | ADR-033 — localisation deferred | **accepted** | §3's `<track>` gap, blocked on backend (D4) |
@@ -14,6 +14,10 @@
 **Two of the four defects are fixed**: `color-scheme` is declared, and
 inline-direction utilities are logical with a pinned guard. **Two remain** — no
 error or loading boundaries (D1), and `/me/courses/` pagination (D3).
+
+**C3 and two of C4's three tests also landed on 2026-09-27**, so the only remaining
+work behind an accepted ADR is D1, the 2.4.11 remedy once A2 has reproduced it, and
+the two open defects. Section A has not been touched and still needs a person.
 
 **Accepted still does not mean implemented.** Acceptance settles the decision so
 the work may be planned; it does not skip CLAUDE.md §7.
@@ -131,8 +135,8 @@ All small. Each needs its ADR accepted first, and each needs a provoked guard
 |---|---|---|---|
 | ~~**C1**~~ | ~~Declare `color-scheme` on `:root`~~ | **Done 2026-09-27** — split out of ADR-032 by the owner | shipped with 5 provoked tests |
 | ~~**C2**~~ | ~~Four physical→logical utility swaps~~ | **Done 2026-09-27** — six, not four; split out of ADR-033 | shipped with a pinned guard |
-| **C3** | `contrast.test.ts` docstring cites 2.2 AA | **ADR-030 accepted — ready** | 1 line |
-| **C4** | Three accessibility tests: `autoComplete` present on auth fields; `sm`/`md` button minimum heights ≥24px; the 2.4.11 remedy | **ADR-030 accepted**; the third test also needs A2 | ~3 tests |
+| ~~**C3**~~ | ~~`contrast.test.ts` cites 2.2 AA~~ | **Done 2026-09-27** | no new arithmetic — 2.2 changes no contrast threshold |
+| **C4** | ~~`autoComplete` on auth fields (3.3.8)~~ **done**; ~~button minimum heights ≥24px (2.5.8)~~ **done**; the 2.4.11 remedy | **two of three done 2026-09-27**; the third still needs A2 | 13 assertions, all provoked |
 
 **C1 is done.** `contrast.test.ts` still passes both schemes and `theme.test.ts`
 pins the declaration. **A4 is still outstanding** and is now the only unverified
@@ -145,9 +149,18 @@ browser; **the RTL flip is not verified** — this browser does not re-resolve l
 properties on a `dir` change, shown with an isolated inline-styled element. A
 person with `dir="rtl"` closes it.
 
-**C4 acceptance:** each test provoked. The `autoComplete` one matters most: a
-future "security hardening" that strips it would break password managers, which is
-the failure WCAG 3.3.8 exists for, and nothing would notice today.
+**C4, two of three done.** `(auth)/accessible-authentication.test.tsx` covers 3.3.8
+across all four pages, asserting the *values* rather than mere presence — a manager
+offers a saved password for `current-password` and a generated one for
+`new-password`, and swapping those is the failure that looks like it works. It also
+asserts no CAPTCHA. `ui/Button.test.tsx` covers 2.5.8 against the variant strings,
+because jsdom computes no layout and a rendered measurement there would be
+measuring zeroes.
+
+Four provocations, all failing correctly: stripping `autoComplete`, swapping
+`current-password` for `new-password`, removing `sm`'s minimum height, and removing
+the base's transparent border. **The third C4 test still waits on A2** — there is no
+remedy to test until the fault is reproduced.
 
 **Checks for all of C:** `npm test`, `tsc`, `eslint`, `verify:css`, `verify:a11y`,
 `verify:static`.

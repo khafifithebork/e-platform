@@ -17,7 +17,7 @@ process.**
 
 | ADR | Decision | Left to do |
 |---|---|---|
-| **ADR-030** | WCAG 2.2 AA. **Supersedes architecture.md's 2.1 AA baseline**, on the level only | roadmap C3, C4, D2 |
+| **ADR-030** | WCAG 2.2 AA. **Supersedes architecture.md's 2.1 AA baseline**, on the level only | C3 and two of C4's three tests **done 2026-09-27**; D2 waits on A2 |
 | **ADR-031** | Three boundary files, each reporting to Sentry | roadmap D1 — **nothing built yet** |
 | **ADR-032** | Theme follows the system; **manual toggle declined** | nothing. §2's defect fixed; A4 confirms it |
 | **ADR-033** | Localisation **deferred** with a named trigger | §3's `<track>` gap, blocked on backend (D4) |
