@@ -19,7 +19,7 @@ application code, dependency, configuration or infrastructure changed.**
 | **ADR-030** — WCAG 2.2 AA | **accepted 2026-09-27**. Supersedes architecture.md's 2.1 AA baseline, on the level only | roadmap C3, C4, D2 |
 | **ADR-031** — error and loading boundaries | **accepted 2026-09-27** | roadmap D1 |
 | ADR-032 — theme stays system-only | proposed — **§2 extracted and fixed 2026-09-27** | §3's toggle question only |
-| ADR-033 — language axes, localisation deferred | proposed | roadmap C2 |
+| ADR-033 — language axes, localisation deferred | proposed — **§2 extracted and fixed 2026-09-27** | §4's deferral only |
 
 **Accepted is not implemented, and none of it has been.** All four defects below
 are still present, including the missing boundaries ADR-031 now settles the design
@@ -30,11 +30,16 @@ not skip CLAUDE.md §7, and D2 may still reopen a layout ADR-029 accepted.
 position yet. Treating either as one is how this documentation set would become
 the competing constitution it was written not to be.
 
-**ADR-032 was split on 2026-09-27**, on the owner's instruction: its §2 defect —
-`color-scheme` undeclared — needed no product decision and is fixed, while §3's
-toggle question is still open. **ADR-033 has the same shape** and could be split
-the same way: §2 (logical properties, four utilities) and §3 (`<track>` language
-attributes) are separable from §4's deferral of localisation.
+**Both remaining ADRs were split on 2026-09-27**, on the owner's instruction, on
+the same principle: a defect with no product question attached should not wait
+behind one that has.
+
+- **ADR-032 §2** — `color-scheme` undeclared. Fixed. §3's toggle question open.
+- **ADR-033 §2** — physical direction utilities. Fixed, and the estimate of "about
+  four" was wrong: there were nine, six of them content flow and now logical, two
+  navigation chrome pinned as a layout decision ADR-029 owns. §4's deferral of
+  localisation is open, and §3 (`<track>` language attributes) is blocked on
+  backend modelling rather than on a decision.
 
 ### Four defects the audit found, none fixed
 

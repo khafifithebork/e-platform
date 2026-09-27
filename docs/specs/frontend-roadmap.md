@@ -10,7 +10,7 @@ waits on.
 | ADR-030 | **accepted** | C3, C4, D2 (D2 also needs A2) |
 | ADR-031 | **accepted** | D1 |
 | ADR-032 | proposed — **§2 extracted and fixed** | §3's toggle question only; C1 is done |
-| ADR-033 | proposed | C2 |
+| ADR-033 | proposed — **§2 extracted and fixed** | §4's deferral only; C2 is done |
 
 **Accepted does not mean implemented, and nothing here has been.** The four
 defects the audit found are all still present. Acceptance means the decision is
@@ -129,7 +129,7 @@ All small. Each needs its ADR accepted first, and each needs a provoked guard
 | # | Fix | Waits on | Size |
 |---|---|---|---|
 | ~~**C1**~~ | ~~Declare `color-scheme` on `:root`~~ | **Done 2026-09-27** — split out of ADR-032 by the owner | shipped with 5 provoked tests |
-| **C2** | Four physical→logical utility swaps | ADR-033 *(still proposed)* | 4 classes, no-op in LTR |
+| ~~**C2**~~ | ~~Four physical→logical utility swaps~~ | **Done 2026-09-27** — six, not four; split out of ADR-033 | shipped with a pinned guard |
 | **C3** | `contrast.test.ts` docstring cites 2.2 AA | **ADR-030 accepted — ready** | 1 line |
 | **C4** | Three accessibility tests: `autoComplete` present on auth fields; `sm`/`md` button minimum heights ≥24px; the 2.4.11 remedy | **ADR-030 accepted**; the third test also needs A2 | ~3 tests |
 
@@ -138,8 +138,11 @@ pins the declaration. **A4 is still outstanding** and is now the only unverified
 part: nobody has looked at a dark-mode scrollbar or an autofilled field, neither
 being observable in the agent's browser.
 
-**C2 acceptance:** `npm test` and `verify:a11y` unchanged. This is a no-op in LTR,
-**so any visible change means a swap was wrong.**
+**C2 is done.** Six swaps, not the four estimated, plus two navigation-chrome sites
+pinned as a layout decision ADR-029 owns. LTR rendering confirmed unchanged in a
+browser; **the RTL flip is not verified** — this browser does not re-resolve logical
+properties on a `dir` change, shown with an isolated inline-styled element. A
+person with `dir="rtl"` closes it.
 
 **C4 acceptance:** each test provoked. The `autoComplete` one matters most: a
 future "security hardening" that strips it would break password managers, which is

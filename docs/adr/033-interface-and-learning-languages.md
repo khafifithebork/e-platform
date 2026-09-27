@@ -1,6 +1,6 @@
 # ADR-033 — Four kinds of language, and deferring localisation without paying for it later
 
-**Status:** proposed
+**Status:** proposed — **except §2, which was extracted and fixed 2026-09-27**
 **Date:** 2026-09-27
 **Decides:** the vocabulary for four language axes a language-learning product
 confuses at its peril, and what we do *now* so an RTL interface is cheap later
@@ -12,17 +12,18 @@ catalogue), ADR-026 (the learner surface), ADR-029 (visual refresh), CLAUDE.md �
 
 ## Decision
 
-**No localisation, no locale, no dependency — and three cheap habits adopted
-today**, because the cost of retrofitting them is currently about four utility
-classes and it grows with every page written.
+**No localisation, no locale, no dependency — and three cheap habits**, because
+the cost of retrofitting them grows with every page written.
 
-1. Name the four axes (§1) and use those names in code and in conversation.
-2. Prefer **logical** CSS properties over physical ones from here on.
-3. Fix the `<track>` element, which is missing `srclang` and `label` — a defect,
-   not a preference.
+| | | Status |
+|---|---|---|
+| 1 | Name the four axes (§1) and use those names in code and in conversation | reference, in use |
+| 2 | Prefer **logical** CSS properties over physical ones | **done 2026-09-27** — §2, six swaps and a guard |
+| 3 | Give `<track>` its `srclang` and `label` | **blocked** — §3, the API cannot supply the value yet |
 
 **Deliberately not decided:** which interface languages we will support, when, or
-with what library. §4 states the trigger.
+with what library. §4 states the trigger, and that is the only part of this ADR
+still awaiting the owner.
 
 ---
 
@@ -48,40 +49,73 @@ which is the entire product's subject matter, inverted.
 
 ---
 
-## 2. Logical properties, starting now
+## 2. Logical properties — **extracted and fixed 2026-09-27**
 
 `lang="en"` is hardcoded and there is no `dir` attribute anywhere. That is
 correct for an English-only product and says nothing about the future.
 
-What does say something is the class inventory. Measured across `src/`:
+What did say something was the class inventory. The original estimate, written
+before the fix and kept because the correction is the useful part:
 
-- **11** physical-direction utilities (`ml-`, `pl-`, `pr-`, `left-`, `right-`,
-  `text-left`)
-- **0** logical ones (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`)
+> **11** physical-direction utilities against **0** logical ones, of which "about
+> four would actually be wrong in an RTL interface" — `Curriculum`'s indent,
+> `TranscriptPanel`'s cue marker and scrollbar gutter, and `Field`'s "(optional)"
+> marker.
 
-Of the 11, most are genuinely direction-independent and would be wrong to change:
-the decorative hero cards are absolutely positioned art, the drawer is anchored
-to one edge by design, the skip link's `focus:left-4` is a viewport position.
+**Split out of this ADR at the owner's instruction**, on the same reasoning that
+split ADR-032: switching a utility needs no product decision, while §4's deferral
+of localisation does. Fixed in three components and pinned by
+`src/test/logical-properties.test.ts`.
 
-**About four would actually be wrong in an RTL interface:**
+### The count above was wrong, in the direction estimates usually are
 
-| Site | Class | In RTL |
-|---|---|---|
-| `Curriculum.tsx:116` | `border-l pl-4` | The nesting indent appears on the wrong side |
-| `TranscriptPanel.tsx:83` | `border-l-2` | The active-cue marker moves to the wrong edge |
-| `TranscriptPanel.tsx:75` | `pr-1` | Scrollbar gutter on the wrong side |
-| `Field.tsx:47` | `ml-1.5` | The "(optional)" marker detaches from its label |
+"About four" was an estimate from a partial read. Counted properly with a pattern
+rather than by eye, there were **nine**, and they split into two kinds:
 
-**Four utilities is the entire RTL debt today.** That is the argument: the
-decision to localise can wait, but the *habit* cannot, because the debt is
-proportional to how many pages get written before it starts. Switching those four
-now and preferring logical properties from here on costs nothing and is not a
-speculative abstraction — `ms-`/`me-`/`ps-`/`pe-` are the same length as what they
-replace and behave identically in LTR.
+**Six are content flow, and all six are now logical** — `Curriculum`'s nesting
+indent and its accordion label, `TranscriptPanel`'s cue marker, scrollbar gutter
+and cue text, and `Field`'s "(optional)" marker. `ps-`/`pe-`/`ms-`/`border-s`/`text-start`
+are the same length as what they replaced and behave identically in LTR, so this
+cost nothing.
 
-`text-left` is a special case: in a `<button>` whose text must align with its
-label it is usually `text-start` that was meant, and in a code or number context
-it genuinely is left. Decide per site rather than replacing mechanically.
+**Two are navigation chrome, and they stay physical.** `SiteNavTree` closes the
+desktop rail and the mobile drawer with `border-r` while both are anchored to the
+left edge — the drawer at `left-0`, sliding in from `-100%`. Making those logical
+is not a utility swap: it flips which side the navigation lives on, which border
+closes it, and which way the animation travels. **ADR-029 accepted a left rail**,
+so that is a layout decision and belongs to whoever revisits it.
+
+They are **pinned, not exempted**: the guard asserts the physical set is exactly
+those two, so removing them fails just as adding a new one does. An exemption list
+silently absorbs the next offender; a pinned set makes either direction a
+deliberate edit to a test.
+
+`left-` and `right-` insets are deliberately not covered. They position against
+the viewport — the skip link, the drawer edge, the hero's decorative cards — and
+physical is correct there. A rule catching those would fire on code that is right.
+
+### What was verified, and the third tooling artefact of the session
+
+**Verified:** the emitted CSS uses genuine logical properties —
+`padding-inline-start`, `border-inline-start-width`, `margin-inline-start`,
+`text-align: start`, read out of the compiled stylesheet. And **LTR rendering is
+unchanged**: the curriculum indent still computes to `padding-left: 16px` with a
+left border, exactly as `pl-4 border-l` did, checked in a browser against a
+`rounded-full` control.
+
+**Not verified: the RTL flip**, and the reason is the tooling. Setting `dir="rtl"`
+made `direction` compute to `rtl` while the physical mapping did not move. That
+looked like the swap having achieved nothing — until an isolated probe showed a
+bare element with an **inline** `padding-inline-start: 16px` also fails to flip
+when `dir` is set directly on it. **This browser does not re-resolve logical
+properties on a direction change**, so it cannot demonstrate the behaviour either
+way.
+
+That is the third artefact of this kind in one session, after a frozen
+`requestAnimationFrame` and a stylesheet that had not loaded reporting every
+radius as `0px`. Each initially read as a bug in the code. **Isolate before
+concluding** — the cost of not doing so here would have been reverting a correct
+change.
 
 ---
 
@@ -187,12 +221,17 @@ that *not* adding a localisation framework keeps the client bundle where §8 of
 
 ## Verification criteria
 
-1. The four utilities are logical, and `npm test` plus `verify:a11y` still pass —
-   this is a no-op in LTR, so any visible change means one was mis-swapped.
-2. A grep in review, not a guard: new physical-direction utilities should be
-   deliberate and commented.
-3. §3 stays open until the schema carries caption language. It is listed as a gap
-   in `docs/STATUS.md`, not silently closed.
+1. ~~The four utilities are logical.~~ **Done** — six of them, and `npm test`,
+   `verify:a11y`, `verify:static` and `verify:css` all still pass. LTR rendering
+   confirmed unchanged in a browser.
+2. ~~A grep in review, not a guard.~~ **Superseded: there is a guard**,
+   `src/test/logical-properties.test.ts`, which turned out to be possible because
+   the physical set left over is exactly two and can be pinned rather than
+   exempted. Provoked in both directions.
+3. **Outstanding:** the RTL flip itself, which this browser cannot demonstrate —
+   see §2. A person with a real browser and `dir="rtl"` closes this.
+4. §3 stays open until the schema carries caption language. Listed as a gap in
+   `docs/STATUS.md` and as roadmap D4, not silently closed.
 
 ## Related
 
@@ -200,6 +239,7 @@ ADR-014, ADR-015 (transcripts are rows; VTT is a projection), ADR-020 (language 
 a catalogue filter), ADR-026, ADR-030, `docs/design-system.md`,
 `docs/runbooks/accessibility-verification.md`.
 
-**Approval required:** the owner. The habits in §2 need no product decision; §4's
-deferral does, because it declines to plan localisation; §3 needs backend work
-that is not scheduled and belongs to whichever milestone owns caption metadata.
+**Approval:** §2 needed no product decision and is **done** — the owner split it
+out on 2026-09-27, as with ADR-032 §2. **§4's deferral still needs the owner**,
+because it declines to plan localisation. §3 needs backend work that is not
+scheduled and belongs to whichever milestone owns caption metadata.

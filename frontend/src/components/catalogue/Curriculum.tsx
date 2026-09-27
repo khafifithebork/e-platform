@@ -80,7 +80,7 @@ export function Curriculum({
                 aria-expanded={open}
                 aria-controls={panelId}
                 className="flex w-full items-center gap-2 rounded-(--radius-sm) py-1
-                  text-left font-display text-lg text-ink transition-colors
+                  text-start font-display text-lg text-ink transition-colors
                   hover:text-accent"
               >
                 {/*
@@ -113,7 +113,7 @@ export function Curriculum({
               transition={{ duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] }}
               style={{ overflow: "hidden" }}
             >
-              <ul className="flex flex-col gap-1.5 border-l border-line py-1 pl-4">
+              <ul className="flex flex-col gap-1.5 border-s border-line py-1 ps-4">
                 {[...section.lessons]
                   .sort((a, b) => a.position - b.position)
                   .map((lesson) => (
