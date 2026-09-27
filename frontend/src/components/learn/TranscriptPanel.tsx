@@ -72,7 +72,7 @@ export function TranscriptPanel({ segments, positionSeconds, onSeek }: Transcrip
         Transcript
       </h2>
 
-      <ol className="flex-1 space-y-1 overflow-y-auto pr-1">
+      <ol className="flex-1 space-y-1 overflow-y-auto pe-1">
         {segments.map((segment, index) => (
           <li key={segment.position}>
             <button
@@ -80,7 +80,7 @@ export function TranscriptPanel({ segments, positionSeconds, onSeek }: Transcrip
               type="button"
               onClick={() => onSeek(segment.start_ms / 1000)}
               aria-current={index === current ? "true" : undefined}
-              className={`w-full rounded-(--radius-sm) border-l-2 px-3 py-2 text-left text-sm
+              className={`w-full rounded-(--radius-sm) border-s-2 px-3 py-2 text-start text-sm
                 leading-relaxed transition-colors hover:bg-surface-sunken
                 ${
                   index === current

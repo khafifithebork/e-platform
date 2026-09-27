@@ -44,7 +44,7 @@ export function Field({
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium text-ink">
         {label}
-        {!required && <span className="ml-1.5 text-ink-subtle">(optional)</span>}
+        {!required && <span className="ms-1.5 text-ink-subtle">(optional)</span>}
       </label>
 
       {hint && (
