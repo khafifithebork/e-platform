@@ -18,7 +18,7 @@ application code, dependency, configuration or infrastructure changed.**
 |---|---|---|
 | **ADR-030** — WCAG 2.2 AA | **accepted 2026-09-27**. Supersedes architecture.md's 2.1 AA baseline, on the level only | roadmap C3, C4, D2 |
 | **ADR-031** — error and loading boundaries | **accepted 2026-09-27** | roadmap D1 |
-| ADR-032 — theme stays system-only | proposed | roadmap C1 |
+| ADR-032 — theme stays system-only | proposed — **§2 extracted and fixed 2026-09-27** | §3's toggle question only |
 | ADR-033 — language axes, localisation deferred | proposed | roadmap C2 |
 
 **Accepted is not implemented, and none of it has been.** All four defects below
@@ -26,11 +26,15 @@ are still present, including the missing boundaries ADR-031 now settles the desi
 of. Acceptance means the decision is made, so the work may be *planned* — it does
 not skip CLAUDE.md §7, and D2 may still reopen a layout ADR-029 accepted.
 
-**A proposal is not a decision.** ADR-032 and ADR-033 record no settled position
-yet. Treating either as one is how this documentation set would become the
-competing constitution it was written not to be. **ADR-032 §2 is worth splitting
-if the theme question is what holds it** — the undeclared `color-scheme` is a
-defect and needs no product decision.
+**A proposal is not a decision.** ADR-032 §3 and ADR-033 record no settled
+position yet. Treating either as one is how this documentation set would become
+the competing constitution it was written not to be.
+
+**ADR-032 was split on 2026-09-27**, on the owner's instruction: its §2 defect —
+`color-scheme` undeclared — needed no product decision and is fixed, while §3's
+toggle question is still open. **ADR-033 has the same shape** and could be split
+the same way: §2 (logical properties, four utilities) and §3 (`<track>` language
+attributes) are separable from §4's deferral of localisation.
 
 ### Four defects the audit found, none fixed
 

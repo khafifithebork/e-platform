@@ -1,6 +1,6 @@
-# ADR-032 — The theme follows the system, and `color-scheme` is missing
+# ADR-032 — The theme follows the system, and `color-scheme` was missing
 
-**Status:** proposed
+**Status:** proposed — **except §2, which was extracted and fixed 2026-09-27**
 **Date:** 2026-09-27
 **Decides:** whether the product gets a manual theme control, and one defect
 found while asking
@@ -11,15 +11,18 @@ refresh: semantic light/dark tokens), CLAUDE.md invariant 9 and invariant 15
 
 ## Decision
 
-**Keep following the operating system. Do not add a manual toggle.**
+**Keep following the operating system. Do not add a manual toggle.** — *proposed,
+still awaiting the owner.*
 
-And fix the thing found while looking: **`color-scheme` is never declared**, so
-in dark mode the browser still renders native controls, scrollbars and form
-widgets from the light palette against `#171827` surfaces.
+And the thing found while looking: **`color-scheme` was never declared**, so in
+dark mode the browser rendered its own furniture — scrollbars, autofill, native
+video controls — from the light palette against `#171827` surfaces. **Fixed
+2026-09-27**, split out of this ADR at the owner's instruction because a defect
+with no product question attached should not wait behind one that has.
 
-That second part is not a preference. It is a one-line defect with a visible
-consequence, and it is the reason this ADR is worth writing rather than leaving
-the status quo undocumented.
+The two halves are now in different states, which is the point of having split
+them: §2 shipped, §3 is still a question. §2 also had a claim in it that
+measurement disproved — see "What measurement corrected".
 
 ---
 
@@ -40,36 +43,58 @@ difference.
 
 ---
 
-## 2. The defect: `color-scheme`
+## 2. The defect: `color-scheme` — **extracted and fixed 2026-09-27**
 
-Grep the stylesheet: `color-scheme` appears nowhere. Only the media query does.
+**Split out of this ADR at the owner's instruction**, because it was a defect with
+no product question attached while the rest of this file is a product decision
+still awaiting one. Fixed in `globals.css` with
+`:root { color-scheme: light dark; }` and pinned by `src/app/theme.test.ts`.
 
-`color-scheme` is what tells the browser which palette to use for the parts of
-the page **the stylesheet does not control** — the scrollbar, the default border
-and background of an `<input>` before our classes apply, a `<select>`'s dropdown,
-the spin buttons on a number input, the native video controls' chrome, and the
-form-autofill background.
+`color-scheme` tells the browser which palette to use for the parts of the page
+**the stylesheet does not control**. Without it, a dark-mode visitor gets our dark
+surfaces with light-mode browser furniture.
 
-Without it, a dark-mode visitor gets our dark surfaces with light-mode browser
-furniture. The most likely places it shows in this product:
+`light dark` rather than a value per media query: it declares support for both and
+lets the browser follow the visitor's own preference, which is the system-only
+behaviour this ADR keeps. A single value would override that choice.
 
-- **Scrollbars** on the transcript panel (`overflow-y-auto`) and the mobile
-  drawer, both of which scroll inside a dark surface.
-- **Autofill** on the auth forms. Browsers paint a light yellow or blue fill over
-  an autofilled field, computed against the assumed light scheme, which can drop
-  the text below the contrast `contrast.test.ts` just certified.
-- **Native video controls**, which is the one surface in the product where a
-  learner spends most of their time.
+### What measurement corrected
 
-The fix is one declaration on `:root`, keyed to the same media query that already
-switches the palette, or the two-value form so the browser knows both are
-supported.
+This section originally listed "the default border and background of an `<input>`
+before our classes apply" and "the spin buttons on a number input" among the
+things affected, and was labelled as reasoning from the specification rather than
+an observation. **The observation contradicted it.**
 
-**Not verified in a browser.** The reasoning is from the CSS specification's
-purpose for the property, not from an observation — the effects are
-browser-specific and some are platform-specific. Whoever implements this should
-look at a dark-mode scrollbar before and after, and at an autofilled login field,
-because that is the kind of claim this project does not accept on argument alone.
+Measured in a browser with dark-scheme emulation, comparing a bare `<input>`,
+`<select>` and `<textarea>` inheriting `color-scheme: light dark` against the same
+three forced to `light`: **computed background, colour and border were identical
+in both cases.** Tailwind's Preflight already resets form controls to a
+transparent background and inherited colour, so the user-agent styling this ADR
+expected to change was never in play for those elements.
+
+So the claim was wrong for this codebase, and the honest list of what the
+declaration actually governs here is shorter:
+
+| Affected | Observable in the agent's browser? |
+|---|---|
+| Scrollbars — the transcript panel and the mobile drawer both scroll inside a dark surface | **No.** A scrollbar's colours are not exposed to `getComputedStyle` |
+| Autofill background, on the auth forms | **No.** Requires a real autofill interaction |
+| Native video controls — where a learner spends most of their time | **No.** Needs a configured provider |
+| A `<select>`'s dropdown popup, and date and time pickers | **No.** Rendered by the platform, outside the document |
+
+**What is verified:** the declaration is live — `getComputedStyle(document.documentElement).colorScheme`
+returns `light dark`, with `prefers-color-scheme: dark` matching and the dark
+tokens active (`--color-ink: #f1f2fc`, `--color-paper: #171827`), checked against a
+`rounded-full` control so an unloaded stylesheet could not be mistaken for a
+result.
+
+**What is not:** every item in the table. The fix is correct by specification and
+the wrong list has been removed, but **nobody has yet looked at a dark-mode
+scrollbar or an autofilled field.** That remains item A4 in
+`docs/specs/frontend-roadmap.md` and §3.5 of the accessibility runbook. The
+autofill case is the one that matters most, because a browser-painted background
+can drop text below the 4.5:1 `contrast.test.ts` certifies — and that test cannot
+see a background the browser painted.
 
 ---
 
@@ -144,12 +169,14 @@ side benefit, not the reason.
 
 ## Verification criteria
 
-1. A dark-mode scrollbar on the transcript panel and an autofilled login field,
-   looked at before and after. §2 is reasoning, not an observation, and must not
-   ship as one.
-2. `contrast.test.ts` still passes both schemes.
-3. A test asserting `color-scheme` is declared — cheap, and it is exactly the kind
-   of one-line declaration a later reformat drops silently.
+1. ~~A test asserting `color-scheme` is declared.~~ **Done** — `src/app/theme.test.ts`,
+   five assertions, each provoked: removing the declaration fails three, forcing a
+   single scheme fails one, and adding a `data-theme` selector fails the one that
+   pins this ADR's no-toggle decision.
+2. ~~`contrast.test.ts` still passes both schemes.~~ **Done.**
+3. **Outstanding:** a dark-mode scrollbar and an autofilled login field, looked at
+   by a person. Roadmap A4. Neither is observable in the agent's browser, and §2
+   now says so rather than implying the fix was seen working end to end.
 
 ## Related
 
@@ -157,4 +184,6 @@ ADR-024, ADR-029, ADR-030, `docs/design-system.md` §1 and §7,
 `docs/runbooks/accessibility-verification.md` §3.5.
 
 **Approval required:** the owner, because §3 declines a feature a user might
-reasonably expect. §2 is a defect fix and needs no product decision.
+reasonably expect. **§2 needed no product decision and is done** — the owner split
+it out on 2026-09-27 and it shipped with a test. What remains proposed here is
+only the toggle question.
