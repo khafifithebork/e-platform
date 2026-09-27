@@ -1,8 +1,20 @@
 # Frontend roadmap — the remaining gaps, in dependency order
 
-**Status:** proposed, and **conditional**. Written 2026-09-27.
-**Depends on:** ADR-030, ADR-031, ADR-032, ADR-033 — **all four are `proposed`,
-none accepted.** Items below are marked with the approval each waits on.
+**Status:** proposed. Written 2026-09-27, **partly unblocked the same day.**
+**Depends on:** ADR-030 and ADR-031 **accepted by the owner 2026-09-27**; ADR-032
+and ADR-033 **still `proposed`.** Items below are marked with the approval each
+waits on.
+
+| ADR | Status | Unblocks |
+|---|---|---|
+| ADR-030 | **accepted** | C3, C4, D2 (D2 also needs A2) |
+| ADR-031 | **accepted** | D1 |
+| ADR-032 | proposed | C1 |
+| ADR-033 | proposed | C2 |
+
+**Accepted does not mean implemented, and nothing here has been.** The four
+defects the audit found are all still present. Acceptance means the decision is
+settled, so the work may be planned — not that it may skip CLAUDE.md §7.
 
 **This does not change the milestone plan.** `docs/STATUS.md` holds current state
 and `CLAUDE.md` §10 holds milestone order; M14 stands at 6 of 10 and nothing here
@@ -77,15 +89,17 @@ believed claim into a known one, and two of them gate later work.
 
 ## B — Documentation only
 
-### B1 · Decide the four proposed ADRs
+### B1 · Decide the four proposed ADRs — **half done**
 
-- **Benefit:** everything in C and D is blocked on this, and proposals that sit
-  unaccepted become a second constitution — which the brief for this work
-  explicitly forbids.
-- **Scope:** read four ADRs, accept, amend or reject. Trimming is fine; ADR-030
-  and ADR-031 are the two I would keep if only two.
-- **Acceptance:** each ADR's status is `accepted` or `rejected`, dated.
-- **Approval:** **the owner. This is the gate for section C.**
+- **Done 2026-09-27:** ADR-030 and ADR-031 accepted by the owner. C3, C4, D1 and
+  D2 are unblocked.
+- **Remaining:** ADR-032 (theme, and the `color-scheme` defect) and ADR-033
+  (language axes, logical properties, the `<track>` attributes) are still
+  `proposed`. C1 and C2 wait on them.
+- **Note on ADR-032:** its §2 records a real defect — `color-scheme` is never
+  declared — and that half needs no product decision. If the toggle question is
+  what is holding it, the defect can be split out and fixed on its own.
+- **Approval:** the owner, for the two remaining.
 
 ### B2 · Resolve the architecture.md §8.2 discrepancy
 
@@ -110,10 +124,10 @@ All small. Each needs its ADR accepted first, and each needs a provoked guard
 
 | # | Fix | Waits on | Size |
 |---|---|---|---|
-| **C1** | Declare `color-scheme` on `:root` | ADR-032 + A4 | 1 line + 1 test |
-| **C2** | Four physical→logical utility swaps | ADR-033 | 4 classes, no-op in LTR |
-| **C3** | `contrast.test.ts` docstring cites 2.2 AA | ADR-030 | 1 line |
-| **C4** | Three accessibility tests: `autoComplete` present on auth fields; `sm`/`md` button minimum heights ≥24px; the 2.4.11 remedy | ADR-030 + A2 | ~3 tests |
+| **C1** | Declare `color-scheme` on `:root` | ADR-032 *(still proposed)* + A4 | 1 line + 1 test |
+| **C2** | Four physical→logical utility swaps | ADR-033 *(still proposed)* | 4 classes, no-op in LTR |
+| **C3** | `contrast.test.ts` docstring cites 2.2 AA | **ADR-030 accepted — ready** | 1 line |
+| **C4** | Three accessibility tests: `autoComplete` present on auth fields; `sm`/`md` button minimum heights ≥24px; the 2.4.11 remedy | **ADR-030 accepted**; the third test also needs A2 | ~3 tests |
 
 **C1 acceptance:** a dark-mode scrollbar and an autofilled field look right (A4
 re-checked), `contrast.test.ts` still passes both schemes, and a test asserts the
@@ -141,7 +155,7 @@ the failure WCAG 3.3.8 exists for, and nothing would notice today.
   framework does.
 - **Scope:** `global-error.tsx`, `(learner)/error.tsx`, the lesson `loading.tsx`,
   plus `captureException` and a test per boundary.
-- **Dependencies:** ADR-031 accepted. ADR-027 already in place.
+- **Dependencies:** **ADR-031 accepted 2026-09-27 — ready to plan.** ADR-027 already in place.
 - **Acceptance:** each boundary renders with one `<h1>`; **the error's own message
   is absent from the DOM**; `captureException` called once; `verify:static` still
   reports four prerendered routes, proving no boundary pulled a static route
@@ -154,7 +168,7 @@ the failure WCAG 3.3.8 exists for, and nothing would notice today.
 - **Scope:** unknown until A2. ADR-030 §3 lists three candidates; **the tidiest
   one moves the toggle and reopens a layout ADR-029 accepted**, which is why this
   is here and not in C.
-- **Dependencies:** A2, ADR-030.
+- **Dependencies:** **ADR-030 accepted**; still needs A2 to know what the fault is.
 - **Acceptance:** reproduced first, then fixed, then a test for the chosen remedy.
 - **Approval:** owner if the remedy changes the accepted layout.
 
@@ -228,6 +242,9 @@ revisiting. **No design work belongs here until the trigger fires.**
 
 ## The order, if you want one line
 
-**A1 today.** Then B1 to unblock C. Then A2–A5 while that is decided. Then C in any
-order, D1 next, and D2 once A2 says what it is. D3, D4 and D5 each want their own
-conversation first. E waits on you or on money; F waits on evidence.
+**A1 today** — ten minutes, and still the only unverified claim from four stages of
+redesign. Then **C3 and C4, and plan D1**, all three unblocked by the two
+acceptances. **A2 next**, because D2 cannot be scoped until it says what the fault
+is. ADR-032 and ADR-033 when you get to them, which releases C1 and C2. D3, D4 and
+D5 each want their own conversation first. E waits on you or on money; F waits on
+evidence.
