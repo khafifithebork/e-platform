@@ -1,4 +1,26 @@
-@import "tailwindcss";
+/* The application's own code is the only source of styles.
+ *
+ * `source("../")` points Tailwind's automatic detection at `src/`, and
+ * `@source not` removes tests from within it. Without both, **every class name
+ * mentioned anywhere in the project is compiled into the stylesheet a visitor
+ * downloads** — Tailwind 4 detects sources itself, and that sweep includes
+ * `*.test.ts(x)` and `scripts/*.mjs`.
+ *
+ * Found the hard way, and the way it was found is the argument for it.
+ * `verify:css` failed on a clean, fully-fixed tree, and the offending
+ * declarations were the example strings inside `src/test/css-tokens.test.ts` and
+ * `scripts/assert-css-tokens.mjs` — the test and the script that exist to catch
+ * exactly those strings. A guard compiled into existence by its own description
+ * of what it guards. `src/test/source.ts` documents four earlier versions of that
+ * shape; this is the same trap one layer further out, because here it is the
+ * *build* reading the test rather than a test reading the source.
+ *
+ * It is right on its own terms, guard or no guard: a class named in an assertion
+ * or a comment is not a class the product uses, and shipping CSS for it is dead
+ * weight that grows with the test suite.
+ */
+@import "tailwindcss" source("../");
+@source not "../**/*.test.{ts,tsx}";
 
 /* Linglee-inspired spacing and indigo, adapted for Lingua's curated courses.
  * Semantic tokens keep both schemes and all existing pages consistent.

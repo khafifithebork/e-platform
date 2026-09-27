@@ -51,15 +51,15 @@ export function NotFoundContent() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Link
           href="/courses"
-          className="rounded-[--radius-md] bg-accent px-5 py-2.5 text-center
-            font-medium text-on-accent shadow-[--shadow-sm] transition-all
-            hover:bg-accent-hover hover:shadow-[--shadow-md]"
+          className="rounded-(--radius-md) bg-accent px-5 py-2.5 text-center
+            font-medium text-on-accent shadow-(--shadow-sm) transition-all
+            hover:bg-accent-hover hover:shadow-(--shadow-md)"
         >
           Browse the catalogue
         </Link>
         <Link
           href="/"
-          className="rounded-[--radius-md] border border-line-strong bg-surface px-5 py-2.5
+          className="rounded-(--radius-md) border border-line-strong bg-surface px-5 py-2.5
             text-center font-medium text-ink transition-colors hover:border-ink-subtle
             hover:bg-surface-sunken"
         >

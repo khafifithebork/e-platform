@@ -153,9 +153,9 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
       ) : (
         <Link
           href={`/courses/${enrollment.course_slug}/lessons/${enrollment.next_lesson_slug}`}
-          className="self-start rounded-[--radius-md] bg-accent px-4 py-2 text-sm
-            font-medium text-on-accent shadow-[--shadow-sm] transition-all
-            hover:bg-accent-hover hover:shadow-[--shadow-md]"
+          className="self-start rounded-(--radius-md) bg-accent px-4 py-2 text-sm
+            font-medium text-on-accent shadow-(--shadow-sm) transition-all
+            hover:bg-accent-hover hover:shadow-(--shadow-md)"
         >
           {/*
            * "Continue" only once something has been watched. A course with an
