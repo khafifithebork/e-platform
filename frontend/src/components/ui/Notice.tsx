@@ -35,7 +35,7 @@ export function Notice({ tone, title, children }: NoticeProps) {
     <div
       role={tone === "error" ? "alert" : "status"}
       aria-live={style.live}
-      className={`flex gap-3 rounded-[--radius-md] border px-4 py-3.5 text-sm shadow-[--shadow-sm] ${style.box}`}
+      className={`flex gap-3 rounded-(--radius-md) border px-4 py-3.5 text-sm shadow-(--shadow-sm) ${style.box}`}
     >
       <span
         aria-hidden="true"

@@ -45,7 +45,7 @@ export function NavLinks({ items }: { items: ReadonlyArray<{ href: string; label
             {!reduceMotion && hovered === item.href && (
               <motion.span
                 layoutId="nav-hover-pill"
-                className="absolute inset-x-[-8px] inset-y-[-6px] -z-10 rounded-[--radius-sm]
+                className="absolute inset-x-[-8px] inset-y-[-6px] -z-10 rounded-(--radius-sm)
                   bg-surface-sunken"
                 transition={{ type: "spring", stiffness: 500, damping: 35 }}
               />

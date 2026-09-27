@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api, type Enrollment } from "@/lib/api/client";
+import { resumePoint } from "@/lib/learn/resume";
 
 /**
  * Where this learner got to in this course, on a page that cannot know.
@@ -50,13 +51,13 @@ export function CourseProgress({ courseSlug }: { courseSlug: string }) {
 
   if (!enrollment) return null;
 
-  const finished = enrollment.next_lesson_slug === null;
+  const resume = resumePoint(enrollment);
 
   return (
     <aside
       aria-label="Your progress"
-      className="flex flex-wrap items-center gap-4 rounded-[--radius-md]
-        border border-line bg-surface-sunken px-4 py-3.5 shadow-[--shadow-sm]"
+      className="flex flex-wrap items-center gap-4 rounded-(--radius-md)
+        border border-line bg-surface-sunken px-4 py-3.5 shadow-(--shadow-sm)"
     >
       <progress
         value={enrollment.completed_lesson_count}
@@ -68,19 +69,14 @@ export function CourseProgress({ courseSlug }: { courseSlug: string }) {
         {enrollment.completed_lesson_count} of {enrollment.lesson_count} lessons
       </span>
 
-      {finished ? (
+      {resume.status === "finished" ? (
         <span className="text-sm font-medium text-success">Finished</span>
       ) : (
-        <Link
-          href={`/courses/${courseSlug}/lessons/${enrollment.next_lesson_slug}`}
-          className="text-sm text-accent hover:text-accent-hover"
-        >
-          {/*
-           * The same distinction "my courses" makes: a course with an enrolment
-           * but no bookmark was started and abandoned before the first lesson,
-           * and "continue" would be describing something that did not happen.
-           */}
-          {enrollment.last_lesson_slug ? "Continue where you left off" : "Start the first lesson"}
+        <Link href={resume.href} className="text-sm text-accent hover:text-accent-hover">
+          {/* Long wording, because this strip has room for it and a visitor
+              here has not necessarily been in the course before. `resumePoint`
+              owns the rule; the phrasing is this component's. */}
+          {resume.started ? "Continue where you left off" : "Start the first lesson"}
         </Link>
       )}
     </aside>

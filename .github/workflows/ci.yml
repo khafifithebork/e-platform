@@ -462,6 +462,25 @@ jobs:
       - name: Document structure
         run: npm run verify:a11y
 
+      # Design tokens, on the CSS a browser actually parses.
+      #
+      # Tailwind 4 reads `rounded-(--radius-md)` as `var(--radius-md)` and
+      # `rounded-[--radius-md]` — the Tailwind 3 spelling — as the literal value
+      # `--radius-md`, which is invalid, so the browser drops the declaration.
+      # 45 classes across 15 components were the second form and had never once
+      # applied: this project has been on `^4` since its first frontend commit.
+      # Nothing could see it. Both spellings are valid strings in a `className`,
+      # so `tsc` and ESLint pass either way, and jsdom runs no Tailwind so no
+      # component test can tell. Measured on /login, where the submit button
+      # computed a 12px radius and the two inputs above it computed 0px.
+      #
+      # This asserts the property rather than the spelling — no declaration may
+      # have a bare custom-property name as its value — so it also catches
+      # variants nobody has thought of. `src/test/css-tokens.test.ts` is the fast
+      # half, in the unit suite, for the spelling already known to be wrong.
+      - name: Design tokens resolve
+        run: npm run verify:css
+
       # And again inside the image, which is not the same build. `npm run
       # build` above runs on the runner with the full dependency tree; the
       # image builds on node:22-slim, installs with `npm ci --omit=dev`, and

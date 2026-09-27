@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "verify:static": "node scripts/assert-static-marketing.mjs",
     "verify:a11y": "node scripts/assert-page-structure.mjs",
+    "verify:css": "node scripts/assert-css-tokens.mjs",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",

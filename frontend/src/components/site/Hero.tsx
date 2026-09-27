@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform, type Variants } from "framer-motion";
 import Link from "next/link";
 import { useRef } from "react";
 
+import { buttonStyles } from "@/components/ui/Button";
 import { PAGE_TITLE } from "@/components/ui/PageTitle";
 
 const containerVariants: Variants = {
@@ -87,12 +88,14 @@ export function Hero() {
           </motion.p>
 
           <motion.div {...item} className="flex flex-col gap-3 sm:flex-row">
+            {/* `w-full`, because the flex item is the wrapper rather than the
+                link: in the column layout the wrapper stretches and an
+                inline-flex link inside it would shrink to its text, which is
+                not how these read on a phone. */}
             <motion.div whileTap={{ scale: 0.97 }}>
               <Link
                 href="/courses"
-                className="block rounded-[--radius-md] bg-accent px-5 py-2.5 text-center
-                  font-medium text-on-accent shadow-[--shadow-sm] transition-shadow
-                  hover:bg-accent-hover hover:shadow-[--shadow-md]"
+                className={buttonStyles({ variant: "primary", size: "lg", lift: true, className: "w-full" })}
               >
                 Browse the catalogue
               </Link>
@@ -100,9 +103,7 @@ export function Hero() {
             <motion.div whileTap={{ scale: 0.97 }}>
               <Link
                 href="/pricing"
-                className="block rounded-[--radius-md] border border-line-strong bg-surface
-                  px-5 py-2.5 text-center font-medium text-ink transition-colors
-                  hover:border-ink-subtle hover:bg-surface-sunken"
+                className={buttonStyles({ variant: "secondary", size: "lg", className: "w-full" })}
               >
                 See pricing
               </Link>
@@ -117,22 +118,22 @@ export function Hero() {
             initial={{ opacity: 0, y: 30, rotate: -6 }}
             animate={{ opacity: 1, y: 0, rotate: -6 }}
             transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-8 top-6 h-40 w-56 rounded-[--radius-lg] border
-              border-line bg-surface-sunken shadow-[--shadow-sm]"
+            className="absolute left-8 top-6 h-40 w-56 rounded-(--radius-lg) border
+              border-line bg-surface-sunken shadow-(--shadow-sm)"
           />
           <motion.div
             initial={{ opacity: 0, y: 30, rotate: 4 }}
             animate={{ opacity: 1, y: 0, rotate: 4 }}
             transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-4 top-2 h-40 w-56 rounded-[--radius-lg] border
-              border-line bg-surface shadow-[--shadow-md]"
+            className="absolute right-4 top-2 h-40 w-56 rounded-(--radius-lg) border
+              border-line bg-surface shadow-(--shadow-md)"
           />
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="absolute inset-x-10 bottom-0 flex h-40 w-56 flex-col justify-between
-              rounded-[--radius-lg] border border-line-strong bg-surface p-5 shadow-[--shadow-md]"
+              rounded-(--radius-lg) border border-line-strong bg-surface p-5 shadow-(--shadow-md)"
           >
             <div className="h-2.5 w-16 rounded-full bg-accent" />
             <div className="flex flex-col gap-1.5">

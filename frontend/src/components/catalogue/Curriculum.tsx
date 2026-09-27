@@ -71,7 +71,7 @@ export function Curriculum({
         return (
           <li
             key={section.id}
-            className="flex flex-col gap-1 rounded-[--radius-lg] border border-line bg-surface p-4"
+            className="flex flex-col gap-1 rounded-(--radius-lg) border border-line bg-surface p-4"
           >
             <h3>
               <button
@@ -79,7 +79,7 @@ export function Curriculum({
                 onClick={() => toggle(section.id)}
                 aria-expanded={open}
                 aria-controls={panelId}
-                className="flex w-full items-center gap-2 rounded-[--radius-sm] py-1
+                className="flex w-full items-center gap-2 rounded-(--radius-sm) py-1
                   text-left font-display text-lg text-ink transition-colors
                   hover:text-accent"
               >

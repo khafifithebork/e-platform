@@ -96,7 +96,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
        * browser scrolls to the anchor and leaves focus on the link, so the
        * next Tab goes straight back into the navigation the user just skipped.
        */}
-      <main id="main" tabIndex={-1} className="flex flex-1 flex-col focus:outline-none">
+      <main id="main" tabIndex={-1} className="flex flex-1 flex-col focus:outline-hidden">
         {/*
          * The sidebar and the page content share this row so `SiteNavTree`'s
          * column sits in the margin a fixed content width otherwise leaves

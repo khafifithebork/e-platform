@@ -64,7 +64,7 @@ export default async function Home() {
           <StaggerList as="dl" className="grid gap-8 sm:grid-cols-2">
             <StaggerItem
               as="div"
-              className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5"
+              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
             >
               <dt className="font-medium text-ink">Video, audio and written lessons</dt>
               <dd className="text-ink-muted">
@@ -75,7 +75,7 @@ export default async function Home() {
 
             <StaggerItem
               as="div"
-              className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5"
+              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
             >
               <dt className="font-medium text-ink">Transcripts and subtitles</dt>
               <dd className="text-ink-muted">
@@ -86,7 +86,7 @@ export default async function Home() {
 
             <StaggerItem
               as="div"
-              className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5"
+              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
             >
               <dt className="font-medium text-ink">Progress that follows you</dt>
               <dd className="text-ink-muted">
@@ -97,7 +97,7 @@ export default async function Home() {
 
             <StaggerItem
               as="div"
-              className="flex flex-col gap-2 rounded-[--radius-lg] border border-line bg-surface p-5"
+              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
             >
               <dt className="font-medium text-ink">Reviewed, not just uploaded</dt>
               <dd className="text-ink-muted">

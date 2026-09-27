@@ -120,7 +120,7 @@ export function AuthMenu() {
     return (
       <Link
         href="/login"
-        className="rounded-[--radius-sm] border border-line-strong px-3 py-1.5
+        className="rounded-(--radius-sm) border border-line-strong px-3 py-1.5
           text-ink hover:border-ink-subtle"
       >
         Sign in
@@ -148,7 +148,7 @@ export function AuthMenu() {
         type="button"
         onClick={signOut}
         disabled={signingOut}
-        className="rounded-[--radius-sm] border border-line-strong px-3 py-1.5
+        className="rounded-(--radius-sm) border border-line-strong px-3 py-1.5
           text-ink hover:border-ink-subtle disabled:opacity-60"
       >
         {signingOut ? "Signing out…" : "Sign out"}
