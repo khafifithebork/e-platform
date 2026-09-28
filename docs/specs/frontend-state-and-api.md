@@ -51,9 +51,22 @@ the catalogue dynamic.
 linkable, not bookmarkable, and lost on reload. That is a consequence of the
 static decision, not an oversight.
 
-`useSearchParams` appears exactly once — `reset-password`, for the emailed token,
-inside a `Suspense` boundary whose fallback carries the `<h1>` so the prerendered
-document is not headingless.
+`useSearchParams` appears **twice** — `reset-password` and, since 2026-09-28,
+`verify-email` — both for an emailed token, both inside a `Suspense` boundary whose
+fallback carries the `<h1>` so the prerendered document is not headingless. That
+fallback *is* the whole static document for those routes, which is why it carries a
+heading rather than the word "Loading".
+
+**Neither page prefills the token into a field, and that is a security property
+rather than an omission** — see ADR-034 §3. A token from `?token=` lives in state
+and reaches only the API; the visible field appears only when the URL carried
+nothing, because a prefilled input is the token in the DOM. Both pages assert it
+against `innerHTML`, and both assert the seam — showing the field on the link path
+fails a test.
+
+Reading the token from the URL at all is a fallback, not the main path: **both auth
+emails send a bare token with no URL**, so the paste field is what every real
+redemption uses today. ADR-034 §2 records what sending links would cost.
 
 **If shareable filtered URLs are ever wanted**, that is a change to ADR-024's
 shape, not a frontend refactor. It needs an ADR.
@@ -107,6 +120,15 @@ hardcoded message fails.
 
 **The one message the frontend may invent** is the transport failure — `fetch`
 rejects, no problem document exists, and there is nothing to echo.
+
+**And the one refusal it makes without asking:** an empty token on
+`reset-password` and `verify-email`. The service layer short-circuits an empty
+token — hashing the empty string produces a real digest, and a stored row must not
+be matchable by sending nothing — so a POST with one is a certain failure that
+spends a rate-limit slot and answers with a message about a token rather than about
+the blank field. Both pages set a field error instead, and both provoke it. This is
+the *only* case where the frontend decides a request will fail; everywhere else it
+asks and echoes.
 
 ### Entitlement refusals
 
@@ -186,6 +208,31 @@ render's values and report the same beat forever.
   show paid content to somebody no longer paying.
 - **The final beat uses `sendBeacon`**, because a normal fetch during unload is
   cancelled.
+- **A single-use token is redeemed on a press, never in an effect.**
+  `verify-email` could verify on mount and it deliberately does not: the token is
+  consumed by the first POST, so a second one fails, and React's double-invoked
+  development effects, a refresh and a back-navigation would each report "not
+  valid" for a token that worked. ADR-034 §4. A test asserts nothing is posted
+  before the press.
+
+### An endpoint with no caller is not a wired endpoint
+
+**Three auth endpoints had none until 2026-09-28** — `verify-email`,
+`resend-verification`, and in effect `password/reset/confirm/`, which only a URL
+nobody could receive would reach. `api.verifyEmail` had existed the whole time,
+which is the trap: a wrapper in `client.ts` looks like coverage and proves only
+that somebody typed the URL.
+
+Worth a check when a milestone claims a flow is done: grep the client's methods for
+callers outside `client.ts`. A method with none is either dead or a flow that
+cannot be completed.
+
+**Match `api\s*\.\s*method`, not `api.method`.** A chained call puts the method on
+its own line — `LessonGate` calls `api\n  .lessonBySlug(…)` — and the naive pattern
+reports it as uncalled. Running it that way on 2026-09-28 found one genuinely
+uncalled method, `api.lesson`, the by-id variant that `lessonBySlug` superseded at
+M16 T3. Dead rather than broken, and **not removed**: deleting code on a hunch is
+its own hazard, and it is recorded here instead.
 
 ---
 
