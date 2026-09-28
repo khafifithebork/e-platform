@@ -1,9 +1,9 @@
 # Runbook — verifying accessibility
 
-**Status: written; §3.1 passed and §3.2's 2.4.11 check done, both 2026-09-28.**
-Written 2026-09-27 alongside ADR-030. The owner confirmed §3.1 in full and found the
-2.4.11 fault in §3.2, which has since been fixed. **The rest of §3.2, and §3.3 to
-§3.5, have not been walked.** See §6.
+**Status: written; §3.1 passed, §3.2's 2.4.11 check done, §3.5's focus check done —
+all 2026-09-28.** Written 2026-09-27 alongside ADR-030. **Still unwalked:** the rest
+of §3.2's keyboard pass, §3.3's screen reader, §3.4's zoom and reflow, and two of
+§3.5's three checks. See §6.
 
 Treat every step in §3 as a plan rather than a tested procedure. `rollback.md`
 found its own §3 wrong the first time it was walked; assume this one has the same
@@ -144,14 +144,17 @@ it. NVDA with Firefox, or VoiceOver with Safari.
   title, a refusal message. ADR-033 notes German and Arabic both run longer than
   English, and no localisation exists yet, so this is the cheap proxy.
 
-### 3.5 Forced colours
+### 3.5 Forced colours — **focus ring confirmed 2026-09-28; two checks still open**
 
 Windows High Contrast, or Chrome DevTools → Rendering → `forced-colors: active`.
 
-- Focus is still visible. **This is the one that broke once already**: Tailwind 4
-  renamed `outline-none`, the drawer and `<main>` kept the old spelling, and the
-  transparent outline that a high-contrast mode turns visible was replaced by no
-  outline at all. Fixed with `outline-hidden`; check it stayed fixed.
+- ~~Focus is still visible.~~ **Confirmed by the owner 2026-09-28.** This is the one
+  that broke once already: Tailwind 4 renamed `outline-none`, the drawer and `<main>`
+  kept the old spelling, and the transparent outline a high-contrast mode turns
+  visible was replaced by no outline at all. `outline-hidden` restored it, and the
+  fix has now been seen holding in a real high-contrast mode — which is the only way
+  it could be, since the difference between the two spellings is invisible everywhere
+  else.
 - `Notice` remains distinguishable — its symbol carries the meaning when the
   background colour is overridden, which is why it has one.
 - The current-page state in the navigation survives. It must not rest on colour
@@ -203,12 +206,18 @@ section, nothing in this file may be cited as evidence about it.
 | 2026-09-28 | §3.1, hero | Owner, Firefox | **Headline shows with reduced motion on.** The half that proves the hydration fix: the mismatch is what left `opacity: 0` stuck inline, so a visible headline means server and client agree. Version not recorded |
 | 2026-09-28 | §3.1, below the fold | Owner, Firefox | **Course cards and all four panels show on scroll.** The other mechanism — `Reveal` and `StaggerList`, driven by `whileInView` and an `IntersectionObserver`. Checked on a production build served from the host, because the compose `web` container was returning 500s |
 | 2026-09-28 | §3.2, 2.4.11 only | Owner | **Found a failure:** the focus ring sat behind the fixed "Site map" button. Reproduced at 420×480 on `/courses` — the course card's link and both footer links overlapped it — and fixed. Re-measured at zero overlaps. **The rest of §3.2 was not walked** |
+| 2026-09-28 | §3.5, focus ring only | Owner | **Focus ring still visible in forced colours.** Confirms the `outline-hidden` fix held — the difference between that and `outline-none` is invisible outside a high-contrast mode, so this could not have been checked any other way. **`Notice` and the current-page state were not reported on** |
 
 **§3.1 is closed.** The landing page renders for a reduced-motion visitor, both the
 mount path and the scroll-triggered path. That was the bug that started this
 workstream — the page was **entirely blank** for exactly the people who had asked
 for less motion — and it is now the one thing here confirmed by a person rather
 than argued from a passing test.
+
+**Two checks remain in §3.5**, and both are about not relying on colour when the
+palette is overridden: whether `Notice` stays distinguishable by its symbol, and
+whether the navigation's current-page state survives. Neither is likely broken — the
+symbol and `aria-current` are both in the markup — but neither has been looked at.
 
 **§3.2 is the interesting one to finish.** Its 2.4.11 check found the only real
 WCAG 2.2 failure in the product, and that is now fixed — but the rest of the

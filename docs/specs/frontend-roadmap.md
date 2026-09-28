@@ -22,9 +22,9 @@ open.
 landed; the 2.4.11 failure — the only real WCAG 2.2 gap in the product — was
 reported by the owner, reproduced, measured and fixed on 2026-09-28.
 
-**Section A stands at two and a half down.** A1 confirmed in full; A2's 2.4.11 check
-done and the rest of its keyboard pass not; **A5 measured**. A3 and A4 still need a
-person with a browser, as does the lesson route's first load.
+**Section A stands at three and a half down.** A1 confirmed in full and **A5
+measured**; A2's 2.4.11 check and A3's focus-ring check both done, with the remainder
+of each still open. **A4 is untouched**, as is the lesson route's first load.
 
 **Accepted still does not mean implemented.** Acceptance settles the decision so
 the work may be planned; it does not skip CLAUDE.md §7.
@@ -72,12 +72,17 @@ believed claim into a known one, and two of them gate later work.
   A criterion that turned up one fault is worth finishing.
 - **Approval:** none.
 
-### A3 · Forced colours
+### A3 · Forced colours — **focus ring confirmed 2026-09-28; two checks open**
 
-- **Benefit:** confirms the `outline-hidden` fix held and `Notice` stays readable.
-- **Scope:** runbook §3.5.
-- **Acceptance:** focus visible on `<main>` and the drawer; notices
-  distinguishable; current-page state survives.
+- **Done 2026-09-28:** the owner confirmed the focus ring is still visible in forced
+  colours. That is the check worth having, because it guards a real earlier fix —
+  Tailwind 4's `outline-none` silently dropped the transparent-outline fallback a
+  high-contrast mode turns visible, and `outline-hidden` restored it. **The difference
+  between the two is invisible outside such a mode**, so no automated check could ever
+  have shown it.
+- **Still open:** whether `Notice` stays distinguishable by its symbol, and whether
+  the navigation's current-page state survives. Neither is likely broken — the symbol
+  and `aria-current` are both in the markup — but neither has been looked at.
 - **Approval:** none.
 
 ### A4 · Dark-mode browser furniture
