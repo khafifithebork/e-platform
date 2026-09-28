@@ -6,10 +6,11 @@ its four ADRs, and the fixes that followed)
 
 ---
 
-## The frontend audit — documented, decided, and three of five defects fixed
+## The frontend audit — closed out, except what needs a person
 
-**Eleven documents, four ADRs, and five follow-up changes**, all on 2026-09-27.
-The audit itself (**PR #75**) changed no application code; everything after it did.
+**Eleven documents, four ADRs, and seven follow-up changes**, 2026-09-27 to
+2026-09-28. The audit itself (**PR #75**) changed no application code; everything
+after it did.
 
 | PR | |
 |---|---|
@@ -20,9 +21,22 @@ The audit itself (**PR #75**) changed no application code; everything after it d
 | #79 | Theme toggle declined, localisation deferred — all four accepted |
 | #80 | WCAG 2.2 guards for 3.3.8 and 2.5.8 |
 | #81 | Error and loading boundaries, reporting through the Sentry seam |
+| #82 | STATUS: the outcome, and the four claims nobody has looked at |
+| #83 | `/me/courses/` pagination — a learner past page one saw part of their list |
 
 **No dependency was added and no service or cost changed.** The frontend suite went
-from 416 tests across 35 files to **450 across 40**.
+from 416 tests across 35 files to **455 across 40**.
+
+**There is no frontend work left that an agent can do alone.** Every remaining item
+needs either a browser and a person, or backend work that is not scheduled:
+
+| Remaining | Needs |
+|---|---|
+| The four unconfirmed claims below | A person with a browser. Minutes each |
+| A2 — reproduce the 2.4.11 focus fault | The same. **The remedy cannot be scoped until it is reproduced** (ADR-006) |
+| A5 — per-route first-load JS | A measurement, before any performance budget can be proposed honestly |
+| `<track>`'s `srclang` and `label` | The API to model caption language. Not knowable from the frontend |
+| B2 — the architecture.md §8.2 tooling discrepancy | An owner decision: approve MSW / `axe-core` / Playwright under §5, or record that line superseded |
 
 **All four ADRs accepted by the owner on 2026-09-27, and two defects fixed in the
 process.**
@@ -60,6 +74,14 @@ reassurance while this list quietly grows.
 Each is roadmap section A. **All four are minutes of work for a person with a
 browser**, and three of the four are confirmations of fixes that shipped on
 specification rather than observation.
+
+**Why these four and not everything else untested by eye.** Most of this work is
+logic a unit test exercises fully — D3's pagination has never been rendered in a
+browser either, and that is fine, because jsdom can reach every branch of it. These
+four are different in kind: **the property itself is invisible to the test
+environment.** jsdom paints nothing, the pane freezes its own clock, and a scrollbar
+has no API. No amount of additional testing closes them, which is why they are a
+list to hand over rather than a backlog to work through.
 
 **Three tooling artefacts in one session, each of which first read as a bug in the
 code**: the frozen `requestAnimationFrame`, a stylesheet that had not loaded
