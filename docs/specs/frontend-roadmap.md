@@ -11,13 +11,17 @@
 | ADR-032 — theme, toggle declined | **accepted** | nothing. §2's defect fixed; A4 still confirms it |
 | ADR-033 — localisation deferred | **accepted** | §3's `<track>` gap, blocked on backend (D4) |
 
-**Two of the four defects are fixed**: `color-scheme` is declared, and
-inline-direction utilities are logical with a pinned guard. **Two remain** — no
-error or loading boundaries (D1), and `/me/courses/` pagination (D3).
+**Four of the five defects are fixed** — `color-scheme` declared, inline-direction
+utilities logical with a pinned guard, error and loading boundaries built (D1), and
+`/me/courses/` pagination (D3). The fifth, `<track>`'s language attributes, is
+**blocked on backend modelling** rather than open.
 
-**C3 and two of C4's three tests also landed on 2026-09-27**, so the only remaining
-work behind an accepted ADR is D1, the 2.4.11 remedy once A2 has reproduced it, and
-the two open defects. Section A has not been touched and still needs a person.
+**C3 and two of C4's three tests landed too**, so the only work left behind an
+accepted ADR is the 2.4.11 remedy, and that cannot be scoped until A2 reproduces
+the fault.
+
+**Section A is one down.** A1 was confirmed by the owner on 2026-09-28; A2 to A5
+still need a person with a browser.
 
 **Accepted still does not mean implemented.** Acceptance settles the decision so
 the work may be planned; it does not skip CLAUDE.md §7.
@@ -38,24 +42,21 @@ it**, so doing A last would be the expensive order.
 **No code changes. Nothing here needs an ADR approved.** Each item converts a
 believed claim into a known one, and two of them gate later work.
 
-### A1 · Reduced motion in a real browser — **half done 2026-09-28**
+### A1 · Reduced motion in a real browser — **done 2026-09-28**
 
 - **Benefit:** confirms the landing page is not blank for visitors who asked for
   less motion. Until stage 2 it was — entirely, for exactly those people.
 - **Scope:** ten minutes. `docs/runbooks/accessibility-verification.md` §3.1.
-- **Done 2026-09-28:** the owner confirmed the **headline** shows in Firefox with
-  reduced motion on. That is the half that proves the hydration fix — the mismatch
-  is what left `opacity: 0` stuck inline, so a visible headline means server and
-  client agree. Runbook §6 has its first row.
-- **Still open, and a different mechanism:** everything below the hero. The headline,
-  subtitle and calls to action animate *on mount*; the featured course cards and the
-  four "what you get" panels use `Reveal`/`StaggerList`, driven by `whileInView` and
-  an `IntersectionObserver`, and were also among the nine blanked elements.
-  **Scrolling down with the setting still on closes it — twenty seconds.**
-- **Why it cannot be automated here:** the agent's browser reports
-  `document.hidden` even when fronted, so `requestAnimationFrame` is frozen and
-  that pane cannot tell a working page from a broken one.
-- **Approval:** none. **A person with a browser.**
+- **Done 2026-09-28**, in two passes because the page uses two mechanisms. The owner
+  confirmed in Firefox that the **headline** shows (proving the hydration fix — the
+  mismatch is what left `opacity: 0` stuck inline) and, on scrolling, that the
+  **featured course cards and all four panels** show (the `Reveal`/`StaggerList`
+  path, driven by `whileInView` and an `IntersectionObserver`). Runbook §6 has both
+  rows.
+- **Re-check after any change to `MotionProvider`, `Reveal` or `StaggerList`.** No
+  automated check can stand in: the agent's browser freezes
+  `requestAnimationFrame`, so it cannot tell a working page from a broken one.
+- **Approval:** none. It needed a person with a browser, and got one.
 
 ### A2 · Keyboard pass, and reproduce 2.4.11
 

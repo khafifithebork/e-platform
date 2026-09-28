@@ -1,8 +1,8 @@
 # Runbook — verifying accessibility
 
-**Status: written; §3.1 partly walked 2026-09-28.** Written 2026-09-27 alongside
-ADR-030. The owner confirmed the hero half of §3.1 in Firefox; **the below-the-fold
-half is still open**, and no other pass below has been performed. See §6.
+**Status: written; §3.1 walked and passed 2026-09-28.** Written 2026-09-27 alongside
+ADR-030. The owner confirmed §3.1 in full, in Firefox. **No other pass below has
+been performed.** See §6.
 
 Treat every step in §3 as a plan rather than a tested procedure. `rollback.md`
 found its own §3 wrong the first time it was walked; assume this one has the same
@@ -60,7 +60,7 @@ differs more between versions than between pages.
 Each is a separate sitting. Do not try to do all five at once — they use different
 attention and the mistakes cross over.
 
-### 3.1 Reduced motion — **hero confirmed 2026-09-28; below the fold still open**
+### 3.1 Reduced motion — **confirmed 2026-09-28, in full**
 
 Turn on the OS setting (Windows: Settings → Accessibility → Visual effects →
 Animation effects off; macOS: Accessibility → Display → Reduce motion), then open
@@ -75,21 +75,23 @@ blank** for reduced-motion visitors: ten components branched on
 `opacity: 0` inline, and React declined to patch the mismatch. A unit test
 asserted the branch and passed the whole time because it mocked the hook.
 
-**Confirmed for the hero on 2026-09-28** — the owner saw the headline in Firefox
-with reduced motion on. That is the half that proves the hydration fix: the
-mismatch is what left `opacity: 0` stuck inline, so a visible headline means server
-and client now agree.
+**Confirmed in full on 2026-09-28**, by the owner in Firefox, in two passes because
+the page uses two mechanisms:
 
-**The half below the hero is still open, and it is a different mechanism.** The
-headline, subtitle and calls to action come from `Hero`, which animates on mount.
-The featured course cards and the four "what you get" panels use `Reveal` and
-`StaggerList`, driven by `whileInView` and an `IntersectionObserver` — and they were
-also among the nine blanked elements. Scroll down with the setting still on.
+- The headline, subtitle and both calls to action come from `Hero`, which animates
+  **on mount**. Seeing the headline is what proves the hydration fix — the mismatch
+  is what left `opacity: 0` stuck inline, so a visible headline means server and
+  client agree.
+- The featured course cards and the four "what you get" panels use `Reveal` and
+  `StaggerList`, driven by **`whileInView` and an `IntersectionObserver`**. Those
+  needed a scroll, and they appear.
 
-The agent cannot close either half: its browser reports `document.hidden` even when
-fronted, so `requestAnimationFrame` is frozen at zero frames per second and Motion
-cannot animate in it at all — which also means that pane cannot distinguish a
-working page from a broken one.
+**Re-check this after any change to `MotionProvider`, `Reveal` or `StaggerList`**,
+because no automated check can. The agent's browser reports `document.hidden` even
+when fronted, so `requestAnimationFrame` is frozen at zero frames per second and
+Motion cannot animate in it at all — that pane cannot distinguish a working page
+from a broken one, which is why this section exists as a human step rather than a
+test.
 
 Also check `prefers-reduced-motion` on `/courses/[slug]` (the `Reveal` sections)
 and the enrolment list (`StaggerList`).
@@ -190,21 +192,20 @@ is quietly dropped and leaves the runbook claiming a cadence nobody keeps.
 
 ## 6. What has actually been verified
 
-**Nothing in §3 has been walked.** This section exists to be filled in, and until
-it has entries, nothing in this file may be cited as evidence of conformance.
+**§3.1 only.** Nothing else in §3 has been walked, and until a row appears for a
+section, nothing in this file may be cited as evidence about it.
 
 | Date | Section | By | Result |
 |---|---|---|---|
-| 2026-09-28 | §3.1, hero only | Owner, Firefox | **Headline shows with reduced motion on.** This is the half that proves the hydration fix: the mismatch is what left `opacity: 0` stuck inline, so a visible headline means the server and client now agree. Version not recorded |
+| 2026-09-28 | §3.1, hero | Owner, Firefox | **Headline shows with reduced motion on.** The half that proves the hydration fix: the mismatch is what left `opacity: 0` stuck inline, so a visible headline means server and client agree. Version not recorded |
+| 2026-09-28 | §3.1, below the fold | Owner, Firefox | **Course cards and all four panels show on scroll.** The other mechanism — `Reveal` and `StaggerList`, driven by `whileInView` and an `IntersectionObserver`. Checked on a production build served from the host, because the compose `web` container was returning 500s |
 
-**Still outstanding in §3.1: everything below the hero.** The headline, subtitle and
-both calls to action come from `Hero`, which animates *on mount*. The sections
-underneath use a different mechanism — `Reveal` and `StaggerList`, driven by
-`whileInView` and an `IntersectionObserver` — and were also among the nine blanked
-elements. Confirming the hero does not confirm those.
+**§3.1 is closed.** The landing page renders for a reduced-motion visitor, both the
+mount path and the scroll-triggered path. That was the bug that started this
+workstream — the page was **entirely blank** for exactly the people who had asked
+for less motion — and it is now the one thing here confirmed by a person rather
+than argued from a passing test.
 
-**Twenty seconds closes it:** with reduced motion still on, scroll down `/` and check
-that the **featured course cards** and the **four "what you get" panels** appear.
-Also worth a glance at a course page, which uses `Reveal` for its sections.
-
-Nothing else in §3 has been walked.
+**Everything else in §3 is still outstanding**: the keyboard pass and the 2.4.11
+reproduction (§3.2), the screen-reader pass (§3.3), zoom and reflow (§3.4), and
+forced colours (§3.5).
