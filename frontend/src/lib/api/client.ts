@@ -204,6 +204,16 @@ export const api = {
   verifyEmail: (token: string) =>
     request<{ detail: string }>("/auth/verify-email/", { json: { token } }),
 
+  /**
+   * Issue a fresh verification token.
+   *
+   * Answers 202 identically for an unknown address, an already-verified one and
+   * a genuine resend, so the caller has nothing to branch on — which is the
+   * point, and why the confirmation copy must hold for all three.
+   */
+  resendVerification: (email: string) =>
+    request<{ detail: string }>("/auth/resend-verification/", { json: { email } }),
+
   lesson: (lessonId: string) => request<GatedLesson>(`/lessons/${lessonId}/`),
 
   /**

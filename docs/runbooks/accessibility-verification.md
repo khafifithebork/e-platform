@@ -99,7 +99,13 @@ and the enrolment list (`StaggerList`).
 ### 3.2 Keyboard, every route
 
 Tab through with no mouse. Routes: `/`, `/courses`, a course, `/pricing`,
-`/login`, `/register`, `/forgot-password`, `/my-courses`, a lesson.
+`/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`,
+`/my-courses`, a lesson.
+
+**`/verify-email` is the one with two forms on a page** (added 2026-09-28), so it is
+where a keyboard order can go wrong: Tab should reach the token field, the verify
+button, then the resend address and its button, in that order, with nothing skipped
+between the two `<form>` elements.
 
 - Focus is **visible at every stop**. The global ring is 2px at 2px offset; if you
   cannot see it somewhere, that is a finding, not your eyesight.
@@ -224,5 +230,15 @@ keyboard pass (focus visible at every stop, the drawer's trap and restoration, t
 player's controls, the transcript's cues) has not been walked. A criterion that
 turned up one fault is worth completing.
 
-**Also outstanding:** the screen-reader pass (§3.3), zoom and reflow (§3.4), and
-forced colours (§3.5).
+**Also outstanding:** the screen-reader pass (§3.3) and zoom and reflow (§3.4).
+
+**Not §3.5 — that one is done**, and this line said otherwise until 2026-09-28. The
+table above records all three of its checks passing; the sentence had been written
+when none of them had. Worth noting rather than quietly editing: a runbook whose
+summary disagrees with its own evidence table is the failure mode this section
+exists to prevent.
+
+**And one route has never been walked at all:** `/verify-email`, added 2026-09-28.
+`verify:a11y` sees it and axe covers its three states, which is the automated column
+only — the §3.2 keyboard order across its two forms and the §3.4 reflow pass are both
+outstanding, per the cadence table's "after adding a route" row.

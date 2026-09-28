@@ -30,7 +30,7 @@ const EMAIL = "learner@example.test";
 async function submit(email = EMAIL) {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText(/email/i), email);
-  await user.click(screen.getByRole("button", { name: /send reset link/i }));
+  await user.click(screen.getByRole("button", { name: /send reset token/i }));
 }
 
 const UNCONDITIONAL_CLAIMS = [
@@ -109,6 +109,24 @@ describe("the confirmation after a successful request", () => {
     const unknown = second.container.innerHTML.replace("nobody@example.test", "ADDRESS");
 
     expect(unknown).toBe(known);
+  });
+
+  it("says where the token goes", async () => {
+    /**
+     * Added 2026-09-28 with the fix for the token that could not be redeemed.
+     *
+     * The email sends a bare token, not a link, so the confirmation is the only
+     * place that can tell someone where to put it. Before this, the page said a
+     * "reset link" was coming and offered "Back to sign in" — pointing at the one
+     * page the token is no use on.
+     */
+    stubApi(() => accepted());
+    render(<ForgotPasswordPage />);
+
+    await submit();
+
+    const link = await screen.findByRole("link", { name: /set a new password/i });
+    expect(link).toHaveAttribute("href", "/reset-password");
   });
 
   it("does not appear when the request failed", async () => {

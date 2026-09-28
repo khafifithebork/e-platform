@@ -7,8 +7,10 @@
  *    in a URL, which is the one place a secret in this app is *visible*, so
  *    anything that echoes it back widens the window in which it can be
  *    shoulder-read, screenshotted or logged by a browser extension.
- * 2. A link with no token is refused **without asking the API**, rather than
- *    posting an empty string and showing whatever comes back.
+ * 2. An empty token is **never posted** — not on arrival, and not when the paste
+ *    field is submitted blank. (This was "a link with no token is refused"
+ *    until 2026-09-28, when the refusal turned out to be refusing every real
+ *    reset. See the block below.)
  * 3. The Suspense fallback carries the `<h1>`. `useSearchParams` forces the form
  *    onto the client, so the fallback *is* the prerendered page — M15 T10 fixed
  *    it from being the bare word "Loading…" and left nothing behind to keep it
@@ -21,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ResetPasswordPage from "@/app/(auth)/reset-password/page";
 import { accepted, refusal, stubApi } from "@/test/api";
+import { axeViolations } from "@/test/axe";
 
 /** What the emailed link carries. Long and distinctive so a leak is findable. */
 const TOKEN = "Zm9yZ2V0dGFibGUtcmVzZXQtdG9rZW4tOTk5";
@@ -93,21 +96,77 @@ describe("the token", () => {
   });
 });
 
-describe("a link with no token", () => {
-  it("is refused without asking the API", async () => {
+/**
+ * **This block's behaviour changed deliberately on 2026-09-28, and the old
+ * assertions are gone rather than adjusted.**
+ *
+ * It used to require that a visit with no `?token=` render an interstitial
+ * headed "This link is incomplete" and offer a link back to `/forgot-password`.
+ * That was a faithful test of the page — and the page was wrong. The reset email
+ * (`backend/apps/notifications/templates/email/password_reset/body.txt`) sends
+ * the token as bare text with no URL, so *every* real reset arrived here without
+ * a query string and was refused. The token had nowhere to go.
+ *
+ * What survives from the old block is the property that mattered: **the API is
+ * not asked with an empty token.** It now holds at submission rather than at
+ * render, which is the only place it can hold once there is a field to fill in.
+ */
+describe("a visit with no token in the URL", () => {
+  it("offers a field to paste it into", async () => {
+    search = "";
+    stubApi(() => accepted());
+
+    render(<ResetPasswordPage />);
+
+    await waitFor(() => expect(screen.getByLabelText(/reset token/i)).toBeVisible());
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/choose a new password/i);
+  });
+
+  it("sends the pasted token, and only on submission", async () => {
+    search = "";
+    const fetchMock = stubApi(() => accepted());
+    const user = userEvent.setup();
+
+    render(<ResetPasswordPage />);
+
+    await waitFor(() => expect(screen.getByLabelText(/reset token/i)).toBeVisible());
+    // Nothing posted on arrival: rendering a form is not a request.
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText(/reset token/i), TOKEN);
+    await setNewPassword();
+
+    await waitFor(() => expect(screen.getByRole("status")).toBeVisible());
+    const [body] = fetchMock.mock.calls
+      .filter(([input]) => String(input).endsWith("/auth/password/reset/confirm/"))
+      .map(([, init]) => JSON.parse(String(init?.body)));
+
+    expect(body).toEqual({ token: TOKEN, new_password: "a long enough password" });
+  });
+
+  it("does not post an empty token when the field is left blank", async () => {
+    /**
+     * The property the old "refused without asking the API" test protected, in
+     * the only place it can live now. An empty token cannot succeed —
+     * `services.verify_email` and its reset twin short-circuit it so that a
+     * digest of the empty string cannot match a stored row — so posting one
+     * spends a rate-limit slot on a certain failure and answers with a message
+     * about a token rather than about the blank field in front of them.
+     */
     search = "";
     const fetchMock = stubApi(() => accepted());
 
     render(<ResetPasswordPage />);
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { level: 1, name: /incomplete/i })).toBeVisible(),
-    );
-    // Not "the API said no" — the API was never asked. Posting an empty token
-    // would spend a rate-limit slot and give the visitor a message about a
-    // token rather than about their link.
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText(/new password/i)).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText(/reset token/i)).toBeVisible());
+    await setNewPassword();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/paste the token/i));
+    expect(
+      fetchMock.mock.calls.filter(([input]) =>
+        String(input).endsWith("/auth/password/reset/confirm/"),
+      ),
+    ).toHaveLength(0);
   });
 
   it("offers a way out rather than a dead end", async () => {
@@ -116,8 +175,42 @@ describe("a link with no token", () => {
 
     render(<ResetPasswordPage />);
 
-    const link = await screen.findByRole("link", { name: /request a new link/i });
+    const link = await screen.findByRole("link", { name: /request a new token/i });
     expect(link).toHaveAttribute("href", "/forgot-password");
+  });
+
+  it("has no axe violations, with the error showing", async () => {
+    // The state this change introduced, in the variant that carries the ARIA:
+    // `aria-invalid` on the token field and `aria-describedby` pointing at both
+    // its hint and its error.
+    search = "";
+    stubApi(() => accepted());
+
+    const { container } = render(<ResetPasswordPage />);
+
+    await waitFor(() => expect(screen.getByLabelText(/reset token/i)).toBeVisible());
+    await setNewPassword();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeVisible());
+    expect(await axeViolations(container)).toEqual([]);
+  });
+});
+
+describe("a link that did carry a token", () => {
+  it("does not show the paste field, because prefilling it would render the token", async () => {
+    /**
+     * The two states are one form, and this is the seam between them. The field
+     * is hidden on the link path deliberately: shown, it would have to be
+     * prefilled to be useful, and a prefilled input is the token in the DOM —
+     * which "is nowhere in the rendered page" above forbids. Without this, that
+     * assertion could be satisfied by a page that simply stopped working.
+     */
+    stubApi(() => accepted());
+
+    render(<ResetPasswordPage />);
+
+    await waitFor(() => expect(screen.getByLabelText(/new password/i)).toBeVisible());
+    expect(screen.queryByLabelText(/reset token/i)).toBeNull();
   });
 });
 
@@ -187,7 +280,7 @@ describe("the heading outline", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
-  it("titles the refused-link state exactly once", async () => {
+  it("titles the paste state exactly once", async () => {
     search = "";
     stubApi(() => accepted());
     render(<ResetPasswordPage />);

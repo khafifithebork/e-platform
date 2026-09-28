@@ -2,7 +2,87 @@
 
 **Last updated:** 2026-09-28
 **Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
-its four ADRs, the fixes that followed, and the owner's verification passes)
+its four ADRs, the fixes that followed, the owner's verification passes, and the
+professional-quality addendum's first batch)
+
+---
+
+## The quality addendum — batch one of several
+
+**The audit that produced the section below was about accessibility, boundaries and
+measurement. This one asks a different question: is this a product a stranger could
+actually use.** Fourteen areas were reviewed read-only on 2026-09-28 — trust and
+policy pages, multilingual, account and privacy, subscription transparency, course
+discovery, learning comfort, brand assets, colour and type, interaction polish,
+accessible HTML, SEO, performance, security and operations, and browser
+verification. The owner approved **batch one only**, and only batch one is done.
+
+**This checklist is not complete and must not be reported as complete.**
+
+### Batch one — two emailed tokens that could not be redeemed
+
+| Defect | State |
+|---|---|
+| **`POST /auth/verify-email/` had no caller anywhere in the frontend.** The view, its serializer, its throttle scope and `api.verifyEmail` all existed. No page ever called it, so **no account could be verified through the product at all** | **Fixed** 2026-09-28. New `/verify-email` page |
+| **`/reset-password` refused every visit without `?token=`** with a dead-end interstitial. The reset email sends a bare token and no URL, so **that was every real reset** | **Fixed** 2026-09-28. A paste field when the URL carried nothing |
+
+**Both emails send a bare token with no link**, because there is no configured site
+URL in `backend/` to build one from — checked rather than assumed. So the pages were
+waiting for a link that is never sent. ADR-034 records the decision, including what
+sending real links would cost and why that is a backend batch.
+
+**The part worth remembering: a green suite certified a flow that could not be
+completed.** `reset-password/page.test.tsx` asserted the dead-end interstitial
+appeared and the API was not called. Both assertions were true and the page was
+wrong — every test was about the page's own behaviour and none about whether a token
+could be redeemed end to end. The two assertions were **replaced**, deliberately,
+and the replacement says so in the file.
+
+**What did not get traded away.** The obvious fix is one field prefilled from
+`?token=`, and it would have broken a security property both pages already had: the
+token must appear nowhere in `innerHTML`, a `value=` attribute included. So the field
+appears **only** on the path where the URL carried nothing, and the seam between the
+two states is now asserted — without that, "the token is nowhere in the page" could
+have been satisfied by a page that simply stopped working. ADR-034 §3.
+
+Also: verification happens on a click and never on mount, because the token is
+single-use and React's double-invoked development effects, a refresh or a
+back-navigation would each report "not valid" for a token that worked (§4); the copy
+said "link" three times for something the email does not contain, and pointed people
+at `/login`, where the token is no use; and `verify-email` carries the resend form,
+because a failed verification is exactly where a fresh token is needed and
+`resend-verification` had no caller either.
+
+**13 provocations, all caught — after one had to be split.** A provocation that
+flipped the render condition but left the field's value empty read as a missed
+control; the token genuinely was not in the DOM, so that test was right to pass. Two
+properties, two provocations, both caught. That is the second time this session a
+provocation's own fault first read as a weak test.
+
+**Found while sweeping, not fixed:** `api.lesson`, the by-id lesson fetch, has no
+callers since `lessonBySlug` superseded it at M16 T3. Dead rather than broken,
+recorded in `docs/specs/frontend-state-and-api.md` §7 and left in place — deleting
+code on a hunch is its own hazard.
+
+**A fourth tooling artefact, for the running tally.** `tsc` failed on
+`.next/dev/types/routes.d.ts` with three syntax errors. The file was a torn write by
+the running dev container — a module closed and then a fragment of a longer previous
+version after it — and it changed between two reads. Restored from the clean copy
+`next typegen` had just produced. Nothing to do with the code, and it would have
+read as one.
+
+### Batch one's own open item
+
+**Nothing here has been run against the live API.** The tests use recorded
+responses. An end-to-end pass needs a person: register, copy the token out of
+Mailpit, paste it, confirm the account verifies, then the same for a reset. Both
+routes are served by the dev container and confirmed rendering
+(`/verify-email/` → 200, `<h1>` present, both forms).
+
+### Batch two, proposed and not approved
+
+Footer completeness and the SEO files — canonical URLs, `sitemap.ts`, `robots.ts`,
+Open Graph metadata, icons. Not started.
 
 ---
 
