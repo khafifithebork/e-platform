@@ -19,9 +19,9 @@ refresh)
 **WCAG 2.2 AA is the target, and the move from 2.1 costs almost nothing.**
 
 Checked criterion by criterion against the implementation rather than adopted on
-principle: of the six success criteria 2.2 adds at AA, **five appear already
-satisfied and one is a genuine risk** — 2.4.11 Focus Not Obscured (Minimum),
-below the `xl` breakpoint only.
+principle: of the six success criteria 2.2 adds at AA, **five appeared already satisfied and
+one was a genuine failure** — 2.4.11 Focus Not Obscured (Minimum), below the `xl`
+breakpoint. It was reported by the owner, reproduced, and fixed on 2026-09-28.
 
 This ADR also splits the checks into what a machine can decide and what a person
 must, because conflating the two is how a project comes to believe an automated
@@ -53,7 +53,7 @@ Each row was checked against the code, not recalled.
 
 | Criterion | Level | Finding |
 |---|---|---|
-| **2.4.11 Focus Not Obscured (Minimum)** | AA | **The one risk.** `SiteNavTree` renders a `fixed bottom-5 left-5 z-40` "Site map" button. A focused control at the foot of a long page can sit behind it. Scoped: the button is `xl:hidden`, so this is below `xl` only |
+| **2.4.11 Focus Not Obscured (Minimum)** | AA | **Was the one real failure. Reported by the owner, reproduced, fixed 2026-09-28.** `SiteNavTree`'s `fixed bottom-5 left-5` button hid the focus ring of anything Tab scrolled to the bottom edge. `scroll-pb-20 xl:scroll-pb-0` on `<html>`; see §3 |
 | 2.4.12 Focus Not Obscured (Enhanced) | AAA | Out of scope |
 | 2.4.13 Focus Appearance | AAA | Out of scope. Worth noting the global ring is already 2px at 2px offset |
 | **2.5.7 Dragging Movements** | AA | Appears satisfied. The only drag is the video element's native seek bar, and `TranscriptPanel` offers click-to-seek on any cue — a single-pointer alternative to scrubbing |
@@ -68,26 +68,46 @@ which by ADR-023 §1 means none is a control yet. §4 says which become tests.
 
 ---
 
-## 3. The 2.4.11 risk, stated precisely
+## 3. The 2.4.11 failure — reported, reproduced, fixed 2026-09-28
 
-The floating toggle is positioned relative to the viewport, so it does not move
-when the page scrolls. Tab to a link low on `/courses` on a narrow screen and the
-focused element may be entirely behind it. The criterion permits partial
-obscuring only where the author has not caused it; a fixed overlay the author
-placed is exactly what it addresses.
+The owner found it with a keyboard: the focus ring disappearing behind the "Site
+map" button. Then it was reproduced and measured, per ADR-006 — a remedy for a
+fault nobody has seen is a change nobody can verify.
 
-Three candidate remedies, none adopted here because this is a target decision and
-not an implementation:
+**The mechanism.** Tab moves focus to an element below the fold, and the browser
+scrolls it in *minimally* — `block: "nearest"` — which parks it flush against the
+bottom edge, exactly where the fixed button sits. At **420×480 on `/courses`,
+three focusable elements** landed under it: the course card's link and both footer
+links. `scroll-padding-bottom` computed to `auto`.
 
-| Option | Trade |
-|---|---|
-| `scroll-padding-bottom` on the scroll container | One line, keeps the design, and does not help when focus lands without scrolling |
-| Hide the toggle while focus is inside the page content | Sound, and a behaviour somebody has to maintain |
-| Move the toggle into the header for narrow screens | Removes the class of problem, and reopens a layout ADR-029 accepted |
+**The fix, and why it is the first option rather than the third.** Of the three
+remedies originally listed here, `scroll-padding-bottom` was noted as not helping
+"when focus lands without scrolling". That gap turned out to be already covered:
+`SiteShell`'s footer has carried `pb-24 xl:pb-8` since the redesign, reserving the
+space at the page's end. **The two compose**, and neither is sufficient alone — so
+the option that keeps ADR-029's accepted layout was enough, and the one that would
+have reopened it was not needed.
 
-**Whoever implements this must first reproduce it.** ADR-006's rule applies to
-accessibility findings as much as to security ones: a remedy for a fault nobody
-has seen is a change nobody can verify.
+`scroll-pb-20 xl:scroll-pb-0` on `<html>`. 5rem clears the button's bottom 62px;
+above `xl` it resets to zero, because there the navigation is a static rail and
+leaving the padding would stop every keyboard scroll short of the viewport edge for
+no reason.
+
+**After: zero overlaps at the same size, and `scroll-padding-bottom` computes to
+`80px`.** Same probe, same page, same viewport as the reproduction.
+
+### The first attempt vanished without an error
+
+Written first as a hand-rolled `@media (width < 80rem) { :root {
+scroll-padding-bottom: 5rem } }` in `globals.css`. **The entire block was dropped
+from the compiled stylesheet** — the rules either side of it survived, nothing
+failed, and the page behaved exactly as before. The range syntax is what did it.
+
+That is the second time CSS has silently disappeared in this codebase, after the
+`[--token]` form that meant 45 classes never applied in any release. Both times the
+only thing that caught it was measuring the result rather than trusting the diff.
+Tailwind utilities go through its own breakpoints and cannot fail that way, and
+`src/app/layout.test.ts` asserts the classes are present.
 
 ---
 
@@ -121,10 +141,11 @@ caption is *correct*.
    above 24px, against the variant strings rather than a rendered box, because jsdom
    computes no layout.
 
-**Still outstanding:**
+**Added 2026-09-28:**
 
-3. **2.4.11** — once reproduced. There is no remedy to test until somebody has seen
-   the fault, and ADR-006 forbids fixing what has not been seen.
+3. **2.4.11** — ~~once reproduced~~ **done 2026-09-28**. `src/app/layout.test.ts`
+   asserts the scroll padding and its `xl` reset, each provoked. The fault was
+   reported by the owner, then reproduced and measured before anything changed.
 
 **Requires a person, and cannot be delegated to a scan:**
 

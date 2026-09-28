@@ -6,7 +6,7 @@
 
 | ADR | Status | Left to do |
 |---|---|---|
-| ADR-030 — WCAG 2.2 AA | **accepted** | C3 done; two of C4's three tests done; D2 once A2 reproduces the fault |
+| ADR-030 — WCAG 2.2 AA | **accepted** | **nothing.** C3, all of C4 and D2 are done; 2.4.11 was found, reproduced and fixed |
 | ADR-031 — boundaries | **accepted** | D1, which wants a plan first |
 | ADR-032 — theme, toggle declined | **accepted** | nothing. §2's defect fixed; A4 still confirms it |
 | ADR-033 — localisation deferred | **accepted** | §3's `<track>` gap, blocked on backend (D4) |
@@ -16,12 +16,13 @@ utilities logical with a pinned guard, error and loading boundaries built (D1), 
 `/me/courses/` pagination (D3). The fifth, `<track>`'s language attributes, is
 **blocked on backend modelling** rather than open.
 
-**C3 and two of C4's three tests landed too**, so the only work left behind an
-accepted ADR is the 2.4.11 remedy, and that cannot be scoped until A2 reproduces
-the fault.
+**Nothing is left behind an accepted ADR.** C3, all three of C4's tests and D2 all
+landed; the 2.4.11 failure — the only real WCAG 2.2 gap in the product — was
+reported by the owner, reproduced, measured and fixed on 2026-09-28.
 
-**Section A is one down.** A1 was confirmed by the owner on 2026-09-28; A2 to A5
-still need a person with a browser.
+**Section A stands at one and a half down.** A1 confirmed in full; A2's 2.4.11 check
+done, the rest of its keyboard pass not. A3 to A5 still need a person with a
+browser.
 
 **Accepted still does not mean implemented.** Acceptance settles the decision so
 the work may be planned; it does not skip CLAUDE.md §7.
@@ -58,13 +59,15 @@ believed claim into a known one, and two of them gate later work.
   `requestAnimationFrame`, so it cannot tell a working page from a broken one.
 - **Approval:** none. It needed a person with a browser, and got one.
 
-### A2 · Keyboard pass, and reproduce 2.4.11
+### A2 · Keyboard pass — **2.4.11 done 2026-09-28; the rest of the pass is not**
 
-- **Benefit:** either finds the one real WCAG 2.2 gap or rules it out.
-- **Scope:** runbook §3.2 across nine routes, narrow viewport especially.
-- **Acceptance:** each route walked; 2.4.11 either reproduced with a recorded
-  route and width, or recorded as not reproducible.
-- **Gates:** C4 and D2. **Do not fix 2.4.11 before reproducing it** (ADR-006).
+- **Done 2026-09-28:** the owner found the 2.4.11 fault — the focus ring behind the
+  fixed "Site map" button. It was then reproduced and measured (420×480 on
+  `/courses`, three overlapping elements) and fixed. **That unblocked and completed
+  both C4's third test and D2.**
+- **Still open:** the rest of §3.2 — focus visible at every stop across nine routes,
+  the drawer's trap and restoration, the player's controls, the transcript's cues.
+  A criterion that turned up one fault is worth finishing.
 - **Approval:** none.
 
 ### A3 · Forced colours
@@ -142,7 +145,7 @@ All small. Each needs its ADR accepted first, and each needs a provoked guard
 | ~~**C1**~~ | ~~Declare `color-scheme` on `:root`~~ | **Done 2026-09-27** — split out of ADR-032 by the owner | shipped with 5 provoked tests |
 | ~~**C2**~~ | ~~Four physical→logical utility swaps~~ | **Done 2026-09-27** — six, not four; split out of ADR-033 | shipped with a pinned guard |
 | ~~**C3**~~ | ~~`contrast.test.ts` cites 2.2 AA~~ | **Done 2026-09-27** | no new arithmetic — 2.2 changes no contrast threshold |
-| **C4** | ~~`autoComplete` on auth fields (3.3.8)~~ **done**; ~~button minimum heights ≥24px (2.5.8)~~ **done**; the 2.4.11 remedy | **two of three done 2026-09-27**; the third still needs A2 | 13 assertions, all provoked |
+| ~~**C4**~~ | ~~`autoComplete` (3.3.8)~~, ~~button minimum heights (2.5.8)~~, ~~the 2.4.11 remedy~~ | **All three done** — the first two 2026-09-27, the third 2026-09-28 | 17 assertions, all provoked |
 
 **C1 is done.** `contrast.test.ts` still passes both schemes and `theme.test.ts`
 pins the declaration. **A4 is still outstanding** and is now the only unverified
@@ -165,8 +168,9 @@ measuring zeroes.
 
 Four provocations, all failing correctly: stripping `autoComplete`, swapping
 `current-password` for `new-password`, removing `sm`'s minimum height, and removing
-the base's transparent border. **The third C4 test still waits on A2** — there is no
-remedy to test until the fault is reproduced.
+the base's transparent border. **The third C4 test landed on 2026-09-28**, once the
+2.4.11 fault had been reported, reproduced and fixed — `layout.test.ts` asserts the
+scroll padding and its `xl` reset, both provoked.
 
 **Checks for all of C:** `npm test`, `tsc`, `eslint`, `verify:css`, `verify:a11y`,
 `verify:static`.
@@ -200,15 +204,22 @@ remedy to test until the fault is reproduced.
   hit one of these pages.
 - **Approval:** granted with ADR-031.
 
-### D2 · The 2.4.11 remedy
+### D2 · The 2.4.11 remedy — **done 2026-09-28**
 
 - **Benefit:** focus is never hidden behind the floating navigation toggle.
-- **Scope:** unknown until A2. ADR-030 §3 lists three candidates; **the tidiest
-  one moves the toggle and reopens a layout ADR-029 accepted**, which is why this
-  is here and not in C.
-- **Dependencies:** **ADR-030 accepted**; still needs A2 to know what the fault is.
-- **Acceptance:** reproduced first, then fixed, then a test for the chosen remedy.
-- **Approval:** owner if the remedy changes the accepted layout.
+- **Done with `scroll-pb-20 xl:scroll-pb-0` on `<html>`** — the first of ADR-030
+  §3's three candidates, **not the one that would have reopened ADR-029's layout.**
+  That option was listed as insufficient because scroll padding does nothing when
+  an element is obscured without scrolling; that half turned out to be already
+  covered by `SiteShell`'s footer `pb-24 xl:pb-8`. The two compose.
+- **Acceptance, all met:** reproduced first (ADR-006), fixed, re-measured at zero
+  overlaps, `scroll-padding-bottom` confirmed at `80px` below `xl` and `0px` above
+  it, and `layout.test.ts` asserts both classes, each provoked.
+- **One finding worth carrying:** the first attempt wrote the rule by hand as
+  `@media (width < 80rem)` in `globals.css` and **the whole block was silently
+  dropped from the compiled CSS.** Second time CSS has vanished without an error
+  here. Prefer Tailwind utilities over hand-rolled media queries.
+- **Approval:** not needed — the accepted layout is unchanged.
 
 ### D3 · `/me/courses/` pagination — **done 2026-09-27**
 
