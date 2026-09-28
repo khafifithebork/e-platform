@@ -159,7 +159,12 @@ caption is *correct*.
 - ~~`prefers-reduced-motion` in a real browser~~ — **confirmed in full 2026-09-28**,
   hero and scroll-triggered sections both. See §6. Re-check after any change to
   `MotionProvider`, `Reveal` or `StaggerList`.
-- `forced-colors: active`, which ADR-029's palette cannot be reasoned about.
+- `forced-colors: active` — **the focus ring was confirmed by the owner on
+  2026-09-28**, which is the check that matters most here because it guards a real
+  earlier fix: `outline-none` in Tailwind 4 dropped the transparent-outline fallback
+  that a high-contrast mode turns visible, and `outline-hidden` restored it. The
+  difference is invisible outside such a mode, so no test could have shown it.
+  `Notice`'s symbol and the current-page state are still unobserved.
 - Caption accuracy, which is a human review step in the transcript workflow
   (ADR-014, ADR-015) and not a frontend concern.
 
