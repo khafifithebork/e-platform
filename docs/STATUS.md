@@ -23,9 +23,21 @@ after it did.
 | #81 | Error and loading boundaries, reporting through the Sentry seam |
 | #82 | STATUS: the outcome, and the four claims nobody has looked at |
 | #83 | `/me/courses/` pagination — a learner past page one saw part of their list |
+| #84–#87 | STATUS and the runbook: the audit's outcome, and the reduced-motion check confirmed |
+| #88 | **2.4.11** — the focus ring could hide behind the fixed navigation toggle |
+| #89 | Per-route bundle figures, measured |
+| #90 | **`axe-core` adopted**, and the bug it found on its first run |
 
-**No dependency was added and no service or cost changed.** The frontend suite went
-from 416 tests across 35 files to **455 across 40**.
+**One dependency was added, and it is worth being exact about.** `axe-core` as a
+**devDependency**, approved by the owner under §5 on 2026-09-28 (PR #90). Zero
+runtime dependencies were added, it has none of its own, and it appears in **zero
+client chunks** — asserted against the built output. No service and no cost changed.
+
+Everything before that PR was built with no new dependency at all, which is the more
+useful fact: 45 dead token classes, three CI guards, error boundaries, pagination and
+the 2.4.11 fix all needed nothing installed.
+
+The frontend suite went from 416 tests across 35 files to **470 across 42**.
 
 **There is no frontend work left that an agent can do alone.** Every remaining item
 needs either a browser and a person, or backend work that is not scheduled:
@@ -97,7 +109,7 @@ reporting every border radius as `0px`, and the direction change above. Isolatin
 before concluding is what separated them — and in the last case, not doing so would
 have cost a revert of a correct change.
 
-### The five defects — four fixed, one blocked
+### Seven defects — six fixed, one blocked
 
 | Defect | State |
 |---|---|
@@ -106,24 +118,38 @@ have cost a revert of a correct change.
 | **`color-scheme` never declared**, so dark mode kept light scrollbars and autofill — the latter can push text below the contrast `contrast.test.ts` certifies and cannot see | **Fixed** 2026-09-27, with a provoked test. Measurement corrected the ADR on the way: form-control boxes were never affected, because Tailwind's Preflight already resets them |
 | **`<track>` lacks `srclang` and `label`** | **Blocked, not open** — the correct value is not knowable from the frontend because nothing models caption language. Backend work, roadmap D4. Hardcoding a guess would be wrong for exactly the courses that matter most |
 
-**A sixth, and the only one a person found rather than a grep: 2.4.11 Focus Not
-Obscured.** The owner tabbed to a control low on a page and watched the focus ring
-disappear behind the fixed "Site map" button. Reproduced at 420×480 on `/courses` —
-three overlapping elements — and fixed with `scroll-pb-20 xl:scroll-pb-0` on
-`<html>`, re-measured at zero. **Fixed 2026-09-28.**
+Three more, each found by a different kind of looking — which is the useful pattern,
+and the reason none of them could have been found by the others:
 
-The remedy is the first of ADR-030 §3's three candidates, not the third: the one
-that would have reopened ADR-029's accepted layout was not needed, because the gap
-scroll padding leaves — an element obscured without any scrolling — was already
-covered by `SiteShell`'s footer padding.
+**By a grep: physical inline-direction utilities.** Fixed — six swapped to logical,
+two pinned as navigation chrome ADR-029 owns. The ADR had estimated "about four";
+counting properly found nine.
 
-And the fifth, found while fixing the fourth: **physical inline-direction
-utilities**. **Fixed** — six swapped to logical, two pinned as navigation chrome
-ADR-029 owns. The ADR had estimated "about four"; counting properly found nine.
+**By a person with a keyboard: 2.4.11 Focus Not Obscured.** The owner tabbed to a
+control low on a page and watched the focus ring disappear behind the fixed "Site
+map" button. Reproduced at 420×480 on `/courses` — three overlapping elements — and
+fixed with `scroll-pb-20 xl:scroll-pb-0` on `<html>`, re-measured at zero. **Fixed
+2026-09-28.**
 
-**No defect is open work any more.** `<track>` is blocked on backend modelling
-rather than on anyone's decision, and the 2.4.11 remedy cannot be scoped until A2
-reproduces the fault — which needs a person, not an agent.
+The remedy is the first of ADR-030 §3's three candidates, not the third: the one that
+would have reopened ADR-029's accepted layout was not needed, because the gap scroll
+padding leaves — an element obscured without any scrolling — was already covered by
+`SiteShell`'s footer padding.
+
+**By a tool, within seconds of being installed: `role="alert"` on a `<ul>`.** `Field`
+put the role on its list of error messages, and an explicit role *replaces* the
+implicit one — so the list stopped being a list while still containing `<li>`
+children with nothing to belong to. Reported as `aria-allowed-role` and `listitem`.
+**Fixed 2026-09-28.**
+
+The instructive part is that **`Field.test.tsx` passed before and after the fix.** It
+asserted that a `role="alert"` element exists and contains the message, which was
+true either way. Nothing already in this repository could have caught it — which is
+the whole case for the dependency, and why the §5 approval was worth asking for.
+
+**No defect is open work.** `<track>` is blocked on backend modelling rather than on
+anyone's decision — the frontend cannot know what language a caption is in until the
+API says.
 
 The audit's own headline, worth recording because it shaped the package: **little
 was wrong.** Pricing is `null` with a tripwire test rather than an invented number,
@@ -171,12 +197,15 @@ rest**, because the sections below the hero use a different mechanism.
    architecture.md's baseline so the older document cannot be read as current on
    the level.
 
-**Documenting is not implementing, and all four ADRs being accepted has not
-changed that.** The documents describe decisions and procedures; two of the
-defects they identified were then fixed in code with provoked tests, and the rest
-is still unbuilt. `runbooks/accessibility-verification.md` has one row in its
-verification log — §3.1's hero half, 2026-09-28 — and section A of the roadmap still
-needs a person with a browser rather than an agent for the rest.
+**Documenting was not implementing, and then most of it got implemented.** The eleven
+documents describe decisions and procedures; **six of the seven defects they surfaced
+have since been fixed in code, each with provoked tests**, and the seventh is blocked
+on the backend rather than on anyone here.
+
+What remains genuinely undone is verification that needs a person:
+`runbooks/accessibility-verification.md` has three rows in its log — §3.1 twice and
+§3.2's 2.4.11 check — and §3.2's remaining keyboard pass, §3.3's screen reader, §3.4's
+zoom and reflow and §3.5's forced colours have not been walked.
 
 ---
 
