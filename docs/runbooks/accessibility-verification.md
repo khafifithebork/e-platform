@@ -1,9 +1,8 @@
 # Runbook — verifying accessibility
 
-**Status: written; §3.1 passed, §3.2's 2.4.11 check done, §3.5's focus check done —
-all 2026-09-28.** Written 2026-09-27 alongside ADR-030. **Still unwalked:** the rest
-of §3.2's keyboard pass, §3.3's screen reader, §3.4's zoom and reflow, and two of
-§3.5's three checks. See §6.
+**Status: written; §3.1 and §3.5 passed in full, §3.2's 2.4.11 check done — all
+2026-09-28.** Written 2026-09-27 alongside ADR-030. **Still unwalked:** the rest of
+§3.2's keyboard pass, §3.3's screen reader, and §3.4's zoom and reflow. See §6.
 
 Treat every step in §3 as a plan rather than a tested procedure. `rollback.md`
 found its own §3 wrong the first time it was walked; assume this one has the same
@@ -144,7 +143,7 @@ it. NVDA with Firefox, or VoiceOver with Safari.
   title, a refusal message. ADR-033 notes German and Arabic both run longer than
   English, and no localisation exists yet, so this is the cheap proxy.
 
-### 3.5 Forced colours — **focus ring confirmed 2026-09-28; two checks still open**
+### 3.5 Forced colours — **all three checks passed 2026-09-28**
 
 Windows High Contrast, or Chrome DevTools → Rendering → `forced-colors: active`.
 
@@ -155,11 +154,15 @@ Windows High Contrast, or Chrome DevTools → Rendering → `forced-colors: acti
   fix has now been seen holding in a real high-contrast mode — which is the only way
   it could be, since the difference between the two spellings is invisible everywhere
   else.
-- `Notice` remains distinguishable — its symbol carries the meaning when the
-  background colour is overridden, which is why it has one.
-- The current-page state in the navigation survives. It must not rest on colour
-  alone; `aria-current="page"` is what a screen reader uses, and a visual
-  indicator is what everyone else uses.
+- ~~`Notice` remains distinguishable~~ — **confirmed.** Its symbol carries the
+  meaning when the background colour is overridden, which is why it has one.
+- ~~The current-page state in the navigation survives.~~ **Confirmed.** It must not
+  rest on colour alone; `aria-current="page"` is what a screen reader uses, and a
+  visual indicator is what everyone else uses.
+
+**Re-check this section after any change to the palette, to `Notice`, or to how the
+current page is marked.** It is cheap — three glances — and it is the only check that
+can see whether a design survives having its colours taken away.
 
 ---
 
@@ -206,18 +209,14 @@ section, nothing in this file may be cited as evidence about it.
 | 2026-09-28 | §3.1, hero | Owner, Firefox | **Headline shows with reduced motion on.** The half that proves the hydration fix: the mismatch is what left `opacity: 0` stuck inline, so a visible headline means server and client agree. Version not recorded |
 | 2026-09-28 | §3.1, below the fold | Owner, Firefox | **Course cards and all four panels show on scroll.** The other mechanism — `Reveal` and `StaggerList`, driven by `whileInView` and an `IntersectionObserver`. Checked on a production build served from the host, because the compose `web` container was returning 500s |
 | 2026-09-28 | §3.2, 2.4.11 only | Owner | **Found a failure:** the focus ring sat behind the fixed "Site map" button. Reproduced at 420×480 on `/courses` — the course card's link and both footer links overlapped it — and fixed. Re-measured at zero overlaps. **The rest of §3.2 was not walked** |
-| 2026-09-28 | §3.5, focus ring only | Owner | **Focus ring still visible in forced colours.** Confirms the `outline-hidden` fix held — the difference between that and `outline-none` is invisible outside a high-contrast mode, so this could not have been checked any other way. **`Notice` and the current-page state were not reported on** |
+| 2026-09-28 | §3.5, focus ring | Owner | **Focus ring still visible in forced colours.** Confirms the `outline-hidden` fix held — the difference between that and `outline-none` is invisible outside a high-contrast mode, so this could not have been checked any other way |
+| 2026-09-28 | §3.5, the other two | Owner | **`Notice` stays distinguishable and the current-page state survives.** §3.5 is complete. ADR-029's palette was described in ADR-030 §4 as something that "cannot be reasoned about" under forced colours — it has now been looked at instead, and it holds |
 
 **§3.1 is closed.** The landing page renders for a reduced-motion visitor, both the
 mount path and the scroll-triggered path. That was the bug that started this
 workstream — the page was **entirely blank** for exactly the people who had asked
 for less motion — and it is now the one thing here confirmed by a person rather
 than argued from a passing test.
-
-**Two checks remain in §3.5**, and both are about not relying on colour when the
-palette is overridden: whether `Notice` stays distinguishable by its symbol, and
-whether the navigation's current-page state survives. Neither is likely broken — the
-symbol and `aria-current` are both in the markup — but neither has been looked at.
 
 **§3.2 is the interesting one to finish.** Its 2.4.11 check found the only real
 WCAG 2.2 failure in the product, and that is now fixed — but the rest of the
