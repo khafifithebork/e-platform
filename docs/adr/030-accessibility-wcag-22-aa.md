@@ -133,8 +133,9 @@ caption is *correct*.
   changes announced without flooding.
 - 200% zoom and 320 CSS px reflow (1.4.10), at which the lesson layout's two
   columns must collapse.
-- `prefers-reduced-motion` in a real browser — **hero confirmed 2026-09-28**; the
-  scroll-triggered sections below it are still unobserved. See §6.
+- ~~`prefers-reduced-motion` in a real browser~~ — **confirmed in full 2026-09-28**,
+  hero and scroll-triggered sections both. See §6. Re-check after any change to
+  `MotionProvider`, `Reveal` or `StaggerList`.
 - `forced-colors: active`, which ADR-029's palette cannot be reasoned about.
 - Caption accuracy, which is a human review step in the transcript workflow
   (ADR-014, ADR-015) and not a frontend concern.
@@ -172,19 +173,20 @@ installed.
 
 ## 6. One thing this ADR does not let us claim
 
-**No conformance claim is made.** The reduced-motion fix shipped in PR #71 is now
-**half confirmed**: the owner saw the headline in Firefox with reduced motion on,
-2026-09-28, which establishes the hydration fix — the mismatch is what left
-`opacity: 0` stuck inline. The sections below the hero use a different mechanism
-(`whileInView` and an `IntersectionObserver`) and are still unobserved.
+**No conformance claim is made, but one item is now closed.** The reduced-motion fix
+shipped in PR #71 was **confirmed in full on 2026-09-28** — the owner checked it in
+Firefox, both the hero (which animates on mount) and the scroll-triggered sections
+below it (`whileInView` and an `IntersectionObserver`). That was the fault that
+started this workstream, and it is the first thing here established by a person
+rather than argued from a passing test.
 
-The agent cannot close the rest: its browser reports `document.hidden` even when
+The agent could not have closed it: its browser reports `document.hidden` even when
 fronted, so `requestAnimationFrame` is frozen at zero frames per second and Motion
 cannot animate in it at all.
 
-Adopting 2.2 AA is a commitment to a target and a verification procedure. It is
-still not a statement that the product conforms, and this file must not be cited as
-one.
+**Everything else in §4's human column is still outstanding.** Adopting 2.2 AA is a
+commitment to a target and a verification procedure; it remains not a statement that
+the product conforms, and this file must not be cited as one.
 
 Adopting 2.2 AA is a commitment to a target and a verification procedure. It is
 not a statement that the product currently conforms, and this file must not be

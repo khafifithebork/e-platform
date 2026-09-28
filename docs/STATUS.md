@@ -59,16 +59,16 @@ questions they had been sitting behind. When an ADR contains both, split it.
 
 ### Correct by reasoning, unconfirmed by eye — the thing to watch
 
-**Four claims are believed on argument and a passing test. One is now half
-confirmed** — the owner checked reduced motion in Firefox on 2026-09-28 and the
-headline shows, which settles the hydration half and leaves the scroll-triggered
-sections open. Individually each is defensible; as a set it is the
+**Three claims are believed on argument and a passing test. A fourth was confirmed**
+— the owner checked reduced motion in Firefox on 2026-09-28, hero and
+scroll-triggered sections both, and the landing page renders. That was the fault
+that started this workstream, and it is the only item here established by a person
+rather than argued from a test. Individually each is defensible; as a set it is the
 largest risk this workstream carries, because the test count going up reads as
 reassurance while this list quietly grows.
 
 | Claim | Why no agent can close it |
 |---|---|
-| The landing page is not blank for a reduced-motion visitor | **Hero confirmed by the owner in Firefox, 2026-09-28** — which proves the hydration fix. The sections below it use `whileInView` and an `IntersectionObserver`, a different mechanism, and are still unobserved. The agent's browser freezes `requestAnimationFrame`, so it can close neither half |
 | `color-scheme` fixed dark-mode scrollbars and autofill | A scrollbar's colours are not exposed to `getComputedStyle`, and autofill needs a real interaction |
 | Logical properties flip under `dir="rtl"` | That browser does not re-resolve logical properties on a direction change — proven with an isolated inline-styled element, which also fails to flip |
 | A learner hitting an error boundary gets a usable page | Inducing a real render error means changing code to break it |
@@ -77,10 +77,16 @@ Each is roadmap section A. **All four are minutes of work for a person with a
 browser**, and three of the four are confirmations of fixes that shipped on
 specification rather than observation.
 
-**Why these four and not everything else untested by eye.** Most of this work is
+**Closed 2026-09-28:** *the landing page is not blank for a reduced-motion visitor.*
+Confirmed by the owner in Firefox — the hero on load, the course cards and four
+panels on scroll. Worth keeping visible rather than deleting: it is the one claim in
+this table that has ever been closed, and it took a person thirty seconds after four
+days of being flagged.
+
+**Why these three and not everything else untested by eye.** Most of this work is
 logic a unit test exercises fully — D3's pagination has never been rendered in a
 browser either, and that is fine, because jsdom can reach every branch of it. These
-four are different in kind: **the property itself is invisible to the test
+three are different in kind: **the property itself is invisible to the test
 environment.** jsdom paints nothing, the pane freezes its own clock, and a scrollbar
 has no API. No amount of additional testing closes them, which is why they are a
 list to hand over rather than a backlog to work through.
@@ -195,19 +201,19 @@ something got through every check that already existed:
 | `src/test/css-tokens.test.ts` | the Tailwind 3 bracket spelling in source, in a second, without a build |
 | `src/components/ui/PageTitle.test.tsx` | any `<h1>` in `src/` that sizes itself by hand |
 
-**Two things are explicitly not verified, and neither should be read as done:**
+**Written as two unverified things; one has since been closed:**
 
-- **The reduced-motion fix was unobserved when this was written; the hero half was
-  confirmed on 2026-09-28.** React's hydration error being gone was always verified;
-  "the content becomes visible" is a different claim, and the owner has now seen the
-  headline in Firefox with reduced motion on. What is still unobserved is everything
-  below the hero, which animates through `whileInView` rather than on mount. The
-  agent's browser reports `document.hidden` even when fronted, so
-  `requestAnimationFrame` is frozen at zero frames per second and Motion cannot
-  animate in it at all. The remaining half is a scroll away.
-- **The backend suite has not been run since M14 T6.** Nothing under `backend/`
-  has changed across these four stages, which is inference, not a run. The 1532
-  figure below is inherited.
+- ~~The reduced-motion fix has never been seen working in a browser.~~ **Confirmed
+  2026-09-28**, by the owner in Firefox: the headline on load, and the course cards
+  and four panels on scroll. React's hydration error being gone was always verified;
+  "the content becomes visible" was the separate claim, and it now holds for both
+  mechanisms. The agent's browser could never have shown it — it reports
+  `document.hidden` even when fronted, so `requestAnimationFrame` is frozen at zero
+  frames per second and Motion cannot animate in it at all. **Re-check after any
+  change to `MotionProvider`, `Reveal` or `StaggerList`.**
+- **The backend suite has not been run since M14 T6**, and this one still stands.
+  Nothing under `backend/` has changed across these stages, which is inference, not a
+  run. The 1532 figure below is inherited.
 
 **Two design questions are open and deliberately were not answered by whoever was
 editing:**
