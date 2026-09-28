@@ -95,11 +95,9 @@ if (files.length === 0) {
 }
 
 const failures = [];
-let declarations = 0;
 
 for (const file of files) {
   const css = readFileSync(file, "utf8");
-  declarations += (css.match(/:/g) ?? []).length;
 
   for (const [, property, value] of css.matchAll(BARE_TOKEN_VALUE)) {
     // A custom property may legitimately be *assigned* another custom
