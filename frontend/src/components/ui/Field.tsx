@@ -73,14 +73,36 @@ export function Field({
           ${hasErrors ? "border-danger" : "border-line-strong hover:border-ink-subtle"}`}
       />
 
+      {/*
+       * `role="alert"` on a wrapper, not on the `<ul>` itself.
+       *
+       * **It used to be on the list, and that quietly destroyed the list.** An
+       * explicit role *replaces* an element's implicit one, so `role="alert"` on a
+       * `<ul>` leaves it announcing as an alert and no longer as a list — while
+       * still containing `<li>` children with no list to belong to. Assistive
+       * technology is then free to ignore them or announce them without position
+       * or count.
+       *
+       * Found by axe on the first run after it was adopted (§5, 2026-09-28), as
+       * two violations: `aria-allowed-role` and `listitem`. Neither the structural
+       * greps nor `Field.test.tsx` could see it — the test asserted that a
+       * `role="alert"` element exists and contains the message, which was true
+       * both before and after.
+       *
+       * The live region still does its job on the wrapper: an alert announces its
+       * content when it appears, which is the point — errors arrive after the user
+       * has moved on from the field.
+       */}
       {hasErrors && (
-        <ul id={errorId} role="alert" className="flex flex-col gap-1">
-          {errors?.map((message) => (
-            <li key={message} className="text-sm text-danger">
-              {message}
-            </li>
-          ))}
-        </ul>
+        <div id={errorId} role="alert">
+          <ul className="flex flex-col gap-1">
+            {errors?.map((message) => (
+              <li key={message} className="text-sm text-danger">
+                {message}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

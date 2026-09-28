@@ -20,10 +20,13 @@
  * is a palette that fails for whoever has dark mode on, which on a reading
  * surface is a lot of people.
  *
- * This needs no dependency. `axe-core` would catch more — it walks a rendered
- * page and sees computed styles — but it is a §5 dependency decision that has
- * not been made, and the arithmetic below is the part that matters most for a
- * palette defined entirely in tokens.
+ * **This is still the right place for contrast, even now that `axe-core` is
+ * installed** (adopted 2026-09-28, ADR-030 §5). Its `color-contrast` rule is
+ * switched off in `src/test/axe.ts`, and for a good reason: jsdom applies no
+ * stylesheet and computes no layout, so axe cannot see these colours at all — it
+ * would report nothing and look like a pass. The arithmetic below needs no browser,
+ * which is exactly why it works, and it checks both schemes rather than whichever
+ * one a test happened to render in.
  */
 
 import { readFileSync } from "node:fs";
