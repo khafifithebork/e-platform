@@ -4,9 +4,9 @@
 **Date:** 2026-09-27
 **Decides:** the accessibility target, which architecture.md sets at 2.1 AA and
 no ADR has ever stated
-**Supersedes:** architecture.md's 2.1 AA accessibility baseline, on the level
-only. Everything else in §8.2 stands, including the unresolved tooling question
-in §5 below
+**Supersedes:** architecture.md's 2.1 AA accessibility baseline, on the level only.
+§8.2's frontend tooling line was separately revised on 2026-09-28 when the owner
+adopted `axe-core` and declined `MSW` and `Playwright` — see §5
 **Depends on:** architecture.md §8.2 and its accessibility line, ADR-006
 (provoke every control), ADR-023 §1 (a decision is not a control until something
 asserts it), ADR-024 (the public catalogue stays static), ADR-029 (visual
@@ -128,6 +128,8 @@ caption is *correct*.
 | `SiteNavTree.test.tsx` | 2.1.2 focus containment, focus restoration, scroll-lock release |
 | `Field.test.tsx` | 1.3.1, 3.3.1, 4.1.3 — label association, `aria-invalid`, `role="alert"` |
 | `PageTitle.test.tsx` | one heading treatment, no hand-written `<h1>` |
+| `src/test/accessibility.test.tsx` | **axe over every primitive and four domain components**, in each state they have — ARIA validity, name and role, label association, duplicate ids, nesting. Adopted 2026-09-28; see §5 for which rules it deliberately does not run |
+| `src/app/layout.test.ts` | 2.4.11's scroll padding and its `xl` reset; 3.1.1's `lang` |
 
 **Added 2026-09-27, no dependency:**
 
@@ -165,32 +167,43 @@ caption is *correct*.
 
 ---
 
-## 5. Blocked: what we verify *with*
+## 5. What we verify *with* — resolved 2026-09-28
 
-architecture.md §8.2 names `@axe-core/react` for accessibility assertions,
-`MSW` for API mocking and `Playwright` for end-to-end journeys. **None of the
-three is in `package.json`.** The repository stubs `fetch` directly and
-`contrast.test.ts` states plainly that axe "is a §5 dependency decision that has
-not been made".
+architecture.md §8.2 named `@axe-core/react`, `MSW` and `Playwright`, and **none of
+the three was installed**. This section recorded that rather than resolving it,
+because the choice was the owner's under §5. It has now been made, and §8.2 carries
+the revision.
 
-That is a document disagreeing with the code, so per CLAUDE.md §2 it is reported
-and not silently resolved. Two ways out, and the owner picks:
+**`axe-core` adopted.** Not `@axe-core/react`: that package logs to the browser
+console in development, which helps a human watching and fails nothing, while
+`axe-core` called from a test either passes or does not. It has **no dependencies of
+its own** and **does not reach the client bundle** — asserted against the built
+chunks, not assumed.
 
-- **Approve `@axe-core/react` (or `axe-core` in the Vitest run) under §5.** It
-  walks a rendered tree and catches classes of fault the structural guards
-  cannot — a `<div>` with a click handler, a mislabelled control, a duplicated
-  landmark inside a component rather than a page.
-- **Record §8.2's frontend line as superseded** by the guards that actually
-  exist, and accept that the rendered-tree class of fault is caught by the human
-  pass instead.
+**`MSW` and `Playwright` declined for now**, with reasons recorded in §8.2. Playwright
+is worth revisiting at M8, when there is a checkout worth walking end to end.
 
-**This ADR did not need that answered to stand, and it was accepted without it.**
-The target is the decision; the tooling is a separate approval, **still open as of
-2026-09-27**. Everything in §4's "already automated" column exists today with no
-dependency at all, so acceptance of this ADR changes nothing about what is
-installed.
+### What it added, and what it cannot
 
----
+`src/test/axe.ts` switches off two families of rule rather than leaving them to
+report nothing, because a rule that silently never fires is worse than no rule:
+`color-contrast`, which `contrast.test.ts` already computes from the tokens for both
+schemes, and the page-level structure rules, which `verify:a11y` checks on built HTML
+where they are real. A component fragment legitimately has no `<main>` and no `<h1>`.
+
+So the layer this adds is the markup itself — ARIA validity, a widget's name and
+role, label association, duplicate ids, nesting. **Narrower than "we run axe", and
+true.**
+
+**It earned its place on the first run.** `Field` had `role="alert"` on its `<ul>` of
+error messages. An explicit role replaces the implicit one, so the list stopped being
+a list while still containing `<li>` children with nothing to belong to — reported as
+`aria-allowed-role` and `listitem`. `Field.test.tsx` passed before and after the fix,
+because it asserted that an alert exists and contains the message, which was true
+either way. Neither the structural greps nor a human reading the JSX had caught it.
+
+Provoked both directions: restoring the old markup fails, and a dangling
+`aria-controls` on `Curriculum`'s accordion is caught as `aria-valid-attr-value`.
 
 ## 6. One thing this ADR does not let us claim
 

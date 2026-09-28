@@ -36,7 +36,7 @@ needs either a browser and a person, or backend work that is not scheduled:
 | A2 — reproduce the 2.4.11 focus fault | The same. **The remedy cannot be scoped until it is reproduced** (ADR-006) |
 | ~~A5 — per-route first-load JS~~ | **Done 2026-09-28**: 312–326 KB gz, routes nearly identical. A budget is now proposable — 350 KB gz per route — and enforcing it needs the owner |
 | `<track>`'s `srclang` and `label` | The API to model caption language. Not knowable from the frontend |
-| B2 — the architecture.md §8.2 tooling discrepancy | An owner decision: approve MSW / `axe-core` / Playwright under §5, or record that line superseded |
+| ~~B2 — the architecture.md §8.2 tooling discrepancy~~ | **Resolved 2026-09-28** — `axe-core` adopted, `MSW` and `Playwright` declined. Playwright worth revisiting at M8 |
 
 **All four ADRs accepted by the owner on 2026-09-27, and two defects fixed in the
 process.**
@@ -153,12 +153,19 @@ rest**, because the sections below the hero use a different mechanism.
 
 **Two discrepancies are reported and deliberately unresolved**, per CLAUDE.md §2:
 
-1. **architecture.md §8.2 names `MSW`, `@axe-core/react` and `Playwright`. None is
-   installed.** The repository stubs `fetch` directly and `contrast.test.ts` states
-   that axe "is a §5 dependency decision that has not been made". Either the
-   dependencies are approved under §5 or that line is superseded — **still open.**
-   Accepting ADR-030 did not resolve it: that ADR is explicit that the target
-   stands without it, and everything it relies on today needs no dependency.
+1. ~~architecture.md §8.2 names `MSW`, `@axe-core/react` and `Playwright`. None is
+   installed.~~ **Resolved 2026-09-28.** The owner approved **`axe-core`** under §5
+   and declined `MSW` and `Playwright`; §8.2 is revised with the reasoning and
+   ADR-030 §5 records it. Not `@axe-core/react` — that logs to the console in
+   development and fails nothing. Zero dependencies, and verified absent from the
+   client bundle.
+
+   **It found a real bug on the first run.** `Field` had `role="alert"` on its `<ul>`
+   of error messages; an explicit role replaces the implicit one, so the list stopped
+   being a list while still containing `<li>` children with nothing to belong to.
+   `Field.test.tsx` passed before *and* after the fix, because it asserted an alert
+   exists and contains the message — true either way. That is exactly the class of
+   fault the structural greps cannot reach, and the argument for the dependency.
 2. ~~architecture.md sets WCAG 2.1 AA; ADR-030 proposes 2.2.~~ **Resolved
    2026-09-27** — ADR-030 accepted, and it now carries a `Supersedes` line naming
    architecture.md's baseline so the older document cannot be read as current on

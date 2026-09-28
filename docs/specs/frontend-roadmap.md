@@ -131,19 +131,21 @@ ADR-033 §2 (logical properties) shipped hours before the decisions they were
 sitting behind. Worth reaching for again — the pattern is a file that mixes "this
 is broken" with "what should we do", and the first half never needed the meeting.
 
-### B2 · Resolve the architecture.md §8.2 discrepancy
+### B2 · Resolve the architecture.md §8.2 discrepancy — **done 2026-09-28**
 
-- **Benefit:** ends a documented-versus-code contradiction. architecture.md names
-  MSW, `@axe-core/react` and Playwright; **none is installed.**
-- **Scope:** either approve one or more under §5, or record §8.2's frontend line as
-  superseded by the guards that exist.
-- **Acceptance:** architecture.md and `package.json` agree, one way or the other.
-- **Approval:** owner. §5 if any dependency is adopted.
-- **My recommendation:** `axe-core` in the Vitest run is the one with real
-  marginal value — it walks a rendered tree and catches what structural greps
-  cannot. Playwright is a bigger commitment than a small team needs while the
-  product has one dynamic route. MSW would replace a working `fetch` stub for no
-  gain I can demonstrate.
+- **Done 2026-09-28.** The owner approved **`axe-core`** under §5; `MSW` and
+  `Playwright` declined for now. architecture.md §8.2 is revised with the reasoning
+  and ADR-030 §5 no longer reads as blocked, so the document and `package.json`
+  agree.
+- **`axe-core`, not `@axe-core/react`** — the latter logs to the console in
+  development and fails nothing. Zero dependencies, and **verified absent from the
+  client bundle.**
+- **It found a real bug on the first run:** `Field` had `role="alert"` on its `<ul>`
+  of error messages, which replaces the list's own role and orphans its `<li>`
+  children. `Field.test.tsx` passed before *and* after the fix — it asserted an alert
+  exists and contains the message, true either way. That is the class of fault the
+  structural greps structurally cannot see, and the argument for the dependency.
+- **Playwright worth revisiting at M8**, when there is a checkout to walk end to end.
 
 ---
 
@@ -283,7 +285,7 @@ scroll padding and its `xl` reset, both provoked.
 |---|---|---|
 | **E1** | Rebuild-on-publish trigger for the static catalogue | Provisioning and spend. ADR-024 already records this: a rebuild trigger is a deploy hook, and the hook needs the environment. Hosting is chosen (ADR-025); **spend is still unapproved** |
 | **E2** | Pricing page with a price; subscribe flow; a billing destination for `GRACE_PERIOD_ENDED` | CLAUDE.md §11 #1 — payment provider and jurisdiction. `PRICE_BOOK` stays `null` and its tripwire test stays |
-| **E3** | Any testing dependency | B2 |
+| ~~**E3**~~ | ~~Any testing dependency~~ | **Unblocked 2026-09-28** — `axe-core` approved and adopted; `MSW` and `Playwright` declined, Playwright to be revisited at M8 |
 | **E4** | A performance budget enforced in CI | **The owner.** A5 is done, and §11 sketches the shape: **350 KB gz per route**, about 7% above today's worst. Enforcing it means a script beside `verify:static` and `verify:css`, not a number in a document nobody runs |
 | **E5** | Instructor UI | **An architectural decision that does not exist.** The API has no caller; administration runs through the Django admin (ADR-018, ADR-019). Whether a workflow belongs in a custom Next.js surface needs its own ADR — direct-to-R2 upload progress is the likeliest first candidate, because it is the one thing the Django admin genuinely cannot do |
 | **E6** | Shareable filtered catalogue URLs | Not a bug — a consequence of ADR-024. Changing it is an ADR, not a refactor |

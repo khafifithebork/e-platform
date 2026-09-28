@@ -880,7 +880,30 @@ Test coverage percentage is a vanity metric. Test *by blast radius*:
 
 **Backend:** `pytest` + `pytest-django` (fixtures beat `TestCase` inheritance), `factory_boy` for model factories, `pytest-cov`, `freezegun` for time-boundary tests (essential for trials and periods), `responses`/`respx` for HTTP mocking, `pytest-xdist` for parallelism.
 
-**Frontend:** `Vitest` + React Testing Library, `MSW` for API mocking (mock the network, not your fetch wrapper), `@axe-core/react` for accessibility assertions — your brainstorm commits to an accessibility baseline, so assert it.
+**Frontend:** `Vitest` + React Testing Library, and `axe-core` for accessibility assertions.
+
+> **Revised 2026-09-28.** This line originally named `MSW` and `@axe-core/react`
+> alongside Vitest, and **none of the three named packages was ever installed** —
+> the frontend audit found the contradiction and ADR-030 §5 recorded it rather than
+> resolving it. The owner then decided, under §5:
+>
+> - **`axe-core` adopted**, not `@axe-core/react`. That package logs findings to the
+>   browser console in development, which helps a human watching and fails nothing;
+>   `axe-core` called from a test either passes or does not. It has no dependencies
+>   and does not reach the client bundle — asserted. `src/test/axe.ts` documents which
+>   rules cannot run in jsdom and which existing check owns each of them, because
+>   "we run axe" is a broader claim than what a fragment in jsdom can support.
+> - **`MSW` not adopted.** The suite stubs `fetch` directly and `src/test/api.ts`
+>   handles the one subtlety that caused (the CSRF probe answering first). Replacing
+>   a working stub demonstrated no gain.
+> - **`Playwright` not adopted yet.** Five to eight end-to-end journeys is a real
+>   commitment for a small team, and the product has one dynamic route. Revisit when
+>   there is a checkout to walk through — which is M8.
+>
+> It earned its place on the first run: axe found `role="alert"` on a `<ul>` in
+> `Field`, which replaces the list's own role and orphans its `<li>` children.
+> `Field.test.tsx` passed before and after, because it asserted that an alert exists
+> and contains the message — true either way.
 
 **End-to-end:** `Playwright`, against a real stack in CI. Five to eight journeys, no more: register → verify → start trial → watch preview → hit paywall → subscribe → watch gated lesson → cancel. E2E tests are expensive to maintain; keep the set small and high-value.
 
