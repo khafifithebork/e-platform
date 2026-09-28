@@ -7,22 +7,24 @@
 | ADR | Status | Left to do |
 |---|---|---|
 | ADR-030 — WCAG 2.2 AA | **accepted** | **nothing.** C3, all of C4 and D2 are done; 2.4.11 was found, reproduced and fixed |
-| ADR-031 — boundaries | **accepted** | D1, which wants a plan first |
+| ADR-031 — boundaries | **accepted** | **nothing.** D1 built 2026-09-28 |
 | ADR-032 — theme, toggle declined | **accepted** | nothing. §2's defect fixed; A4 still confirms it |
 | ADR-033 — localisation deferred | **accepted** | §3's `<track>` gap, blocked on backend (D4) |
 
-**Four of the five defects are fixed** — `color-scheme` declared, inline-direction
-utilities logical with a pinned guard, error and loading boundaries built (D1), and
-`/me/courses/` pagination (D3). The fifth, `<track>`'s language attributes, is
-**blocked on backend modelling** rather than open.
+**Five of six defects are fixed** — `color-scheme` declared, inline-direction
+utilities logical with a pinned guard, error and loading boundaries built (D1),
+`/me/courses/` pagination (D3), and **2.4.11 Focus Not Obscured**, which the owner
+found with a keyboard and which was then reproduced, measured and fixed. The sixth,
+`<track>`'s language attributes, is **blocked on backend modelling** rather than
+open.
 
 **Nothing is left behind an accepted ADR.** C3, all three of C4's tests and D2 all
 landed; the 2.4.11 failure — the only real WCAG 2.2 gap in the product — was
 reported by the owner, reproduced, measured and fixed on 2026-09-28.
 
-**Section A stands at one and a half down.** A1 confirmed in full; A2's 2.4.11 check
-done, the rest of its keyboard pass not. A3 to A5 still need a person with a
-browser.
+**Section A stands at two and a half down.** A1 confirmed in full; A2's 2.4.11 check
+done and the rest of its keyboard pass not; **A5 measured**. A3 and A4 still need a
+person with a browser, as does the lesson route's first load.
 
 **Accepted still does not mean implemented.** Acceptance settles the decision so
 the work may be planned; it does not skip CLAUDE.md §7.
@@ -91,17 +93,27 @@ believed claim into a known one, and two of them gate later work.
   Preflight resets them, so what is left to look at is scrollbars and autofill.
 - **Approval:** none.
 
-### A5 · Per-route first-load JS
+### A5 · Per-route first-load JS — **done 2026-09-28**
 
-- **Benefit:** makes a performance budget possible. Without it any threshold is
-  invented.
-- **Scope:** obtain per-route figures — Next 16 no longer prints them in the build
-  output used for the baseline in `frontend-state-and-api.md` §11, so this needs
-  the build manifest or a bundle analyser run locally (not a dependency).
-- **Acceptance:** a per-route table, and **then** a proposed ceiling for the lesson
-  route, which is the only dynamic one and the one a learner waits on.
-- **Gates:** E4.
-- **Approval:** none to measure. A budget that gates CI needs the owner.
+- **Done 2026-09-28.** Measured from the prerendered HTML — Next 16 with Turbopack
+  emits no `app-build-manifest.json` and no size table, so the served `<script>`
+  references are the honest source. Table in `frontend-state-and-api.md` §11.
+- **Result: 312–326 KB gzipped, and the routes are nearly identical** — a 14 KB
+  spread across ten of them. Almost everything is shared baseline, so route-level
+  splitting has little left to give; any real reduction comes out of the shared
+  chunks.
+- **Two findings.** `_global-error` is 76 KB lighter with 8 chunks and no CSS, which
+  is ADR-031's "depends on nothing" intent showing up as a measurement. And the
+  largest chunk on every route — 75 KB gz — contains the **Sentry SDK**, which
+  **has never sent an event** because no DSN is configured. That is where to look
+  first if a budget ever bites, and lazy-loading it is an option ADR-027 did not
+  consider.
+- **Still open:** the **lesson route is not in the table.** It is the only dynamic
+  route, so it has no prerendered HTML — its first load needs a browser's network
+  panel, and it is the route most worth measuring because it is the one a learner
+  waits on.
+- **Approval:** none was needed to measure. A budget that gates CI still needs the
+  owner — see E4.
 
 ---
 
@@ -272,7 +284,7 @@ scroll padding and its `xl` reset, both provoked.
 | **E1** | Rebuild-on-publish trigger for the static catalogue | Provisioning and spend. ADR-024 already records this: a rebuild trigger is a deploy hook, and the hook needs the environment. Hosting is chosen (ADR-025); **spend is still unapproved** |
 | **E2** | Pricing page with a price; subscribe flow; a billing destination for `GRACE_PERIOD_ENDED` | CLAUDE.md §11 #1 — payment provider and jurisdiction. `PRICE_BOOK` stays `null` and its tripwire test stays |
 | **E3** | Any testing dependency | B2 |
-| **E4** | A performance budget enforced in CI | A5 |
+| **E4** | A performance budget enforced in CI | **The owner.** A5 is done, and §11 sketches the shape: **350 KB gz per route**, about 7% above today's worst. Enforcing it means a script beside `verify:static` and `verify:css`, not a number in a document nobody runs |
 | **E5** | Instructor UI | **An architectural decision that does not exist.** The API has no caller; administration runs through the Django admin (ADR-018, ADR-019). Whether a workflow belongs in a custom Next.js surface needs its own ADR — direct-to-R2 upload progress is the likeliest first candidate, because it is the one thing the Django admin genuinely cannot do |
 | **E6** | Shareable filtered catalogue URLs | Not a bug — a consequence of ADR-024. Changing it is an ADR, not a refactor |
 

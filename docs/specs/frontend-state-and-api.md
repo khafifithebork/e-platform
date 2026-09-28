@@ -276,35 +276,70 @@ There is no cache, which makes this short and is a feature.
 
 ---
 
-## 11. Measured baseline
+## 11. Measured baseline, per route
 
-Numbers below were **measured** on 2026-09-27 from a production build, not
-estimated. Nothing here is a budget; see the note.
+Measured 2026-09-28 from a production build. **Nothing here is enforced**; see the
+note on a budget below.
 
-| Metric | Measured |
-|---|---|
-| Client JS, all chunks, uncompressed | 1,099,885 bytes across 23 files |
-| CSS, uncompressed | 26,810 bytes, 1 file |
-| **JS + CSS, gzipped** | **357,089 bytes (349 KiB)** |
-| Largest single chunk, uncompressed | 465,065 bytes |
-| Public routes prerendered | 4 (`/`, `/courses`, `/courses/[slug]`, `/pricing`) |
-| Dynamic routes | 1 (the lesson page) |
+| Route | JS chunks | JS gz | CSS gz | **Total gz** |
+|---|---|---|---|---|
+| `/` | 14 | 320,035 | 5,979 | **326,014** |
+| `/my-courses` | 15 | 318,555 | 5,979 | **324,534** |
+| `/courses` | 14 | 317,187 | 5,979 | **323,166** |
+| `/courses/[slug]` | 14 | 316,309 | 5,979 | **322,288** |
+| `/pricing` | 14 | 314,677 | 5,979 | **320,656** |
+| `/reset-password` | 14 | 311,330 | 5,979 | **317,309** |
+| `/register` | 14 | 311,176 | 5,979 | **317,155** |
+| `/forgot-password` | 14 | 311,109 | 5,979 | **317,088** |
+| `/login` | 14 | 311,087 | 5,979 | **317,066** |
+| `/_not-found` | 12 | 306,512 | 5,979 | **312,491** |
+| `_global-error` | 8 | 249,941 | 0 | **249,941** |
 
-**How measured:** `rm -rf .next && npm run build`, then summing
-`.next/static/chunks/**/*.{js,css}` and gzipping each at level 9.
+**How measured.** `rm -rf .next && npm run build`, then for each prerendered page
+under `.next/server/app/**/*.html`, the unique `<script src>` and stylesheet
+references were resolved to files and gzipped at level 9. That is what a browser
+downloads for a cold visit to that route, not an estimate.
 
-**Read this carefully: it is a total across all chunks, not a per-route first
-load.** No route loads all 23 files. It is an upper bound, and the framework's own
-per-route table would be the right source for a real budget — Next 16 no longer
-prints sizes in the build output used here, so that was not available.
+**Next 16 with Turbopack emits no `app-build-manifest.json`**, and its build output
+no longer prints a size table, so the served HTML is the honest source. An earlier
+version of this section reported 357 KB as "all chunks, an upper bound"; the real
+per-route figures are 312–326 KB, so that proxy was close but it was a proxy.
 
-**No budget is proposed.** A threshold invented without knowing the per-route
-split would either never fire or fire constantly, and a guard that fires
-constantly gets deleted. The honest next step is to obtain per-route first-load
-figures and *then* propose a ceiling — most usefully on the lesson route, which is
-the only dynamic one and the one a learner waits on.
+### Two things the table says
 
----
+**The routes are nearly identical — a 14 KB spread across ten of them.** Almost
+everything is shared baseline rather than per-page code, so route-level splitting
+has little left to give. Any meaningful reduction has to come out of the shared
+chunks.
+
+**`_global-error` is 76 KB lighter and loads 8 chunks instead of 14, with no CSS at
+all.** That is ADR-031's design intent showing up in a measurement rather than a
+docstring: the last-resort boundary was written to depend on nothing, and it
+measurably does not. `boundaries.test.tsx` asserts the same property from the
+source side.
+
+### The lesson route is not in the table
+
+It is the only dynamic route (ADR-026), so it has no prerendered HTML to read. Its
+first load has to be measured in a browser's network panel — which makes it a
+person's job, and it is the route most worth doing, because it is the one a learner
+waits on.
+
+### No budget is proposed as a gate — but here is the shape of one
+
+A ceiling of **350 KB gzipped per route** would sit about 7% above today's worst
+(`/` at 326 KB), which is enough headroom for ordinary work and tight enough to
+catch a dependency arriving unnoticed. Enforcing it needs the owner (roadmap E4),
+and it should be a script beside `verify:static` and `verify:css` rather than a
+number in a document nobody runs.
+
+**The first lever, if it ever bites.** The largest single chunk on every route is
+75 KB gzipped and contains the **Sentry SDK** alongside Next internals — its exact
+share is not separable without a bundle analyser, which is a §5 dependency nobody
+has approved. Worth stating plainly: **that SDK ships on every page and has never
+sent an event**, because no DSN is configured in this repository (ADR-027 §3). That
+is not an argument for removing it — a DSN will exist — but it is where to look
+first, and lazy-loading it is a real option ADR-027 did not consider.
 
 ## 12. Open items
 
