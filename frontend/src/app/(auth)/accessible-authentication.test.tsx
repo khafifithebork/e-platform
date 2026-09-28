@@ -25,6 +25,7 @@ import ForgotPasswordPage from "@/app/(auth)/forgot-password/page";
 import LoginPage from "@/app/(auth)/login/page";
 import RegisterPage from "@/app/(auth)/register/page";
 import ResetPasswordPage from "@/app/(auth)/reset-password/page";
+import VerifyEmailPage from "@/app/(auth)/verify-email/page";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -36,7 +37,7 @@ afterEach(() => {
 });
 
 /**
- * The four pages, and the values each field must claim.
+ * The five pages, and the values each field must claim.
  *
  * Asserting the *value* and not merely its presence, because the value is what
  * does the work: a password manager offers a saved password for
@@ -48,6 +49,14 @@ const PAGES = [
   { name: "register", Page: RegisterPage, expected: ["email", "new-password"] },
   { name: "forgot-password", Page: ForgotPasswordPage, expected: ["email"] },
   { name: "reset-password", Page: ResetPasswordPage, expected: ["new-password"] },
+  /**
+   * `verify-email` under the mock above, which supplies `token=t` — so the token
+   * field is absent and the only input is the resend address. The token field is
+   * deliberately `autocomplete="off"`: a single-use token from an email is not
+   * something a password manager holds, and offering to fill it would offer the
+   * *previous* token.
+   */
+  { name: "verify-email", Page: VerifyEmailPage, expected: ["email"] },
 ] as const;
 
 describe("every authentication field is fillable by a password manager", () => {

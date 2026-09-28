@@ -46,12 +46,21 @@ export default function ForgotPasswordPage() {
           Check your inbox
         </PageTitle>
         <div className="mt-6">
+          {/* "token", not "link" — `email/password_reset/body.txt` sends the
+              token as bare text, with no URL to click. */}
           <Notice tone="success" title="Sent, if we could">
             If <span className="font-medium">{email}</span> has an account, a
-            reset link is on its way. It expires in one hour.
+            reset token is on its way. It expires in one hour.
           </Notice>
         </div>
         <p className="mt-6 text-sm text-ink-muted">
+          Got the token?{" "}
+          <Link href="/reset-password" className="text-accent underline underline-offset-4">
+            Set a new password
+          </Link>
+          .
+        </p>
+        <p className="mt-2 text-sm text-ink-muted">
           <Link href="/login" className="text-accent underline underline-offset-4">
             Back to sign in
           </Link>
@@ -66,7 +75,7 @@ export default function ForgotPasswordPage() {
         Reset your password
       </PageTitle>
       <p className="mt-2 text-ink-muted">
-        We will email you a link to set a new one.
+        We will email you a token to set a new one.
       </p>
 
       <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-5">
@@ -85,7 +94,7 @@ export default function ForgotPasswordPage() {
         />
 
         <Button type="submit" pending={pending} pendingLabel="Sending…">
-          Send reset link
+          Send reset token
         </Button>
       </form>
 

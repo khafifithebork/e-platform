@@ -11,9 +11,31 @@ import { PageTitle } from "@/components/ui/PageTitle";
 import { ApiError, api } from "@/lib/api/client";
 
 function ResetPasswordForm() {
-  // The token arrives in the emailed link. It is never rendered into the page
-  // and never stored — it goes straight back to the API and is consumed.
-  const token = useSearchParams().get("token") ?? "";
+  /**
+   * The token, from the query string if a link carried one.
+   *
+   * **It is never rendered into the page and never stored** — it goes straight
+   * back to the API and is consumed. `page.test.tsx` asserts that, including
+   * against an attribute, and it is why a token from the URL is *not* prefilled
+   * into the field below: putting it in an input would put it in the DOM.
+   */
+  const linkToken = useSearchParams().get("token") ?? "";
+
+  /**
+   * A token the person typed, for when no link carried one.
+   *
+   * **The emails send a bare token, not a link** — see
+   * `backend/apps/notifications/templates/email/password_reset/body.txt`. Until
+   * 2026-09-28 this page refused any visit without `?token=`, which meant the
+   * token every reset email actually sends could not be redeemed anywhere: there
+   * was nothing to paste it into. This is that field.
+   *
+   * Separate state from `linkToken` on purpose. A pasted value is visible because
+   * the person typed it, which is fine; a value taken from the URL and echoed into
+   * an input would be us rendering it, which the assertion above forbids.
+   */
+  const [pastedToken, setPastedToken] = useState("");
+  const token = linkToken || pastedToken;
 
   const [newPassword, setNewPassword] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
@@ -23,9 +45,19 @@ function ResetPasswordForm() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setPending(true);
     setProblem(null);
     setFieldErrors({});
+
+    if (!token) {
+      // Refused here rather than posted. An empty token cannot succeed — the
+      // service short-circuits it — so sending one spends a rate-limit slot on
+      // a certain failure and answers with a message about a token instead of
+      // about the empty field in front of them.
+      setFieldErrors({ token: ["Paste the token from the email."] });
+      return;
+    }
+
+    setPending(true);
 
     try {
       await api.confirmPasswordReset(token, newPassword);
@@ -40,30 +72,6 @@ function ResetPasswordForm() {
     } finally {
       setPending(false);
     }
-  }
-
-  if (!token) {
-    return (
-      <>
-        <PageTitle variant="interstitial">
-          This link is incomplete
-        </PageTitle>
-        <div className="mt-6">
-          <Notice tone="error">
-            The reset link is missing its token. Links can be truncated by email
-            clients — try copying the whole address, or request a new one.
-          </Notice>
-        </div>
-        <p className="mt-6 text-sm">
-          <Link
-            href="/forgot-password"
-            className="text-accent underline underline-offset-4"
-          >
-            Request a new link
-          </Link>
-        </p>
-      </>
-    );
   }
 
   if (done) {
@@ -93,8 +101,34 @@ function ResetPasswordForm() {
         Choose a new password
       </PageTitle>
 
+      {!linkToken && (
+        <p className="mt-2 text-ink-muted">
+          Paste the token from the password reset email, then choose the new
+          password.
+        </p>
+      )}
+
       <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-5">
         {problem && <Notice tone="error">{problem}</Notice>}
+
+        {/*
+         * Only when the URL did not carry one. On the link path this field would
+         * have to be prefilled to be useful, and prefilling it would put the
+         * token in the DOM — the one thing `page.test.tsx` forbids.
+         */}
+        {!linkToken && (
+          <Field
+            label="Reset token"
+            name="token"
+            value={pastedToken}
+            onChange={setPastedToken}
+            errors={fieldErrors.token}
+            hint="From the email. It expires one hour after it was sent."
+            autoComplete="off"
+            required
+            disabled={pending}
+          />
+        )}
 
         <Field
           label="New password"
@@ -113,6 +147,17 @@ function ResetPasswordForm() {
           Set new password
         </Button>
       </form>
+
+      {/* Shown on both paths. A token that has expired is the common case on the
+          link path too, and the way out of it is another email. */}
+      <p className="mt-6 text-sm">
+        <Link
+          href="/forgot-password"
+          className="text-ink-muted underline underline-offset-4 hover:text-ink"
+        >
+          Request a new token
+        </Link>
+      </p>
     </>
   );
 }

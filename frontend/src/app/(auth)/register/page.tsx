@@ -53,13 +53,21 @@ export default function RegisterPage() {
           Check your inbox
         </PageTitle>
         <div className="mt-6">
+          {/* "token", not "link". The email sends the token as bare text —
+              `notifications/templates/email/verification/body.txt` — because
+              there is no configured site URL to build a link from. Saying "link"
+              sent people looking for something the email does not contain. */}
           <Notice tone="success" title="Almost there">
             If <span className="font-medium">{email}</span> can be registered,
-            a verification link is on its way. It expires in 24 hours.
+            a verification token is on its way. It expires in 24 hours.
           </Notice>
         </div>
         <p className="mt-6 text-sm text-ink-muted">
-          Already verified?{" "}
+          Got the token?{" "}
+          <Link href="/verify-email" className="text-accent underline underline-offset-4">
+            Verify your address
+          </Link>
+          . Already verified?{" "}
           <Link href="/login" className="text-accent underline underline-offset-4">
             Sign in
           </Link>
