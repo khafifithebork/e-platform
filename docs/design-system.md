@@ -250,6 +250,33 @@ Components need do nothing. Use semantic tokens and both schemes work.
 
 ---
 
+## 7a. The mark, and the one file that cannot use a token
+
+`SiteShell` draws the wordmark from utilities: a 36px square at
+`rounded-(--radius-md)`, `bg-accent`, a semibold "L" in `text-on-accent`, and a
+coral dot with a `border-surface` ring. Nothing special — it is inside the system
+like everything else.
+
+**`src/app/icon.svg` is the exception, and it is the interesting one.** A favicon is
+a standalone file: it cannot read `globals.css`, so its colours are literals —
+`#4945a5`, `#c44656`, `#ffffff`, `rx="12"`. Literals drift, and a favicon is the
+last place anybody looks after a palette change.
+
+So `seo.test.ts` parses the tokens out of `globals.css` and asserts the icon still
+matches them. **Change the accent colour and that test fails** rather than leaving
+the browser tab as the only thing still wearing the old brand. Light-mode values
+throughout, deliberately: `prefers-color-scheme` inside an SVG favicon is honoured
+inconsistently across browsers, and the accent square gives the glyph its own
+background either way.
+
+Until 2026-09-28 this file did not exist and the favicon was the **Next.js logo**,
+straight from the `create-next-app` scaffold. ADR-035 §1.
+
+**There is no `apple-icon` and no Open Graph image.** Both need raster assets, which
+is a decision rather than an improvisation — ADR-035 §5.
+
+---
+
 ## 8. Contributing
 
 **Adding a variant to an existing primitive** — do it in the `cva` config, not at
