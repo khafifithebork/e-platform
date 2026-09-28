@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
-import { buttonStyles } from "@/components/ui/Button";
+import { Button, buttonStyles } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { ApiError, api, type Enrollment } from "@/lib/api/client";
+import { Notice } from "@/components/ui/Notice";
+import { ApiError, api, cursorFrom, type Enrollment } from "@/lib/api/client";
 import { resumePoint } from "@/lib/learn/resume";
 
 /**
@@ -23,7 +24,21 @@ import { resumePoint } from "@/lib/learn/resume";
  */
 type State =
   | { status: "loading" }
-  | { status: "ready"; enrollments: Enrollment[] }
+  /**
+   * `cursor` is the next page, or `null` when this is the last one.
+   *
+   * Held as a cursor rather than the API's `next` URL on purpose: Django builds
+   * that URL from the Host header, which the Next.js rewrite sets to its own
+   * destination, so it names the internal host and not the origin the browser is
+   * on. `cursorFrom` discards it.
+   */
+  | {
+      status: "ready";
+      enrollments: Enrollment[];
+      cursor: string | null;
+      loadingMore: boolean;
+      moreFailed: boolean;
+    }
   | { status: "anonymous" }
   | { status: "failed" };
 
@@ -36,7 +51,15 @@ export function MyCourses() {
     api
       .myCourses()
       .then((page) => {
-        if (current) setState({ status: "ready", enrollments: page.results });
+        if (current) {
+          setState({
+            status: "ready",
+            enrollments: page.results,
+            cursor: cursorFrom(page.next),
+            loadingMore: false,
+            moreFailed: false,
+          });
+        }
       })
       .catch((error: unknown) => {
         if (!current) return;
@@ -55,6 +78,41 @@ export function MyCourses() {
       current = false;
     };
   }, []);
+
+  /**
+   * Append the next page.
+   *
+   * **A failed "load more" must not destroy what is already on screen.** The
+   * learner can see their first page; replacing it with an error because the
+   * second request failed would lose information they already had. So this sets
+   * `moreFailed` alongside the existing list rather than moving to `failed`.
+   */
+  async function loadMore() {
+    if (state.status !== "ready" || state.cursor === null || state.loadingMore) return;
+
+    const { enrollments, cursor } = state;
+    setState({ ...state, loadingMore: true, moreFailed: false });
+
+    try {
+      const page = await api.myCourses(cursor);
+      setState({
+        status: "ready",
+        enrollments: [...enrollments, ...page.results],
+        cursor: cursorFrom(page.next),
+        loadingMore: false,
+        moreFailed: false,
+      });
+    } catch {
+      // The cursor is kept, so the button stays and a retry is one click away.
+      setState({
+        status: "ready",
+        enrollments,
+        cursor,
+        loadingMore: false,
+        moreFailed: true,
+      });
+    }
+  }
 
   if (state.status === "loading") {
     return (
@@ -101,13 +159,42 @@ export function MyCourses() {
   }
 
   return (
-    <StaggerList className="flex flex-col gap-4">
-      {state.enrollments.map((enrollment) => (
-        <StaggerItem key={enrollment.id}>
-          <EnrollmentCard enrollment={enrollment} />
-        </StaggerItem>
-      ))}
-    </StaggerList>
+    <div className="flex flex-col gap-6">
+      <StaggerList className="flex flex-col gap-4">
+        {state.enrollments.map((enrollment) => (
+          <StaggerItem key={enrollment.id}>
+            <EnrollmentCard enrollment={enrollment} />
+          </StaggerItem>
+        ))}
+      </StaggerList>
+
+      {state.moreFailed && (
+        <Notice tone="error">
+          The rest of your courses could not be loaded. Your place is not lost —
+          try again.
+        </Notice>
+      )}
+
+      {/*
+       * A button, not page numbers. A learner's own course list is a short list
+       * they scan, not a table they navigate — and cursor pagination gives no
+       * total, so numbered pages could not even say how many there are.
+       *
+       * Rendered only when the API said there is another page. Absent on a
+       * single-page response, which is the common case.
+       */}
+      {state.cursor !== null && (
+        <Button
+          variant="secondary"
+          onClick={loadMore}
+          pending={state.loadingMore}
+          pendingLabel="Loading…"
+          className="self-start"
+        >
+          Show more courses
+        </Button>
+      )}
+    </div>
   );
 }
 

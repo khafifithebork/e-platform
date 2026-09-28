@@ -177,6 +177,7 @@ export type LessonTranscript = components["schemas"]["LessonTranscript"];
 export type TranscriptSegment = components["schemas"]["LearnerSegment"];
 export type PlaybackToken = components["schemas"]["PlaybackToken"];
 export type Enrollment = components["schemas"]["Enrollment"];
+export type EnrollmentPage = components["schemas"]["PaginatedEnrollmentList"];
 
 /** Problem type the player branches on, to tell "pay" from "went wrong". */
 export const PROBLEM_ENTITLEMENT_DENIED = "/problems/entitlement-denied";
@@ -251,9 +252,46 @@ export const api = {
   lessonTranscript: (lessonId: string) =>
     request<LessonTranscript>(`/lessons/${lessonId}/transcript/`),
 
-  myCourses: () =>
-    request<{ results: Enrollment[] }>("/me/courses/"),
+  /**
+   * A learner's enrolments, one cursor page at a time.
+   *
+   * **The type was hand-written until now, and that was the bug.** It said
+   * `{ results: Enrollment[] }`, which is a response shape invariant 16 forbids
+   * writing by hand — and because it omitted `next`, the pagination was not so
+   * much ignored as *invisible*: a learner past the first page saw part of their
+   * list and nothing suggested more existed. The generated type carries `next`,
+   * so dropping it is now a deliberate act rather than an oversight.
+   */
+  myCourses: (cursor?: string) =>
+    request<EnrollmentPage>(
+      cursor ? `/me/courses/?cursor=${encodeURIComponent(cursor)}` : "/me/courses/",
+    ),
 };
+
+/**
+ * The cursor out of a DRF `next` link, discarding its origin.
+ *
+ * **The origin must be discarded, not merely ignored.** Django builds that URL
+ * from the request's Host header, and we sit behind the Next.js rewrite, which
+ * forwards its own destination as Host — `base.py` records this as the reason
+ * `CSRF_TRUSTED_ORIGINS` is required. So `next` points at `api` or the internal
+ * hostname, never at the origin the browser is talking to. Following it verbatim
+ * would request the wrong host from the browser, and in production would be an
+ * attempt on an internal name.
+ *
+ * Returns `null` for anything unparseable rather than throwing: a malformed
+ * `next` should end the list, not break the page. The base is a throwaway — only
+ * the query string is read.
+ */
+export function cursorFrom(next: string | null | undefined): string | null {
+  if (!next) return null;
+
+  try {
+    return new URL(next, "http://cursor.invalid").searchParams.get("cursor");
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Report a final heartbeat while the page is going away.

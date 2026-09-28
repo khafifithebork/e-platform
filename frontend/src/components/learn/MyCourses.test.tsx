@@ -12,7 +12,8 @@
  * bug if it is rendered as an empty list.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MyCourses } from "@/components/learn/MyCourses";
@@ -252,5 +253,142 @@ describe("abuse case 6 — only your own enrolments", () => {
     await screen.findByText("French");
 
     expect(screen.getAllByRole("article")).toHaveLength(2);
+  });
+});
+
+/**
+ * Pagination, which was silently dropped until 2026-09-27.
+ *
+ * `/me/courses/` is cursor-paginated and the client's response type was
+ * hand-written as `{ results: Enrollment[] }` — a shape invariant 16 forbids
+ * writing by hand. Because it omitted `next`, the second page was not so much
+ * ignored as **invisible**: a learner past the first page saw part of their list
+ * and nothing suggested more existed.
+ *
+ * The `next` values below deliberately carry an **internal** host. That is what
+ * Django really returns: it builds the URL from the request's Host header, and
+ * the Next.js rewrite forwards its own destination as Host, so `next` names `api`
+ * rather than the origin the browser is on. A component following that URL would
+ * request the wrong host from the browser. `cursorFrom` takes the cursor and
+ * discards the rest, and these fixtures are what prove it.
+ */
+describe("more courses than fit on one page", () => {
+  it("offers no control when the API says there is no next page", async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      json({ next: null, previous: null, results: [enrollment()] }),
+    );
+
+    render(<MyCourses />);
+    await screen.findByText("Spanish for beginners");
+
+    expect(screen.queryByRole("button", { name: /show more/i })).toBeNull();
+  });
+
+  it("appends the next page, keeping what was already shown", async () => {
+    const user = userEvent.setup();
+    vi.mocked(globalThis.fetch)
+      .mockResolvedValueOnce(
+        json({
+          next: "http://api/api/v1/me/courses/?cursor=cD0yMDI2",
+          previous: null,
+          results: [enrollment()],
+        }),
+      )
+      .mockResolvedValueOnce(
+        json({
+          next: null,
+          previous: null,
+          results: [enrollment({ id: "e2", course_slug: "french", course_title: "French, slowly" })],
+        }),
+      );
+
+    render(<MyCourses />);
+    await user.click(await screen.findByRole("button", { name: /show more/i }));
+
+    /**
+      * Presence, not visibility. Cards sit inside `StaggerList`, which renders
+      * `opacity: 0` until an `IntersectionObserver` raises them — and
+      * `vitest.setup.ts` stubs that observer as a no-op, so it never fires here.
+      * `motion.test.tsx` records the same behaviour deliberately ("is present but
+      * NOT yet visible until the observer fires"). Asserting visibility would be
+      * asserting a motion library's runtime, not this component's logic.
+      *
+      * Both, and in order: an implementation that replaced rather than appended
+      * would pass a test that only looked for the second one.
+      */
+    expect(await screen.findByText("French, slowly")).toBeInTheDocument();
+    expect(screen.getByText("Spanish for beginners")).toBeInTheDocument();
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+
+    // And the control is gone, because that page said there is no next.
+    expect(screen.queryByRole("button", { name: /show more/i })).toBeNull();
+  });
+
+  it("sends the cursor, not the URL Django handed back", async () => {
+    /**
+     * **The assertion that matters most here.** The `next` fixture points at
+     * `http://api/...`, an internal name the browser cannot and must not resolve.
+     * The second request must go to our own origin with the cursor as a query
+     * parameter.
+     */
+    const user = userEvent.setup();
+    vi.mocked(globalThis.fetch)
+      .mockResolvedValueOnce(
+        json({
+          next: "http://api/api/v1/me/courses/?cursor=cD0yMDI2",
+          previous: null,
+          results: [enrollment()],
+        }),
+      )
+      .mockResolvedValueOnce(json({ next: null, previous: null, results: [] }));
+
+    render(<MyCourses />);
+    await user.click(await screen.findByRole("button", { name: /show more/i }));
+
+    await waitFor(() => expect(vi.mocked(globalThis.fetch).mock.calls.length).toBeGreaterThan(1));
+    const urls = vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input));
+
+    expect(urls).toContain("/api/v1/me/courses/?cursor=cD0yMDI2");
+    expect(urls.some((url) => url.includes("http://api"))).toBe(false);
+  });
+
+  it("keeps the first page on screen when loading more fails", async () => {
+    /**
+     * A failed second request must not cost the learner what they could already
+     * see. Moving to the `failed` state would replace a usable list with an
+     * error, which is worse than the error alone.
+     */
+    const user = userEvent.setup();
+    vi.mocked(globalThis.fetch)
+      .mockResolvedValueOnce(
+        json({
+          next: "http://api/api/v1/me/courses/?cursor=cD0yMDI2",
+          previous: null,
+          results: [enrollment()],
+        }),
+      )
+      .mockResolvedValueOnce(json({ detail: "Server error" }, 500));
+
+    render(<MyCourses />);
+    await user.click(await screen.findByRole("button", { name: /show more/i }));
+
+    // The notice is outside the stagger list, so it is genuinely visible.
+    expect(await screen.findByRole("alert")).toBeVisible();
+    expect(screen.getByText("Spanish for beginners")).toBeInTheDocument();
+    // The cursor is kept, so a retry is one click away.
+    expect(screen.getByRole("button", { name: /show more/i })).toBeVisible();
+  });
+
+  it("ignores a malformed next link rather than breaking the page", async () => {
+    // A `next` with no cursor ends the list. The alternative — throwing — would
+    // take down a page that had already rendered correctly.
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      json({ next: "http://api/api/v1/me/courses/", previous: null, results: [enrollment()] }),
+    );
+
+    render(<MyCourses />);
+    await screen.findByText("Spanish for beginners");
+
+    expect(screen.queryByRole("button", { name: /show more/i })).toBeNull();
   });
 });

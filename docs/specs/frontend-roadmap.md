@@ -204,16 +204,24 @@ remedy to test until the fault is reproduced.
 - **Acceptance:** reproduced first, then fixed, then a test for the chosen remedy.
 - **Approval:** owner if the remedy changes the accepted layout.
 
-### D3 · `/me/courses/` pagination
+### D3 · `/me/courses/` pagination — **done 2026-09-27**
 
 - **Benefit:** a learner with many enrolments sees all of them. Today the first
   page renders and the rest is dropped **silently**.
 - **Scope:** a "load more" control plus tests. Prefer the button to page numbers —
   a learner's own course list is a short list they scan, not a table they navigate.
-- **Dependencies:** none. Not urgent: no real learner has enough enrolments yet.
-- **Acceptance:** a second page is reachable; a single-page response shows no
-  control; the empty state is unaffected.
-- **Approval:** owner, as it adds an interaction.
+- **Dependencies:** none.
+- **Acceptance, all met:** a second page is reachable and appends; a single-page
+  response shows no control; the empty state is unaffected; a failed load keeps the
+  list; a malformed `next` ends it quietly.
+- **Two findings worth carrying.** The root cause was a **hand-written response
+  type** omitting `next` — invariant 16 exists for this. And **`next` must not be
+  followed**: Django builds it from the Host header, which the rewrite sets to its
+  own destination, so it names the internal host. `cursorFrom` discards the origin,
+  and the test fixtures carry `http://api/...` so a regression fails rather than
+  passing on a convenient localhost URL. Any future paginated endpoint inherits
+  both.
+- **Approval:** granted.
 
 ### D4 · Caption language, end to end
 

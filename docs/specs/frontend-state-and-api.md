@@ -189,24 +189,48 @@ render's values and report the same beat forever.
 
 ---
 
-## 8. Pagination — **GAP**
+## 8. Pagination — fixed 2026-09-27
 
-`/me/courses/` returns a paginated envelope. `MyCourses` reads `page.results` and
-**ignores every other field.**
+`/me/courses/` is **cursor**-paginated: `next`, `previous`, `results`, and no
+`count`. `MyCourses` read `page.results` and ignored the rest.
 
-A learner with more enrolments than one page sees the first page and no
-indication that more exist. No control, no count, no "load more". It fails
-silently, which is the worst version.
+**The root cause was a type, not an oversight.** The client declared
+`request<{ results: Enrollment[] }>` — a hand-written response shape, which
+invariant 16 calls a bug — and because it omitted `next`, the second page was not
+so much ignored as *invisible*. It now uses the generated
+`PaginatedEnrollmentList`, so dropping a field is a deliberate act.
 
-Not urgent — no real learner has enough enrolments yet — but it is a defect and
-not a decision. Whoever fixes it should decide between a "load more" button and
-paging, and prefer the button: a learner's own course list is a short list they
-scan, not a table they navigate.
+**A "load more" button, not page numbers.** A learner's own course list is a short
+list they scan rather than a table they navigate, and cursor pagination gives no
+total, so numbered pages could not say how many there are even if they were wanted.
 
-`CourseCatalogue` is unaffected. It filters a build-time list and shows a live
-result count.
+### `next` must not be followed, and this is the part to remember
 
----
+Django builds that URL from the request's Host header. **We sit behind the Next.js
+rewrite, which forwards its own destination as Host** — the same fact `base.py`
+records as the reason `CSRF_TRUSTED_ORIGINS` is required. So `next` names `api` or
+the internal hostname, never the origin the browser is on.
+
+A component following it verbatim would request the wrong host from the browser,
+and in production would be an attempt on an internal name. `cursorFrom` extracts
+the `cursor` parameter and discards the origin; the fixtures in
+`MyCourses.test.tsx` deliberately carry `http://api/...` so that a regression here
+fails rather than passing on a convenient localhost URL.
+
+**Any future paginated endpoint has the same constraint.** This is the first one
+the frontend consumes, so the rule is written here rather than in that one
+component.
+
+### Acceptance criteria
+
+- The control appears only when the API reported a next page.
+- A page appends; it does not replace.
+- **A failed "load more" keeps what is already on screen**, with the cursor
+  retained so retrying is one click. Moving to the failed state would replace a
+  usable list with an error, which is worse than the error alone.
+- A malformed `next` ends the list rather than throwing.
+
+All four provoked. Five assertions in `MyCourses.test.tsx`.
 
 ## 9. Preferences — **GAP, and constrained**
 
@@ -286,7 +310,7 @@ the only dynamic one and the one a learner waits on.
 
 | Item | Section | Status |
 |---|---|---|
-| Pagination on `/me/courses/` | §8 | Defect, unscheduled |
+| ~~Pagination on `/me/courses/`~~ | §8 | **Fixed 2026-09-27** |
 | No app-wide session-expiry response | §10 | Gap, needs a decision on what the app should do |
 | No performance budget | §11 | Needs per-route figures first |
 | No preferences mechanism | §9 | Not needed yet |
