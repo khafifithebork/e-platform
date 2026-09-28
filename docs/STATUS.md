@@ -204,12 +204,12 @@ have since been fixed in code, each with provoked tests**, and the seventh is bl
 on the backend rather than on anyone here.
 
 What remains genuinely undone is verification that needs a person.
-`runbooks/accessibility-verification.md` has **four rows** in its log — §3.1 twice,
-§3.2's 2.4.11 check, and §3.5's focus ring in forced colours. **Still unwalked:** the
-rest of §3.2's keyboard pass, §3.3's screen reader, §3.4's zoom and reflow, and two of
-§3.5's three checks.
+`runbooks/accessibility-verification.md` has **five rows** in its log: §3.1 twice,
+§3.2's 2.4.11 check, and §3.5 twice — **§3.1 and §3.5 are now complete.** Still
+unwalked: the rest of §3.2's keyboard pass, §3.3's screen reader, and §3.4's zoom and
+reflow.
 
-**Two of those four rows guard fixes nothing else could have checked.** The forced-colours
+**Two of those five rows guard fixes nothing else could have checked.** The forced-colours
 one is the clearest case: `outline-none` in Tailwind 4 silently dropped the
 transparent-outline fallback a high-contrast mode turns visible, and `outline-hidden`
 restored it — a difference **invisible outside such a mode**, so no test in this
