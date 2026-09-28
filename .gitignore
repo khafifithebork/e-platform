@@ -73,3 +73,23 @@ Thumbs.db
 *.swp
 .vscode/*
 !.vscode/extensions.json
+
+# ---------------------------------------------------------------------------
+# Claude Code's working directory
+#
+# Local and not shared. Three things live here and none of them belongs in the
+# repository:
+#
+# - `settings.local.json` — per-developer, and named by the tool to say so.
+# - `launch.json` — the dev-server entry an agent uses to open a preview. Useful,
+#   but it describes one machine's setup rather than the project's.
+# - `skills-temp/` — 2.3 MB and **a git clone of its own**, from
+#   github.com/Mindrally/skills. An embedded repository is the one thing here
+#   that would actively misbehave if staged: git records a gitlink rather than the
+#   files, and the result is a directory that is empty for everyone who clones.
+#
+# Ignored as a whole rather than file by file, because the contents are whatever a
+# session happened to need. If a launch entry is ever worth sharing, un-ignore
+# that one path deliberately.
+# ---------------------------------------------------------------------------
+.claude/
