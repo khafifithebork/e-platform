@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 import { CourseCatalogue } from "@/components/catalogue/CourseCatalogue";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { allPublishedCourses, catalogueLanguages } from "@/lib/catalogue/courses";
+import { publicMetadata } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: "Courses",
   description: "Every published course, by language and level.",
-};
+  path: "/courses/",
+});
 
 /**
  * The catalogue.
