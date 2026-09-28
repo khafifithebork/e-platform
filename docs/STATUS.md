@@ -34,7 +34,7 @@ needs either a browser and a person, or backend work that is not scheduled:
 |---|---|
 | The four unconfirmed claims below | A person with a browser. Minutes each |
 | A2 — reproduce the 2.4.11 focus fault | The same. **The remedy cannot be scoped until it is reproduced** (ADR-006) |
-| A5 — per-route first-load JS | A measurement, before any performance budget can be proposed honestly |
+| ~~A5 — per-route first-load JS~~ | **Done 2026-09-28**: 312–326 KB gz, routes nearly identical. A budget is now proposable — 350 KB gz per route — and enforcing it needs the owner |
 | `<track>`'s `srclang` and `label` | The API to model caption language. Not knowable from the frontend |
 | B2 — the architecture.md §8.2 tooling discrepancy | An owner decision: approve MSW / `axe-core` / Playwright under §5, or record that line superseded |
 
