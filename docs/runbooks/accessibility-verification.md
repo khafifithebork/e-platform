@@ -1,8 +1,8 @@
 # Runbook — verifying accessibility
 
-**Status: written, never walked.** Written 2026-09-27 alongside ADR-030. No pass
-described below has been performed end to end, and one step (§3.1) is known to be
-**impossible** in the agent's browser and has been outstanding since 2026-09-25.
+**Status: written; §3.1 partly walked 2026-09-28.** Written 2026-09-27 alongside
+ADR-030. The owner confirmed the hero half of §3.1 in Firefox; **the below-the-fold
+half is still open**, and no other pass below has been performed. See §6.
 
 Treat every step in §3 as a plan rather than a tested procedure. `rollback.md`
 found its own §3 wrong the first time it was walked; assume this one has the same
@@ -60,7 +60,7 @@ differs more between versions than between pages.
 Each is a separate sitting. Do not try to do all five at once — they use different
 attention and the mistakes cross over.
 
-### 3.1 Reduced motion — **outstanding, and the oldest item here**
+### 3.1 Reduced motion — **hero confirmed 2026-09-28; below the fold still open**
 
 Turn on the OS setting (Windows: Settings → Accessibility → Visual effects →
 Animation effects off; macOS: Accessibility → Display → Reduce motion), then open
@@ -75,11 +75,21 @@ blank** for reduced-motion visitors: ten components branched on
 `opacity: 0` inline, and React declined to patch the mismatch. A unit test
 asserted the branch and passed the whole time because it mocked the hook.
 
-The fix is believed correct and **has never been observed working.** The agent's
-browser reports `document.hidden` even when fronted, so `requestAnimationFrame`
-is frozen at zero frames per second and Motion cannot animate in it at all —
-which also means that pane cannot distinguish a working page from a broken one.
-React's hydration error is gone; that is verified. This is the other half.
+**Confirmed for the hero on 2026-09-28** — the owner saw the headline in Firefox
+with reduced motion on. That is the half that proves the hydration fix: the
+mismatch is what left `opacity: 0` stuck inline, so a visible headline means server
+and client now agree.
+
+**The half below the hero is still open, and it is a different mechanism.** The
+headline, subtitle and calls to action come from `Hero`, which animates on mount.
+The featured course cards and the four "what you get" panels use `Reveal` and
+`StaggerList`, driven by `whileInView` and an `IntersectionObserver` — and they were
+also among the nine blanked elements. Scroll down with the setting still on.
+
+The agent cannot close either half: its browser reports `document.hidden` even when
+fronted, so `requestAnimationFrame` is frozen at zero frames per second and Motion
+cannot animate in it at all — which also means that pane cannot distinguish a
+working page from a broken one.
 
 Also check `prefers-reduced-motion` on `/courses/[slug]` (the `Reveal` sections)
 and the enrolment list (`StaggerList`).
@@ -185,6 +195,16 @@ it has entries, nothing in this file may be cited as evidence of conformance.
 
 | Date | Section | By | Result |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-09-28 | §3.1, hero only | Owner, Firefox | **Headline shows with reduced motion on.** This is the half that proves the hydration fix: the mismatch is what left `opacity: 0` stuck inline, so a visible headline means the server and client now agree. Version not recorded |
 
-Known outstanding: **§3.1**, since 2026-09-25.
+**Still outstanding in §3.1: everything below the hero.** The headline, subtitle and
+both calls to action come from `Hero`, which animates *on mount*. The sections
+underneath use a different mechanism — `Reveal` and `StaggerList`, driven by
+`whileInView` and an `IntersectionObserver` — and were also among the nine blanked
+elements. Confirming the hero does not confirm those.
+
+**Twenty seconds closes it:** with reduced motion still on, scroll down `/` and check
+that the **featured course cards** and the **four "what you get" panels** appear.
+Also worth a glance at a course page, which uses `Reveal` for its sections.
+
+Nothing else in §3 has been walked.

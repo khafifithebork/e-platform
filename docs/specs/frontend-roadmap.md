@@ -38,15 +38,20 @@ it**, so doing A last would be the expensive order.
 **No code changes. Nothing here needs an ADR approved.** Each item converts a
 believed claim into a known one, and two of them gate later work.
 
-### A1 · Reduced motion in a real browser — **do this first**
+### A1 · Reduced motion in a real browser — **half done 2026-09-28**
 
 - **Benefit:** confirms the landing page is not blank for visitors who asked for
   less motion. Until stage 2 it was — entirely, for exactly those people.
 - **Scope:** ten minutes. `docs/runbooks/accessibility-verification.md` §3.1.
-- **Dependencies:** none. **Outstanding since 2026-09-25.**
-- **Acceptance:** headline, subtitle, both calls to action, course cards and all
-  four feature panels visible with the OS reduced-motion setting on; runbook §6
-  gains its first row.
+- **Done 2026-09-28:** the owner confirmed the **headline** shows in Firefox with
+  reduced motion on. That is the half that proves the hydration fix — the mismatch
+  is what left `opacity: 0` stuck inline, so a visible headline means server and
+  client agree. Runbook §6 has its first row.
+- **Still open, and a different mechanism:** everything below the hero. The headline,
+  subtitle and calls to action animate *on mount*; the featured course cards and the
+  four "what you get" panels use `Reveal`/`StaggerList`, driven by `whileInView` and
+  an `IntersectionObserver`, and were also among the nine blanked elements.
+  **Scrolling down with the setting still on closes it — twenty seconds.**
 - **Why it cannot be automated here:** the agent's browser reports
   `document.hidden` even when fronted, so `requestAnimationFrame` is frozen and
   that pane cannot tell a working page from a broken one.

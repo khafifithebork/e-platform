@@ -109,15 +109,22 @@ caption is *correct*.
 | `Field.test.tsx` | 1.3.1, 3.3.1, 4.1.3 — label association, `aria-invalid`, `role="alert"` |
 | `PageTitle.test.tsx` | one heading treatment, no hand-written `<h1>` |
 
-**Proposed additions, all without a dependency:**
+**Added 2026-09-27, no dependency:**
 
-1. **3.3.8** — assert every auth field sets `autoComplete`. A future "security
-   hardening" that strips it would break password managers, which is the failure
-   this criterion exists for, and nothing would notice today.
-2. **2.5.8** — assert the `sm` and `md` button sizes keep a minimum height at or
-   above 24px. A unit assertion on the variant strings, not a rendered
-   measurement, so it is cheap and stable.
-3. **2.4.11** — once reproduced, a test for whichever remedy is chosen.
+1. **3.3.8** — `(auth)/accessible-authentication.test.tsx`. Asserts every auth field
+   sets `autoComplete`, and the *values*: a manager offers a saved password for
+   `current-password` and a generated one for `new-password`, and swapping those is
+   the failure that looks like it works. Also asserts no CAPTCHA. The regression it
+   guards is a plausible one — stripping `autocomplete` from a login form looks like
+   hardening and breaks exactly what this criterion relies on.
+2. **2.5.8** — `ui/Button.test.tsx`. Asserts each size keeps a minimum height at or
+   above 24px, against the variant strings rather than a rendered box, because jsdom
+   computes no layout.
+
+**Still outstanding:**
+
+3. **2.4.11** — once reproduced. There is no remedy to test until somebody has seen
+   the fault, and ADR-006 forbids fixing what has not been seen.
 
 **Requires a person, and cannot be delegated to a scan:**
 
@@ -126,7 +133,8 @@ caption is *correct*.
   changes announced without flooding.
 - 200% zoom and 320 CSS px reflow (1.4.10), at which the lesson layout's two
   columns must collapse.
-- `prefers-reduced-motion` in a real browser — **still outstanding**, see §6.
+- `prefers-reduced-motion` in a real browser — **hero confirmed 2026-09-28**; the
+  scroll-triggered sections below it are still unobserved. See §6.
 - `forced-colors: active`, which ADR-029's palette cannot be reasoned about.
 - Caption accuracy, which is a human review step in the transcript workflow
   (ADR-014, ADR-015) and not a frontend concern.
@@ -164,13 +172,19 @@ installed.
 
 ## 6. One thing this ADR does not let us claim
 
-**No conformance claim is made, and one item is outstanding.** The
-reduced-motion fix shipped in PR #71 has never been observed working in a
-browser: the only browser available to the agent reports `document.hidden` even
-when fronted, so `requestAnimationFrame` is frozen at zero frames per second and
-Motion cannot animate in it. React's hydration error is gone — that is verified —
-but "the content becomes visible for a reduced-motion visitor" is a different
-claim and remains unverified.
+**No conformance claim is made.** The reduced-motion fix shipped in PR #71 is now
+**half confirmed**: the owner saw the headline in Firefox with reduced motion on,
+2026-09-28, which establishes the hydration fix — the mismatch is what left
+`opacity: 0` stuck inline. The sections below the hero use a different mechanism
+(`whileInView` and an `IntersectionObserver`) and are still unobserved.
+
+The agent cannot close the rest: its browser reports `document.hidden` even when
+fronted, so `requestAnimationFrame` is frozen at zero frames per second and Motion
+cannot animate in it at all.
+
+Adopting 2.2 AA is a commitment to a target and a verification procedure. It is
+still not a statement that the product conforms, and this file must not be cited as
+one.
 
 Adopting 2.2 AA is a commitment to a target and a verification procedure. It is
 not a statement that the product currently conforms, and this file must not be

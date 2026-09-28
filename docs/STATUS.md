@@ -59,14 +59,16 @@ questions they had been sitting behind. When an ADR contains both, split it.
 
 ### Correct by reasoning, unconfirmed by eye — the thing to watch
 
-**Four claims are now believed on argument and a passing test, and nobody has
-looked at any of them.** Individually each is defensible; as a set it is the
+**Four claims are believed on argument and a passing test. One is now half
+confirmed** — the owner checked reduced motion in Firefox on 2026-09-28 and the
+headline shows, which settles the hydration half and leaves the scroll-triggered
+sections open. Individually each is defensible; as a set it is the
 largest risk this workstream carries, because the test count going up reads as
 reassurance while this list quietly grows.
 
 | Claim | Why no agent can close it |
 |---|---|
-| The landing page is not blank for a reduced-motion visitor | The agent's browser reports `document.hidden` even when fronted, so `requestAnimationFrame` is frozen and the pane cannot tell a working page from a broken one. **Outstanding since 2026-09-25** |
+| The landing page is not blank for a reduced-motion visitor | **Hero confirmed by the owner in Firefox, 2026-09-28** — which proves the hydration fix. The sections below it use `whileInView` and an `IntersectionObserver`, a different mechanism, and are still unobserved. The agent's browser freezes `requestAnimationFrame`, so it can close neither half |
 | `color-scheme` fixed dark-mode scrollbars and autofill | A scrollbar's colours are not exposed to `getComputedStyle`, and autofill needs a real interaction |
 | Logical properties flip under `dir="rtl"` | That browser does not re-resolve logical properties on a direction change — proven with an isolated inline-styled element, which also fails to flip |
 | A learner hitting an error boundary gets a usable page | Inducing a real render error means changing code to break it |
@@ -113,10 +115,11 @@ problem-type branching, three-state auth pattern and static boundary are all
 implemented and guarded. The package therefore records what exists and names four
 narrow defects instead of proposing to rebuild working foundations.
 
-**The first action is not a documentation task.** `docs/specs/frontend-roadmap.md`
-§A1: open `/` with reduced motion enabled and confirm the headline appears. Ten
-minutes, outstanding since 2026-09-25, and it is the only unverified claim left
-from four stages of redesign.
+**The first action was not a documentation task, and it is now half done.**
+`docs/specs/frontend-roadmap.md` §A1: the owner opened `/` with reduced motion on in
+Firefox on 2026-09-28 and the headline shows — settling the hydration half, which is
+the half that had been outstanding since 2026-09-25. **Scrolling down closes the
+rest**, because the sections below the hero use a different mechanism.
 
 | File | What it is |
 |---|---|
@@ -126,7 +129,7 @@ from four stages of redesign.
 | `docs/adr/033-interface-and-learning-languages.md` | Names the four language axes, defers localisation, and records that `<track>` lacks `srclang`/`label` — which the API cannot yet supply |
 | `docs/design-system.md` | Reference for tokens, the three component tiers, variants and states. Carries the two open design questions rather than settling them |
 | `docs/specs/frontend-state-and-api.md` | State boundaries, problem-type handling, retry safety, and a **measured** bundle baseline |
-| `docs/runbooks/accessibility-verification.md` | Automated versus human checks. **Written, never walked** |
+| `docs/runbooks/accessibility-verification.md` | Automated versus human checks. **§3.1 partly walked 2026-09-28; nothing else** |
 | `docs/frontend-principles.md` | Fourteen rules, each linked to its authority |
 | `docs/design/figma-handoff.md` | A written structure. **No Figma file was created or modified** |
 | `docs/specs/frontend-roadmap.md` | The remaining gaps in dependency order, **conditional on which ADRs are accepted**. Nothing in it jumps ahead of M14 |
@@ -147,10 +150,9 @@ from four stages of redesign.
 **Documenting is not implementing, and all four ADRs being accepted has not
 changed that.** The documents describe decisions and procedures; two of the
 defects they identified were then fixed in code with provoked tests, and the rest
-is still unbuilt. `runbooks/accessibility-verification.md` says of itself that it
-has never been walked, and section A of the roadmap — five verification items,
-including the reduced-motion check outstanding since 2026-09-25 — needs a person
-with a browser rather than an agent.
+is still unbuilt. `runbooks/accessibility-verification.md` has one row in its
+verification log — §3.1's hero half, 2026-09-28 — and section A of the roadmap still
+needs a person with a browser rather than an agent for the rest.
 
 ---
 
@@ -195,14 +197,14 @@ something got through every check that already existed:
 
 **Two things are explicitly not verified, and neither should be read as done:**
 
-- **The reduced-motion fix has never been seen working in a browser.** React's
-  hydration error is gone — that is verified — but "the content becomes visible"
-  is not the same claim. The only browser available to the agent reports
-  `document.hidden` even when fronted, so `requestAnimationFrame` is frozen at
-  zero frames per second and Motion cannot animate in it at all. **Someone needs
-  to open `/` with reduce-motion enabled and confirm the headline appears.** This
-  is the only item outstanding from four stages of work, and it is a thirty-second
-  check.
+- **The reduced-motion fix was unobserved when this was written; the hero half was
+  confirmed on 2026-09-28.** React's hydration error being gone was always verified;
+  "the content becomes visible" is a different claim, and the owner has now seen the
+  headline in Firefox with reduced motion on. What is still unobserved is everything
+  below the hero, which animates through `whileInView` rather than on mount. The
+  agent's browser reports `document.hidden` even when fronted, so
+  `requestAnimationFrame` is frozen at zero frames per second and Motion cannot
+  animate in it at all. The remaining half is a scroll away.
 - **The backend suite has not been run since M14 T6.** Nothing under `backend/`
   has changed across these four stages, which is inference, not a run. The 1532
   figure below is inherited.
