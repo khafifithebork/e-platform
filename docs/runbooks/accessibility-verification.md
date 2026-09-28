@@ -1,8 +1,9 @@
 # Runbook — verifying accessibility
 
-**Status: written; §3.1 walked and passed 2026-09-28.** Written 2026-09-27 alongside
-ADR-030. The owner confirmed §3.1 in full, in Firefox. **No other pass below has
-been performed.** See §6.
+**Status: written; §3.1 passed and §3.2's 2.4.11 check done, both 2026-09-28.**
+Written 2026-09-27 alongside ADR-030. The owner confirmed §3.1 in full and found the
+2.4.11 fault in §3.2, which has since been fixed. **The rest of §3.2, and §3.3 to
+§3.5, have not been walked.** See §6.
 
 Treat every step in §3 as a plan rather than a tested procedure. `rollback.md`
 found its own §3 wrong the first time it was walked; assume this one has the same
@@ -104,10 +105,12 @@ Tab through with no mouse. Routes: `/`, `/courses`, a course, `/pricing`,
 - Focus is **visible at every stop**. The global ring is 2px at 2px offset; if you
   cannot see it somewhere, that is a finding, not your eyesight.
 - The skip link is the first stop and lands focus on `<main>`.
-- **2.4.11 — the known risk.** Below `xl`, `SiteNavTree` renders a fixed "Site
-  map" button at the bottom-left. Tab to a control low on a long page and check
-  whether the focused element is behind it. ADR-030 §3 has the candidate
-  remedies; reproduce before fixing.
+- **2.4.11 — found and fixed 2026-09-28.** The owner tabbed to a control low on a
+  page and the focus ring was behind the fixed "Site map" button. Reproduced at
+  420×480 on `/courses` (three elements overlapped), fixed with
+  `scroll-pb-20 xl:scroll-pb-0` on `<html>`, and re-measured at zero. **Still worth
+  re-checking here**, because the fix is scroll padding and a future fixed element
+  at a different edge would not be covered by it.
 - The drawer: opens, traps Tab, `Escape` closes and returns focus to the toggle,
   and page scrolling comes back. Resize to desktop while open — it should close
   and release the lock.
@@ -199,6 +202,7 @@ section, nothing in this file may be cited as evidence about it.
 |---|---|---|---|
 | 2026-09-28 | §3.1, hero | Owner, Firefox | **Headline shows with reduced motion on.** The half that proves the hydration fix: the mismatch is what left `opacity: 0` stuck inline, so a visible headline means server and client agree. Version not recorded |
 | 2026-09-28 | §3.1, below the fold | Owner, Firefox | **Course cards and all four panels show on scroll.** The other mechanism — `Reveal` and `StaggerList`, driven by `whileInView` and an `IntersectionObserver`. Checked on a production build served from the host, because the compose `web` container was returning 500s |
+| 2026-09-28 | §3.2, 2.4.11 only | Owner | **Found a failure:** the focus ring sat behind the fixed "Site map" button. Reproduced at 420×480 on `/courses` — the course card's link and both footer links overlapped it — and fixed. Re-measured at zero overlaps. **The rest of §3.2 was not walked** |
 
 **§3.1 is closed.** The landing page renders for a reduced-motion visitor, both the
 mount path and the scroll-triggered path. That was the bug that started this
@@ -206,6 +210,11 @@ workstream — the page was **entirely blank** for exactly the people who had as
 for less motion — and it is now the one thing here confirmed by a person rather
 than argued from a passing test.
 
-**Everything else in §3 is still outstanding**: the keyboard pass and the 2.4.11
-reproduction (§3.2), the screen-reader pass (§3.3), zoom and reflow (§3.4), and
+**§3.2 is the interesting one to finish.** Its 2.4.11 check found the only real
+WCAG 2.2 failure in the product, and that is now fixed — but the rest of the
+keyboard pass (focus visible at every stop, the drawer's trap and restoration, the
+player's controls, the transcript's cues) has not been walked. A criterion that
+turned up one fault is worth completing.
+
+**Also outstanding:** the screen-reader pass (§3.3), zoom and reflow (§3.4), and
 forced colours (§3.5).

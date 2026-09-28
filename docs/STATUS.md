@@ -43,7 +43,7 @@ process.**
 
 | ADR | Decision | Left to do |
 |---|---|---|
-| **ADR-030** | WCAG 2.2 AA. **Supersedes architecture.md's 2.1 AA baseline**, on the level only | C3 and two of C4's three tests **done 2026-09-27**; D2 waits on A2 |
+| **ADR-030** | WCAG 2.2 AA. **Supersedes architecture.md's 2.1 AA baseline**, on the level only | **Nothing.** C3, C4 and D2 all done — **2.4.11 was the one real failure, and it is fixed** |
 | **ADR-031** | Three boundary files, each reporting to Sentry | **D1 done 2026-09-27** — built, 11 tests, unverified in a browser |
 | **ADR-032** | Theme follows the system; **manual toggle declined** | nothing. §2's defect fixed; A4 confirms it |
 | **ADR-033** | Localisation **deferred** with a named trigger | §3's `<track>` gap, blocked on backend (D4) |
@@ -105,6 +105,17 @@ have cost a revert of a correct change.
 | **`/me/courses/` pagination ignored** — a learner past the first page saw part of their list with no indication more existed | **Fixed** 2026-09-27. Root cause was a hand-written response type omitting `next` (invariant 16). A "load more" control, and `next` is **not followed** — Django builds it from the internal host |
 | **`color-scheme` never declared**, so dark mode kept light scrollbars and autofill — the latter can push text below the contrast `contrast.test.ts` certifies and cannot see | **Fixed** 2026-09-27, with a provoked test. Measurement corrected the ADR on the way: form-control boxes were never affected, because Tailwind's Preflight already resets them |
 | **`<track>` lacks `srclang` and `label`** | **Blocked, not open** — the correct value is not knowable from the frontend because nothing models caption language. Backend work, roadmap D4. Hardcoding a guess would be wrong for exactly the courses that matter most |
+
+**A sixth, and the only one a person found rather than a grep: 2.4.11 Focus Not
+Obscured.** The owner tabbed to a control low on a page and watched the focus ring
+disappear behind the fixed "Site map" button. Reproduced at 420×480 on `/courses` —
+three overlapping elements — and fixed with `scroll-pb-20 xl:scroll-pb-0` on
+`<html>`, re-measured at zero. **Fixed 2026-09-28.**
+
+The remedy is the first of ADR-030 §3's three candidates, not the third: the one
+that would have reopened ADR-029's accepted layout was not needed, because the gap
+scroll padding leaves — an element obscured without any scrolling — was already
+covered by `SiteShell`'s footer padding.
 
 And the fifth, found while fixing the fourth: **physical inline-direction
 utilities**. **Fixed** — six swapped to logical, two pinned as navigation chrome
