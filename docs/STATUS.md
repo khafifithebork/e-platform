@@ -1,8 +1,8 @@
 # STATUS
 
-**Last updated:** 2026-09-27
+**Last updated:** 2026-09-28
 **Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
-its four ADRs, and the fixes that followed)
+its four ADRs, the fixes that followed, and the owner's verification passes)
 
 ---
 
@@ -27,6 +27,7 @@ after it did.
 | #88 | **2.4.11** — the focus ring could hide behind the fixed navigation toggle |
 | #89 | Per-route bundle figures, measured |
 | #90 | **`axe-core` adopted**, and the bug it found on its first run |
+| #91 | STATUS: the dependency claim that had gone false, and the defect record by how each was found |
 
 **One dependency was added, and it is worth being exact about.** `axe-core` as a
 **devDependency**, approved by the owner under §5 on 2026-09-28 (PR #90). Zero
