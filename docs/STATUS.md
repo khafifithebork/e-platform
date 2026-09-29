@@ -22,13 +22,16 @@ rather than on code.
 
 **This checklist is not complete and must not be reported as complete.**
 
+*Rows are added after a merge, not before. Written ahead of time they say "open"
+for as long as nobody edits them, which happened twice on 2026-09-29.*
+
 | PR | | Merged |
 |---|---|---|
 | #95 | Batch one — the two emailed tokens, redeemable at last | 2026-09-28 |
 | #96 | Batch two — canonical URLs, sitemap, robots, the icon | 2026-09-29 |
 | #98 | Batch three — the account page, and a data export | 2026-09-29 |
 | #100 | Batch four, part one — captions declare their language | 2026-09-29 |
-| #101 | Batch four, part two — playback speed and a replay control | open |
+| #101 | Batch four, part two — playback speed and a replay control | 2026-09-29 |
 
 **Two ADRs — ADR-034 (emailed tokens are pasted) and ADR-035 (canonical URLs and
 indexing) — and one dependency bump nobody asked for**, which turned out to be a
