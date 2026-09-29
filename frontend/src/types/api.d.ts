@@ -1203,6 +1203,7 @@ export interface components {
             readonly allowed: boolean;
             readonly reason: components["schemas"]["ReasonEnum"];
             readonly cta: (components["schemas"]["CtaEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly label: string;
         };
         AccessDecision: {
             readonly allowed: boolean;

@@ -2073,9 +2073,13 @@ components:
           oneOf:
           - $ref: '#/components/schemas/CtaEnum'
           - $ref: '#/components/schemas/NullEnum'
+        label:
+          type: string
+          readOnly: true
       required:
       - allowed
       - cta
+      - label
       - reason
     AccessDecision:
       type: object

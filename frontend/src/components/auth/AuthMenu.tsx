@@ -139,10 +139,19 @@ export function AuthMenu() {
        * a display name, but it is optional and the API documents it as empty
        * when unset. Showing the email is honest and unambiguous; showing an
        * empty string would be a header that forgot who you are.
+       *
+       * **A link since 2026-09-29, not a label.** It was the one piece of
+       * personal information on screen with nowhere to go, and `/account` is now
+       * where somebody expects clicking their own address to take them. The
+       * `title` stays for a truncated address on a narrow viewport.
        */}
-      <span className="hidden text-ink-subtle sm:inline" title={state.me.email}>
+      <Link
+        href="/account"
+        title={state.me.email}
+        className="hidden text-ink-subtle hover:text-ink sm:inline"
+      >
         {state.me.email}
-      </span>
+      </Link>
 
       <button
         type="button"

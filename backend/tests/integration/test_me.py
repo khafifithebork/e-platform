@@ -106,6 +106,39 @@ class TestReturnsTheSignedInUser:
         assert access["reason"] == "NO_SUBSCRIPTION"
         assert access["cta"] == "subscribe"
 
+    def test_carries_the_reason_label_as_well_as_the_code(self, client, account) -> None:
+        """Added 2026-09-29 for the account page.
+
+        ``resolve_account_access`` can return twelve of the fourteen reasons, and a
+        client showing somebody their own account state needs words for all twelve.
+        Without a label the frontend keeps its own table of them — a second copy of
+        this vocabulary, which drifts the day M8 adds a reason. ``denial.ts``
+        already records what that costs: it branched for nine milestones on two
+        reasons that never existed.
+
+        ``reason`` stays the thing to branch on (ADR-004); this is the thing to
+        display, and the values remain the stable contract while a label is
+        presentation.
+        """
+        _sign_in(client, account)
+
+        access = client.get(ME).json()["access"]
+
+        assert access["label"] == "Never subscribed"
+
+    def test_the_label_follows_the_reason_rather_than_being_fixed(self, client, account) -> None:
+        """The twin. A hardcoded label would satisfy the test above."""
+        from apps.entitlements.providers.fake import FakeBillingProvider
+        from apps.entitlements.services import start_subscription
+
+        start_subscription(user=account, provider=FakeBillingProvider())
+        _sign_in(client, account)
+
+        access = client.get(ME).json()["access"]
+
+        assert access["reason"] == "SUBSCRIPTION_ACTIVE"
+        assert access["label"] == "Active subscription"
+
     def test_the_decision_follows_the_subscription(self, client, account) -> None:
         """Provoked in both directions. A hardcoded denial would pass the test
         above and be indistinguishable from a working resolver."""

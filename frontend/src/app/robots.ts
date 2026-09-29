@@ -21,6 +21,9 @@ const NEVER_INDEX = [
   "/reset-password/",
   "/verify-email/",
   "/my-courses/",
+  // Added with the route itself, 2026-09-29. An account page is the most
+  // personal surface in the product and the least useful thing in a search index.
+  "/account/",
   "/api/",
 ] as const;
 
