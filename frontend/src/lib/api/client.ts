@@ -201,6 +201,24 @@ export const api = {
       json: { token, new_password: newPassword },
     }),
 
+  /**
+   * Change the password of the signed-in user.
+   *
+   * **The only authenticated endpoint in the auth group, and it had no caller
+   * until 2026-09-29** — the fourth this addendum has found. Without it a signed-in
+   * learner could only change their password by signing out and going through the
+   * emailed reset, which is a worse flow and one that needs their inbox.
+   *
+   * Unlike the reset, this leaves the *current* browser signed in:
+   * `PasswordChangeView` calls `update_session_auth_hash` after the change, so the
+   * session that made the request survives and every other one dies. The interface
+   * must say that rather than borrowing the reset page's "signed out everywhere".
+   */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ detail: string }>("/auth/password/change/", {
+      json: { current_password: currentPassword, new_password: newPassword },
+    }),
+
   verifyEmail: (token: string) =>
     request<{ detail: string }>("/auth/verify-email/", { json: { token } }),
 

@@ -217,11 +217,14 @@ render's values and report the same beat forever.
 
 ### An endpoint with no caller is not a wired endpoint
 
-**Three auth endpoints had none until 2026-09-28** — `verify-email`,
-`resend-verification`, and in effect `password/reset/confirm/`, which only a URL
-nobody could receive would reach. `api.verifyEmail` had existed the whole time,
-which is the trap: a wrapper in `client.ts` looks like coverage and proves only
-that somebody typed the URL.
+**Four auth endpoints had none.** `verify-email`, `resend-verification` and, in
+effect, `password/reset/confirm/` — which only a URL nobody could receive would
+reach — were wired on 2026-09-28. **`password/change/` followed on 2026-09-29**: the
+only authenticated endpoint in the auth group, present since M2, and a signed-in
+learner could change their password only by signing out and using the emailed reset.
+
+`api.verifyEmail` had existed the whole time, which is the trap: a wrapper in
+`client.ts` looks like coverage and proves only that somebody typed the URL.
 
 Worth a check when a milestone claims a flow is done: grep the client's methods for
 callers outside `client.ts`. A method with none is either dead or a flow that

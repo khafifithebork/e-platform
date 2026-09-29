@@ -150,6 +150,17 @@ describe("signed in", () => {
     expect(await screen.findByText("learner@example.test")).toBeInTheDocument();
   });
 
+  it("makes the address the way into the account page", async () => {
+    // Added 2026-09-29 with `/account`. It was the one piece of personal
+    // information on screen with nowhere to go.
+    render(<AuthMenu />);
+
+    expect(await screen.findByRole("link", { name: "learner@example.test" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+  });
+
   it("offers no sign-in link", async () => {
     // The negative. Both states rendering at once is what a component that
     // appends rather than switches produces.

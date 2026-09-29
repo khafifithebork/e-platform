@@ -266,7 +266,7 @@ describe("robots.txt", () => {
     expect(rules.rules).toMatchObject({ userAgent: "*", allow: "/" });
   });
 
-  it("names every authentication route, because an indexed sign-in form is a lure", async () => {
+  it("names every private route, because an indexed sign-in form is a lure", async () => {
     /**
      * Not a security control — the session cookie and the server's own checks are
      * that, and a crawler ignoring this file still gets refused. It is about not
@@ -274,7 +274,8 @@ describe("robots.txt", () => {
      * name, and an indexed `/reset-password/` invites arrivals with no token.
      *
      * Asserted as a set against the routes that exist, so a route added later
-     * without a decision about indexing shows up here.
+     * without a decision about indexing shows up here. **It worked**: `/account/`
+     * was added on 2026-09-29 and this list is where its absence surfaced.
      */
     vi.stubEnv("SITE_URL", ORIGIN);
 
@@ -288,6 +289,7 @@ describe("robots.txt", () => {
       "/reset-password/",
       "/verify-email/",
       "/my-courses/",
+      "/account/",
       "/api/",
     ]) {
       expect(listed, path).toContain(path);
@@ -333,9 +335,20 @@ describe("which routes declare a canonical", () => {
   it("is no auth, learner or instructor route", () => {
     /**
      * These pages are `Disallow`ed in robots.txt and must not contradict that with a
-     * canonical inviting indexing. A grep, deliberately: the point is that no file
-     * in those groups mentions `alternates` at all, which a rendered check on the
-     * four routes that exist today would stop enforcing the moment a fifth appeared.
+     * canonical inviting indexing. A grep, deliberately: a rendered check on the four
+     * routes that exist today would stop enforcing this the moment a fifth appeared.
+     *
+     * **Matches the declaration and the call, not the names** — and that is a
+     * correction, made on 2026-09-29 when `/account` arrived. The first version
+     * matched `/alternates|publicMetadata/` anywhere in the file, so it fired on the
+     * new page's own docstring saying it has *no* `publicMetadata` and why.
+     *
+     * That is the second time in two days a grep guard has failed on the comment
+     * explaining the thing's absence: the same version of this file asserted the root
+     * layout contained no `alternates`, and the root layout explains at length why it
+     * does not. **A guard that greps for a name will eventually fire on the prose
+     * about that name**, and the fix both times was to match the syntax instead —
+     * `alternates:` as a property, `publicMetadata(` as a call.
      */
     const groups = ["(auth)", "(learner)", "(app)", "(instructor)"];
     const offenders: string[] = [];
@@ -344,7 +357,9 @@ describe("which routes declare a canonical", () => {
       for (const file of filesUnder(join(APP, group))) {
         if (!file.endsWith(".tsx") && !file.endsWith(".ts")) continue;
         if (file.includes(".test.")) continue;
-        if (/alternates|publicMetadata/.test(readFileSync(file, "utf8"))) offenders.push(file);
+        if (/alternates\s*:|publicMetadata\s*\(/.test(readFileSync(file, "utf8"))) {
+          offenders.push(file);
+        }
       }
     }
 

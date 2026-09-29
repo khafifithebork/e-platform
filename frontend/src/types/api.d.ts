@@ -178,6 +178,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me/export/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export your own data
+         * @description GDPR Article 15 and 20, served synchronously.
+         *
+         *     Identity comes from the session, exactly as ``MeView`` does and for the same
+         *     reason: there is no path, query or header parameter that selects a user, so
+         *     there is no identifier to manipulate. This is the endpoint where that
+         *     property matters most — it returns everything about one person.
+         *
+         *     A GET, because it reads. That means it must not be cached: an export sitting
+         *     in a shared proxy or a disk cache is somebody's whole profile left behind on
+         *     a machine they borrowed, so ``Cache-Control: no-store`` is set below and a
+         *     test asserts it.
+         *
+         *     What the file contains, and the reasoning for every exclusion, is documented
+         *     on ``personal_data_export`` rather than here — this view does four things:
+         *     check the session, call the selector, name the file, refuse caching.
+         */
+        get: operations["auth_me_export_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/password/change/": {
         parameters: {
             query?: never;
@@ -1203,6 +1237,7 @@ export interface components {
             readonly allowed: boolean;
             readonly reason: components["schemas"]["ReasonEnum"];
             readonly cta: (components["schemas"]["CtaEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly label: string;
         };
         AccessDecision: {
             readonly allowed: boolean;
@@ -2422,6 +2457,31 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Me"];
                 };
+            };
+            /** @description Not signed in. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_me_export_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Everything this service holds about the signed-in account, as JSON. Sent as a download. Course content and administrative records naming other people are excluded — see the selector for the full list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in. */
             403: {

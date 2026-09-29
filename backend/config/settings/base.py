@@ -396,6 +396,14 @@ REST_FRAMEWORK = {
         # No account to lock out here, so the rate limit is the only brake on
         # guessing a token.
         "verify_email": "10/hour",
+        # A data export reads every row this service holds about one person.
+        # Cheap for a curated catalogue — tens of rows — and not something
+        # anybody does twice in an afternoon, so the limit is low enough that a
+        # stolen session cannot be used to pull the same profile repeatedly while
+        # still being far more than a real person needs. GDPR gives no response
+        # time this would breach: a month is the statutory limit, and this is
+        # immediate.
+        "data_export": "6/hour",
     },
 }
 

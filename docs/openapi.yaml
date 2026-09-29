@@ -228,6 +228,37 @@ paths:
           description: ''
         '403':
           description: Not signed in.
+  /api/v1/auth/me/export/:
+    get:
+      operationId: auth_me_export_retrieve
+      description: |-
+        GDPR Article 15 and 20, served synchronously.
+
+        Identity comes from the session, exactly as ``MeView`` does and for the same
+        reason: there is no path, query or header parameter that selects a user, so
+        there is no identifier to manipulate. This is the endpoint where that
+        property matters most — it returns everything about one person.
+
+        A GET, because it reads. That means it must not be cached: an export sitting
+        in a shared proxy or a disk cache is somebody's whole profile left behind on
+        a machine they borrowed, so ``Cache-Control: no-store`` is set below and a
+        test asserts it.
+
+        What the file contains, and the reasoning for every exclusion, is documented
+        on ``personal_data_export`` rather than here — this view does four things:
+        check the session, call the selector, name the file, refuse caching.
+      summary: Export your own data
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Everything this service holds about the signed-in account,
+            as JSON. Sent as a download. Course content and administrative records
+            naming other people are excluded — see the selector for the full list.
+        '403':
+          description: Not signed in.
   /api/v1/auth/password/change/:
     post:
       operationId: auth_password_change_create
@@ -2073,9 +2104,13 @@ components:
           oneOf:
           - $ref: '#/components/schemas/CtaEnum'
           - $ref: '#/components/schemas/NullEnum'
+        label:
+          type: string
+          readOnly: true
       required:
       - allowed
       - cta
+      - label
       - reason
     AccessDecision:
       type: object

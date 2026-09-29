@@ -127,6 +127,21 @@ class AccessSerializer(serializers.Serializer):
     # exhaustive over. As a bare string the set lived in two places and drifted.
     reason = serializers.ChoiceField(choices=Reason.choices, read_only=True)
     cta = serializers.ChoiceField(choices=Cta.CHOICES, read_only=True, allow_null=True)
+    # The reason's own label, so a caller can say what happened without keeping
+    # its own table of twelve strings.
+    #
+    # `resolve_account_access` can return twelve of the fourteen reasons — every
+    # one except the two lesson-specific grants — and the frontend needs words for
+    # all of them on an account page. Restating them client-side would be a second
+    # copy of this vocabulary, drifting the day M8 adds a reason; `denial.ts`
+    # already documents what that costs, having branched for nine milestones on two
+    # reasons that never existed.
+    #
+    # `reason` stays the thing to branch on. This is the thing to *display*, and
+    # ADR-004 is explicit that a client echoes the server's wording rather than
+    # improving it. The values are the stable API contract; a label is presentation
+    # and may be reworded without it being a breaking change.
+    label = serializers.CharField(read_only=True)
 
 
 class MeSerializer(serializers.Serializer):
@@ -172,4 +187,8 @@ class MeSerializer(serializers.Serializer):
             "allowed": decision.allowed,
             "reason": str(decision.reason),
             "cta": decision.cta,
+            # `Reason(...)` rather than a dict lookup, so a reason that is not a
+            # member raises here instead of silently rendering an empty label. The
+            # resolver only ever returns members; this is the assertion of that.
+            "label": Reason(decision.reason).label,
         }
