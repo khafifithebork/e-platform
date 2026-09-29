@@ -7,7 +7,7 @@ professional-quality addendum's first two batches — both merged)
 
 ---
 
-## The quality addendum — five batches of fourteen areas
+## The quality addendum — six batches of fourteen areas
 
 **The audit that produced the section below was about accessibility, boundaries and
 measurement. This one asks a different question: is this a product a stranger could
@@ -16,8 +16,8 @@ policy pages, multilingual, account and privacy, subscription transparency, cour
 discovery, learning comfort, brand assets, colour and type, interaction polish,
 accessible HTML, SEO, performance, security and operations, and browser
 verification. The owner approved **batch one**, then **batch two**, then **batch
-three** — which carried the first backend work — then **batch four**, then **batch
-five**. **Five of the fourteen areas have been touched**, and two of them are half
+three** — which carried the first backend work — then **batch four**, **five** and
+**six**. **Six of the fourteen areas have been touched**, and two of them are half
 blocked on decisions rather than on code.
 
 **This checklist is not complete and must not be reported as complete.**
@@ -377,6 +377,55 @@ change rather than a tweak.
 recorded as a known cost since M15. It becomes worth paying for when somebody wants to
 share "B1 Spanish, speaking" — and the fix is route segments, not a query string.
 
+### Batch six — four dead ends that told people to try again and gave them nothing
+
+**Interaction polish turned out to be one finding in four places.** Every failed
+load in the application ended with advice:
+
+| Surface | What it said |
+|---|---|
+| `MyCourses` | "Your courses could not be loaded. Try again in a moment." |
+| `LessonGate` | "Something went wrong. Try again in a moment." |
+| `AccountDetails` | "Your account could not be loaded. Reloading the page usually fixes it." |
+| `LessonPlayer` | "This lesson could not be loaded." |
+
+The common cause of all four is a lapsed connection — **the case where one click
+fixes it**. And the `AccountDetails` advice was worse than unhelpful: reloading would
+also discard anything typed into the password form below it.
+
+They were three different things on screen, too: a bare `<p className="text-danger">`,
+a page-level interstitial, and two `Notice`s. One `LoadFailure` component for all four
+is the consistency half of the same fix.
+
+**Retrying re-runs the load, not the page.** Each caller keeps a counter in its
+effect's dependency array, so the failed request is repeated while a half-read
+transcript, a filtered catalogue or an unsent form stays where it was.
+
+**The button sits outside the live region**, which is the one structural decision.
+`Notice` is `role="alert"` with `aria-live="assertive"`; a control inside a live region
+can have its label read as part of the announcement, and in some screen-reader
+combinations changing its state re-announces the whole region — so pressing "Try
+again" would re-read the error at somebody.
+
+**No automatic retry and no backoff.** A component that retried on its own would
+hammer an API that is already failing, and the failure a learner actually meets is
+their own connection, where the right number of attempts is "when they are back".
+
+`CourseSearch` keeps its inline message and gains a comment saying why, so it does not
+read as an omission: the debounce re-fires on the next keystroke, so the retry is
+already there.
+
+**A lint rule earned its keep.** The state resets were first written at the top of
+each effect, and `react-hooks/set-state-in-effect` objected correctly — an
+unconditional `setState` in an effect body costs an extra render on *every* mount to
+serve a case that happens rarely. They live in the retry handlers now.
+
+10 provocations, all caught. 613 frontend tests across 49 files.
+
+**Ten files in one change**, which is CLAUDE.md §9's escalation line. Flagged to the
+owner before starting and kept together deliberately: splitting it would leave the
+application inconsistent between merges, which is the thing the batch exists to fix.
+
 ### The areas nobody has touched
 
 Recorded by name so the next session does not re-derive the list, and so "two of
@@ -393,21 +442,24 @@ proposed, let alone approved.**
 | ~~**Learning comfort**~~ | **Batch four, 2026-09-29.** Captions declare their language, playback speed 0.5×–1.5× persisted per device, a back-5-seconds control, and `::cue` styling. **Nobody has watched a real video at any of it** — no provider is configured |
 | **Brand assets** | The icon landed in batch two. No OG image, no `apple-icon`, no touch icons |
 | **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
-| **Interaction polish** | Not reviewed in detail. The motion system and focus treatment are both settled and tested |
+| ~~**Interaction polish**~~ | **Batch six, 2026-09-29.** Reviewed, and it was one finding in four places: every failed load dispensed advice instead of offering a retry. The motion system and focus treatment were already settled and needed nothing |
 | **Accessible HTML** | Covered by ADR-030, axe, `verify:a11y` and the runbook. The outstanding items are the human passes, not markup |
 | **Performance** | Measured — 312–326 KB gz per route. **A 350 KB budget is proposable and enforcing it needs the owner** |
 | **Security and operations** | Sentry, CSP, `_headers`, throttling and lockout all exist. The four moderate advisories above are the live item |
 
-**The honest summary: the five batches that shipped were the five areas where
+**The honest summary: the six batches that shipped were the six areas where
 something was actually broken** — two unredeemable tokens, a site invisible to
 crawlers, an account with no surface, a player whose captions could not say what
-language they were in, and a catalogue that blamed its first visitors for being
-empty. The rest is a mix of genuinely blocked
+language they were in, a catalogue that blamed its first visitors for being empty,
+and four failed loads that told people to try again without giving them a way to. The rest is a mix of genuinely blocked
 (policy content, billing, caption language), already covered by earlier work, and not
 yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
 
-**Nine areas remain untouched**, and the table above is the list.
+**Eight areas remain untouched**, and the table above is the list. **Most of them are
+not ours to close** — policy content, billing, a launch locale and two budget
+decisions are the owner's; colour/type and accessible HTML are already the most
+examined parts of the product and nothing outstanding was found in either.
 
 ### The audit gate was red before either batch touched it
 
