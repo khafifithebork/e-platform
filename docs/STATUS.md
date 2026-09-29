@@ -7,7 +7,7 @@ professional-quality addendum's first two batches — both merged)
 
 ---
 
-## The quality addendum — three batches of fourteen areas
+## The quality addendum — four batches of fourteen areas
 
 **The audit that produced the section below was about accessibility, boundaries and
 measurement. This one asks a different question: is this a product a stranger could
@@ -16,8 +16,9 @@ policy pages, multilingual, account and privacy, subscription transparency, cour
 discovery, learning comfort, brand assets, colour and type, interaction polish,
 accessible HTML, SEO, performance, security and operations, and browser
 verification. The owner approved **batch one**, then **batch two**, then **batch
-three** — which carried the first backend work. **Three of the fourteen areas have
-been touched**, and two of the three are half blocked on decisions rather than code.
+three** — which carried the first backend work — and then **batch four**. **Four of
+the fourteen areas have been touched**, and two of them are half blocked on decisions
+rather than on code.
 
 **This checklist is not complete and must not be reported as complete.**
 
@@ -26,6 +27,8 @@ been touched**, and two of the three are half blocked on decisions rather than c
 | #95 | Batch one — the two emailed tokens, redeemable at last | 2026-09-28 |
 | #96 | Batch two — canonical URLs, sitemap, robots, the icon | 2026-09-29 |
 | #98 | Batch three — the account page, and a data export | 2026-09-29 |
+| #100 | Batch four, part one — captions declare their language | 2026-09-29 |
+| #101 | Batch four, part two — playback speed and a replay control | open |
 
 **Two ADRs — ADR-034 (emailed tokens are pasted) and ADR-035 (canonical URLs and
 indexing) — and one dependency bump nobody asked for**, which turned out to be a
@@ -258,6 +261,71 @@ lists them: invoices against tax retention in a jurisdiction that is itself unre
 instructor wrote, and the fact that **there is no contact route for a request to
 arrive through**. The page says so out loud and names no channel.
 
+### Batch four — learning comfort, and a completion bug the speed control exposed
+
+**Captions now say what language they are in**, and the blocker that held that since
+2026-09-27 was never real — ADR-033 §3a has the full correction. `Transcript.language`
+has been a foreign key to `Language` since M6, `LessonTranscript.language_code` was in
+the generated types the whole time, and the player fetched that payload on every lesson
+load and discarded the field. One serializer field, `language_name`, was the only
+backend work genuinely needed. PR #100.
+
+**Then the speed control, and the thing it uncovered.** A playback-rate selector for a
+language platform is not a display setting: 0.5× is what lets somebody hear a phrase
+they cannot yet parse, and it is arguably the single most valuable comfort feature this
+product can have.
+
+**It would have corrupted completion.** The server decides completion as
+`watched_seconds >= duration_seconds * LESSON_COMPLETION_THRESHOLD`, so
+`watched_seconds` is denominated in *content* seconds — and `watchedSince` returned
+wall-clock seconds. At 1× those are identical, which is why nothing noticed for nine
+milestones. Once a rate exists it breaks both ways:
+
+- **at 1.5×** a ten-minute lesson is watched through in under seven wall-clock minutes,
+  claims under seven, and **never completes**, however many times it is watched;
+- **at 0.5×** ten wall-clock minutes cover five minutes of content, so the lesson
+  **completes half-heard** — the exact "scrubbed to the end and heard nothing" failure
+  ADR-016 §2 was built to prevent, arrived at from the opposite direction.
+
+**And the fix uncovered a second-order one.** Scaling makes the accumulator fractional,
+and `watched_delta_seconds` is an `IntegerField`. The client already rounds, so nothing
+would have been rejected — it would have **over-claimed half a second on every beat at
+1.5×**, two minutes an hour, always in the same direction. The beat now floors and
+carries the remainder, and the tests assert totals across four beats, because a single
+beat cannot show drift.
+
+**Both controls are buttons and a select, not keyboard shortcuts.** WCAG 2.2 AA 2.1.4
+constrains single-character shortcuts — switchable off, remappable, or focus-scoped —
+and ADR-030 committed this product to 2.2 AA. Real controls satisfy it by construction
+and work on a touch screen, where a shortcut is nothing at all.
+
+**`::cue` is pinned in `assert-css-tokens.mjs`**, and that is the interesting part of
+the caption styling. A rule the browser draws inside a shadow tree has no observable
+property except having reached the stylesheet: no test can query it, no component
+renders it, jsdom has no captions. **CSS has vanished silently from this build twice** —
+45 token classes and a whole `@media` block — so the pin is the only thing that would
+notice a third time. Provoked by deleting the rule and rebuilding.
+
+**First production use of `localStorage`.** Invariant 9 forbids auth data there, not
+preferences — the line ADR-032 §3 drew for a theme. A stored value is validated against
+the offered set before it reaches `playbackRate`, where `Infinity` and a negative throw
+and `NaN` silently stops playback; storage is not input we control.
+
+12 provocations on the controls, all caught, plus 7 on the captions and the CSS pin
+provoked separately.
+
+### Batch four's own open items
+
+**Nobody has watched a video at 0.75× in a browser.** No video provider is configured
+(§11 #1 is not the blocker here — M5 shipped a fake provider deliberately), so the
+speed control has only ever driven the stand-in clock, which honours the rate by
+design. The `<video>` path, `::cue` rendering and the captions menu showing "Spanish"
+all need a real provider and a person.
+
+**Caption styling is one `::cue` rule.** Size is left to the browser on purpose, because
+caption size is an operating-system accessibility setting and overriding it takes that
+control from the people who have already set it.
+
 ### The areas nobody has touched
 
 Recorded by name so the next session does not re-derive the list, and so "two of
@@ -271,7 +339,7 @@ proposed, let alone approved.**
 | ~~**Account and privacy**~~ | **Batch three, 2026-09-29.** `/account` shows what the API knows and changes a password; `GET /auth/me/export/` is the Article 15 export. **Deletion is not built** — ADR-036 §5, and it is a retention question, not an engineering one |
 | **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
 | **Course discovery** | Search exists (M11, Postgres full-text with trigram fallback). Browsing beyond language and level does not |
-| **Learning comfort** | Playback rate, captions styling and a replay control are open. **`<track>`'s `srclang` and `label` are done — 2026-09-29 — and were never actually blocked**, see below |
+| ~~**Learning comfort**~~ | **Batch four, 2026-09-29.** Captions declare their language, playback speed 0.5×–1.5× persisted per device, a back-5-seconds control, and `::cue` styling. **Nobody has watched a real video at any of it** — no provider is configured |
 | **Brand assets** | The icon landed in batch two. No OG image, no `apple-icon`, no touch icons |
 | **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
 | **Interaction polish** | Not reviewed in detail. The motion system and focus treatment are both settled and tested |
@@ -279,14 +347,15 @@ proposed, let alone approved.**
 | **Performance** | Measured — 312–326 KB gz per route. **A 350 KB budget is proposable and enforcing it needs the owner** |
 | **Security and operations** | Sentry, CSP, `_headers`, throttling and lockout all exist. The four moderate advisories above are the live item |
 
-**The honest summary: the three batches that shipped were the three areas where
+**The honest summary: the four batches that shipped were the four areas where
 something was actually broken** — two unredeemable tokens, a site invisible to
-crawlers, and an account with no surface. The rest is a mix of genuinely blocked
+crawlers, an account with no surface, and a player whose captions could not say what
+language they were in. The rest is a mix of genuinely blocked
 (policy content, billing, caption language), already covered by earlier work, and not
 yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
 
-**Eleven areas remain untouched**, and the table above is the list.
+**Ten areas remain untouched**, and the table above is the list.
 
 ### The audit gate was red before either batch touched it
 

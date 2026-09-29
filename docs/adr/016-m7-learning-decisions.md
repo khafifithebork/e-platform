@@ -1,6 +1,7 @@
 # ADR-016 — M7 learning experience: enrolment is not entitlement
 
-**Status:** Accepted
+**Status:** Accepted. **§2 gained a stated assumption on 2026-09-29** — see the
+subsection there; the decision is unchanged, what it relied on is now written down.
 **Date:** 2026-08-21
 **Amends:** `architecture.md` §5.2 (see §3).
 **Context:** M7 — Learning Experience. Taken before any code.
@@ -58,6 +59,38 @@ accident* when somebody drags a scrubber.
 
 **90% is a guess**, and it lives in a named setting rather than a literal, so
 the boundary is a value a test moves and changing it is configuration.
+
+### An assumption this section did not state — **added 2026-09-29**
+
+`watched_seconds` is compared against the lesson's **duration**, so it has to be
+denominated in the same units: *content* seconds, not wall-clock seconds.
+
+That was true and invisible for nine milestones, because the player had no speed
+control and at 1× the two are the same number. Adding one at batch four of the
+quality addendum made the difference real, and the client was counting wall clock:
+
+- **At 1.5×** a ten-minute lesson is watched through in under seven wall-clock
+  minutes and claims under seven. Against a 540-second threshold it **never
+  completes**, however many times the learner watches it.
+- **At 0.5×** ten wall-clock minutes cover five minutes of content, so the lesson
+  **completes having been half heard** — which is this section's own "dragged the
+  scrubber and heard nothing" failure, reached from the opposite direction.
+
+`watchedSince` now takes a playback rate and returns content seconds. **Scaling on
+the client rather than the server is deliberate:** the server cannot know the rate,
+and accepting one would be a second number to validate and to disbelieve. What
+arrives is what this rule already expects.
+
+A consequence worth recording: the accumulated delta is now fractional, and
+`watched_delta_seconds` is an `IntegerField`. The client floors each beat and
+carries the remainder, so the total claimed over a lesson is the content time
+actually watched. Rounding instead would over-claim half a second per beat at
+1.5× — two minutes an hour, always in the same direction, which is enough to
+complete a long lesson early.
+
+**Nobody has watched a real video at a non-default speed**, because no video
+provider is configured. The arithmetic is asserted across four beats; the `<video>`
+element's own `playbackRate` is not, and cannot be here.
 
 ---
 

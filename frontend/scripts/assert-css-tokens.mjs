@@ -118,7 +118,38 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
+/**
+ * Rules that must survive compilation, and which nothing else would notice losing.
+ *
+ * **CSS has vanished silently from this project's output twice.** 45 token classes
+ * written in Tailwind 3's `-[--token]` spelling compiled to declarations the browser
+ * drops, and a hand-written `@media (width < 80rem)` block disappeared whole — the
+ * rules either side of it survived, so nothing looked wrong. Neither had an error,
+ * a warning, or a failing test.
+ *
+ * So a rule that cannot be checked any other way gets checked here. `::cue` styles
+ * the text inside a `<track>`, which the browser draws in a shadow tree: no test can
+ * query it, no component renders it, and jsdom has no captions at all. Its only
+ * observable property is that it reached the stylesheet.
+ */
+const MUST_SURVIVE = [
+  { selector: "::cue", why: "caption legibility over video — nothing else can see it" },
+];
+
+const missing = MUST_SURVIVE.filter(
+  ({ selector }) => !files.some((file) => readFileSync(file, "utf8").includes(selector)),
+);
+
+if (missing.length > 0) {
+  console.error(
+    "Rules that should be in the compiled CSS are not.\n" +
+      "CSS has disappeared from this build twice before without any error.\n",
+  );
+  for (const { selector, why } of missing) console.error(`  ${selector}  — ${why}`);
+  process.exit(1);
+}
+
 console.log(
   `Every token reference resolves: ${files.length} stylesheet(s) checked, ` +
-    `no bare custom-property values.`,
+    `no bare custom-property values, ${MUST_SURVIVE.length} pinned rule(s) present.`,
 );

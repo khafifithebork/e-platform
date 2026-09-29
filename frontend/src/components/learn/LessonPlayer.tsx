@@ -17,6 +17,15 @@ import {
   type TranscriptSegment,
 } from "@/lib/api/client";
 import { BEAT_SECONDS, watchedSince, worthSending } from "@/lib/learn/heartbeat";
+import {
+  DEFAULT_PLAYBACK_RATE,
+  PLAYBACK_RATES,
+  REPLAY_SECONDS,
+  type PlaybackRate,
+  readPlaybackRate,
+  replayFrom,
+  writePlaybackRate,
+} from "@/lib/learn/preferences";
 
 /**
  * How a playback id becomes a URL, if a provider is configured.
@@ -120,6 +129,18 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
 
+  /**
+   * Playback speed, remembered per device.
+   *
+   * Initialised in an effect rather than from `useState(readPlaybackRate)`, because
+   * reading `localStorage` during render makes the first client render disagree with
+   * the server's and React treats that as a hydration mismatch. The lesson page is
+   * never server-rendered, but the habit is the one that caused the reduced-motion
+   * bug at M15, so it is not repeated here.
+   */
+  const [rate, setRate] = useState<PlaybackRate>(DEFAULT_PLAYBACK_RATE);
+  const rateRef = useRef<number>(DEFAULT_PLAYBACK_RATE);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Refs, not state, for everything the ticker touches. The interval is
@@ -145,16 +166,32 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
     async (final: boolean) => {
       if (!readyRef.current) return;
 
+      /**
+       * Whole seconds only, with the fraction carried.
+       *
+       * The accumulator became fractional when the speed control arrived — fifteen
+       * seconds at 1.5× is 22.5 seconds of content — and `watched_delta_seconds` is
+       * an `IntegerField` on the server. The client already rounds, so nothing would
+       * have been rejected; it would have **over-claimed half a second on every
+       * beat**, which is two minutes an hour, all of it in the same direction.
+       *
+       * Flooring and carrying the remainder means the total claimed over a lesson
+       * is the content time actually watched, whatever the speed — asserted over
+       * four beats rather than one, because a single beat cannot show drift.
+       */
+      const claimable = Math.floor(unreportedRef.current);
+
       const beat = {
         positionSeconds: positionRef.current,
-        watchedDeltaSeconds: unreportedRef.current,
+        watchedDeltaSeconds: claimable,
       };
       if (!worthSending(beat, lastSentPositionRef.current)) return;
 
-      // Cleared before the request, not after. A beat that fails has still
+      // Deducted before the request, not after. A beat that fails has still
       // consumed that stretch of watching; carrying it forward would let a
-      // flaky connection accumulate an hour and then claim it all at once.
-      unreportedRef.current = 0;
+      // flaky connection accumulate an hour and then claim it all at once. The
+      // sub-second remainder does carry, because it has not been claimed.
+      unreportedRef.current -= claimable;
       lastSentPositionRef.current = Math.round(beat.positionSeconds);
 
       if (final) {
@@ -249,17 +286,46 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
     };
   }, [lessonId]);
 
+  /**
+   * Restore the remembered speed once, on the client.
+   *
+   * **`react-hooks/set-state-in-effect` objects to this, and it is wrong here.**
+   * The rule's usual advice — a lazy `useState(() => readPlaybackRate())` — reads
+   * during render, and this component is server-rendered despite `"use client"`:
+   * the lesson route is dynamic, so the server renders it first. There
+   * `localStorage` does not exist, the read returns the default, and the client's
+   * first render would then return a stored `0.75` against server HTML that said
+   * `1` — a hydration mismatch.
+   *
+   * That is the exact fault M15 spent a day on, where a mismatch left the landing
+   * page's hero stuck at `opacity: 0` for every reduced-motion visitor. An effect
+   * costs one extra render and cannot mismatch, because it runs after hydration.
+   */
+  useEffect(() => {
+    const stored = readPlaybackRate();
+    rateRef.current = stored;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above: reading browser storage during render is a hydration mismatch, and this component is server-rendered
+    setRate(stored);
+  }, []);
+
   useEffect(() => {
     let secondsSinceBeat = 0;
 
     const ticker = window.setInterval(() => {
-      const watched = watchedSince(1, playingRef.current);
+      // Scaled by the rate, because the server measures completion against the
+      // lesson's *duration* — see `watchedSince`. Wall-clock counting makes a
+      // lesson uncompletable at 1.5× and completable half-heard at 0.5×.
+      const watched = watchedSince(1, playingRef.current, rateRef.current);
       unreportedRef.current += watched;
 
       // The stand-in advances its own clock; a real element is asked for its
       // playhead, because seeking and buffering both move it without us.
+      //
+      // The stand-in honours the rate too — one line, and it is what makes the
+      // control demonstrable before a video provider exists, which is the whole
+      // argument for the stand-in existing at all (ADR-016 §4).
       if (playingRef.current && !videoRef.current) {
-        positionRef.current += 1;
+        positionRef.current += rateRef.current;
         setPosition(positionRef.current);
       } else if (videoRef.current) {
         positionRef.current = videoRef.current.currentTime;
@@ -290,6 +356,20 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
     positionRef.current = seconds;
     setPosition(seconds);
     if (videoRef.current) videoRef.current.currentTime = seconds;
+  }, []);
+
+  /**
+   * Change the speed, apply it, and remember it.
+   *
+   * The ref is what the ticker reads — state would be captured as it was on the
+   * render that installed the interval, which is the same trap the position and
+   * playing refs above exist for.
+   */
+  const changeRate = useCallback((next: PlaybackRate) => {
+    rateRef.current = next;
+    setRate(next);
+    writePlaybackRate(next);
+    if (videoRef.current) videoRef.current.playbackRate = next;
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -349,8 +429,13 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
               setPlaying(false);
             }}
             onLoadedMetadata={() => {
-              if (positionRef.current > 0 && videoRef.current) {
-                videoRef.current.currentTime = positionRef.current;
+              if (videoRef.current) {
+                if (positionRef.current > 0) {
+                  videoRef.current.currentTime = positionRef.current;
+                }
+                // Loading a source resets `playbackRate` to 1, so a remembered
+                // speed has to be reapplied here rather than only when it changes.
+                videoRef.current.playbackRate = rateRef.current;
               }
             }}
             className="w-full rounded-(--radius-md) bg-black shadow-(--shadow-md)"
@@ -393,6 +478,56 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
             </Button>
           </div>
         )}
+
+        {/*
+         * The two comfort controls, and why they are buttons and a select rather
+         * than keyboard shortcuts.
+         *
+         * Single-character shortcuts — `k`, `j`, `l`, the convention borrowed from
+         * video sites — are constrained by **WCAG 2.2 AA 2.1.4 Character Key
+         * Shortcuts**, which ADR-030 committed this product to: they must be
+         * switchable off, remappable, or active only while the component has focus.
+         * Meeting that means a preferences surface and a focus-scoped handler for
+         * two actions. Real controls satisfy it by construction, are reachable by
+         * Tab, announce themselves, and work on a touch screen, where a keyboard
+         * shortcut is nothing at all.
+         *
+         * Arrow keys and space already work inside the native `<video>` when it has
+         * focus. This row is for the two actions its own controls do not offer
+         * prominently, and for the stand-in, which has no controls at all.
+         */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => seek(replayFrom(positionRef.current))}
+            disabled={denial != null}
+          >
+            {/* The label says what it does, not which direction an icon points.
+                "Back 5 seconds" is what a screen reader should read out. */}
+            Back {REPLAY_SECONDS} seconds
+          </Button>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="playback-rate" className="text-sm text-ink-muted">
+              Speed
+            </label>
+            <select
+              id="playback-rate"
+              value={rate}
+              onChange={(event) => changeRate(Number(event.target.value) as PlaybackRate)}
+              disabled={denial != null}
+              className="rounded-(--radius-sm) border border-line-strong bg-surface px-2 py-1
+                text-sm text-ink disabled:opacity-60"
+            >
+              {PLAYBACK_RATES.map((option) => (
+                <option key={option} value={option}>
+                  {option}×
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <div className="flex items-center justify-between text-sm text-ink-muted">
           <span>
