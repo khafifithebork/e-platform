@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Notice } from "@/components/ui/Notice";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { ApiError, api, type Me } from "@/lib/api/client";
 
 /**
@@ -34,6 +34,14 @@ type State =
 
 export function AccountDetails() {
   const [state, setState] = useState<State>({ status: "loading" });
+  /** Bumped to retry a failed load. See `LoadFailure`. */
+  const [attempt, setAttempt] = useState(0);
+
+  /** Re-run the load that failed. The reset is here, not in the effect. */
+  function retry() {
+    setState({ status: "loading" });
+    setAttempt((n) => n + 1);
+  }
 
   useEffect(() => {
     let current = true;
@@ -60,7 +68,7 @@ export function AccountDetails() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [attempt]);
 
   if (state.status === "loading") {
     return <p className="text-ink-muted">Loading your account…</p>;
@@ -78,10 +86,12 @@ export function AccountDetails() {
   }
 
   if (state.status === "failed") {
+    // "Reloading the page usually fixes it" was advice where a button belonged —
+    // and reloading would also discard anything typed into the password form below.
     return (
-      <Notice tone="error">
-        Your account could not be loaded. Reloading the page usually fixes it.
-      </Notice>
+      <LoadFailure onRetry={retry}>
+        Your account could not be loaded.
+      </LoadFailure>
     );
   }
 

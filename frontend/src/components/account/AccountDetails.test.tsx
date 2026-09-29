@@ -10,6 +10,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AccountDetails } from "@/components/account/AccountDetails";
@@ -284,6 +285,38 @@ describe("when there is no session", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not be loaded/i);
     expect(screen.queryByRole("link", { name: /sign in/i })).toBeNull();
+  });
+
+  it("offers a retry that re-requests, rather than telling somebody to reload", async () => {
+    /**
+     * This used to say "Reloading the page usually fixes it". Reloading would also
+     * discard anything typed into the password form further down the page — so the
+     * advice was not only unhelpful, it was destructive to follow.
+     */
+    const fetchMock = stubApi(() => refusal(500, "Something went wrong."));
+
+    render(<AccountDetails />);
+    await screen.findByRole("alert");
+    const before = fetchMock.mock.calls.length;
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it("recovers when the retry succeeds", async () => {
+    // The half that proves the retry is a real reload of the data and not a button
+    // that clears the message.
+    let failing = true;
+    stubApi(() => (failing ? refusal(500, "Something went wrong.") : json(me())));
+
+    render(<AccountDetails />);
+    await screen.findByRole("alert");
+
+    failing = false;
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("learner@example.test")).toBeVisible();
   });
 
   it("reports an error for a 403 that is a permission refusal, not a missing session", async () => {

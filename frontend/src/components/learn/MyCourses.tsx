@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Button, buttonStyles } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Notice } from "@/components/ui/Notice";
 import { ApiError, api, cursorFrom, type Enrollment } from "@/lib/api/client";
 import { resumePoint } from "@/lib/learn/resume";
@@ -44,6 +45,28 @@ type State =
 
 export function MyCourses() {
   const [state, setState] = useState<State>({ status: "loading" });
+  /**
+   * Bumped to retry a failed load.
+   *
+   * A counter in the effect's dependency array, rather than a reload: a reload
+   * throws away everything else on the page to recover one request. See
+   * `LoadFailure`.
+   */
+  const [attempt, setAttempt] = useState(0);
+
+  /**
+   * Re-run the load that failed.
+   *
+   * The reset lives here rather than at the top of the effect, which is where it
+   * was first written — `react-hooks/set-state-in-effect` objected, correctly: an
+   * unconditional `setState` in an effect body costs an extra render on *every*
+   * mount to serve a case that happens rarely. An event handler is where a state
+   * reset belongs.
+   */
+  function retry() {
+    setState({ status: "loading" });
+    setAttempt((n) => n + 1);
+  }
 
   useEffect(() => {
     let current = true;
@@ -77,7 +100,7 @@ export function MyCourses() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [attempt]);
 
   /**
    * Append the next page.
@@ -134,10 +157,12 @@ export function MyCourses() {
   }
 
   if (state.status === "failed") {
+    // `LoadFailure` rather than the bare red paragraph this used to be: the same
+    // treatment as every other failed load in the app, and with something to press.
     return (
-      <p className="text-danger">
-        Your courses could not be loaded. Try again in a moment.
-      </p>
+      <LoadFailure onRetry={retry}>
+        Your courses could not be loaded.
+      </LoadFailure>
     );
   }
 

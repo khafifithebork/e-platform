@@ -17,6 +17,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LessonGate } from "@/components/learn/LessonGate";
@@ -305,6 +306,37 @@ describe("something else going wrong", () => {
     renderGate();
 
     expect(await screen.findByRole("heading", { name: /could not be loaded/i })).toBeInTheDocument();
+  });
+
+  it("offers a retry that re-requests the lesson", async () => {
+    /**
+     * "Something went wrong. Try again in a moment" was advice with nothing to
+     * press. A lesson that failed to load on a lapsed connection is the case where
+     * one click fixes it — and reloading the page instead would discard the
+     * transcript and playhead of whatever else was open.
+     */
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+
+    renderGate();
+    await screen.findByRole("heading", { name: /could not be loaded/i });
+    const before = fetchMock.mock.calls.length;
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it("keeps the back link alongside the retry, not instead of it", async () => {
+    // Two ways forward, and they are different: retry is for a blip, the back link
+    // is for a lesson that is genuinely not coming back.
+    vi.mocked(globalThis.fetch).mockRejectedValue(new TypeError("fetch failed"));
+
+    renderGate();
+    await screen.findByRole("heading", { name: /could not be loaded/i });
+
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /back to the course/i })).toBeInTheDocument();
   });
 
   it("still offers a way out", async () => {

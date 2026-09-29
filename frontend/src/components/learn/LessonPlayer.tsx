@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Notice } from "@/components/ui/Notice";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { refusalFor } from "@/lib/entitlements/denial";
@@ -124,6 +125,15 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
   const [denial, setDenial] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Bumped to retry a failed load. See `LoadFailure`. */
+  const [attempt, setAttempt] = useState(0);
+
+  /** Re-run the load that failed. The reset is here, not in the effect. */
+  function retry() {
+    setLoading(true);
+    setFailure(null);
+    setAttempt((n) => n + 1);
+  }
   const [completing, setCompleting] = useState(false);
 
   const [position, setPosition] = useState(0);
@@ -284,7 +294,7 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
     return () => {
       cancelled = true;
     };
-  }, [lessonId]);
+  }, [lessonId, attempt]);
 
   /**
    * Restore the remembered speed once, on the client.
@@ -396,7 +406,11 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
   }
 
   if (loading) return <p className="text-sm text-ink-subtle">Loading the lesson…</p>;
-  if (failure) return <Notice tone="error">{failure}</Notice>;
+  if (failure) {
+    return (
+      <LoadFailure onRetry={retry}>{failure}</LoadFailure>
+    );
+  }
   if (!lesson) return null;
 
   const finished = progress?.completed_at != null;
