@@ -174,6 +174,161 @@ describe("an empty catalogue", () => {
 
     expect(screen.getByText("0 courses")).toBeInTheDocument();
   });
+
+  it("says nothing is published rather than blaming filters nobody set", () => {
+    /**
+     * **A real defect, and this test is why it lasted.** One branch served both
+     * emptinesses, so a catalogue with nothing published told its first visitors
+     * "No courses match those filters yet. Try widening one of them" — pointing
+     * them at controls that were not the problem and implying they had done
+     * something.
+     *
+     * The test above asserted only that the component "renders without crashing",
+     * which was true of the wrong message as well as the right one.
+     */
+    renderCatalogue([]);
+
+    expect(screen.getByText(/no courses have been published yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/widening/i)).toBeNull();
+  });
+
+  it("still blames the filters when the filters really are the reason", async () => {
+    // The twin. A component that always said "nothing published" would satisfy the
+    // test above and mislead in the opposite direction — telling somebody who
+    // filtered to French that the catalogue is empty.
+    renderCatalogue();
+
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "fr");
+    await userEvent.selectOptions(screen.getByLabelText("Level"), "B1");
+
+    expect(screen.getByText(/widening/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no courses have been published/i)).toBeNull();
+  });
+
+  it("offers no skill filter when nothing is tagged", () => {
+    // An empty "Skill" select promises a way to narrow and delivers one option.
+    renderCatalogue([]);
+
+    expect(screen.queryByLabelText("Skill")).toBeNull();
+  });
+});
+
+describe("filtering by skill area", () => {
+  const TAGGED = [
+    course({ slug: "speak", title: "Conversation", skill_areas: ["speaking", "listening"] }),
+    course({ slug: "read", title: "Reading practice", skill_areas: ["reading"] }),
+    course({ slug: "none", title: "General Spanish", skill_areas: [] }),
+  ];
+
+  /** The option labels of a select, in order. */
+  function optionsOf(label: string): (string | null)[] {
+    return [...screen.getByLabelText(label).querySelectorAll("option")].map(
+      (option) => option.textContent,
+    );
+  }
+
+  it("offers only the skills this catalogue has", () => {
+    /**
+     * The same rule levels follow: "a catalogue with no C2 courses should not offer
+     * a C2 filter that always yields nothing". A hard-coded list of the four
+     * language skills would offer "writing" here and match nothing.
+     */
+    render(<CourseCatalogue courses={TAGGED} languages={LANGUAGES} />);
+
+    expect(optionsOf("Skill")).toEqual(["All skills", "listening", "reading", "speaking"]);
+  });
+
+  it("narrows to the courses carrying that tag", async () => {
+    render(<CourseCatalogue courses={TAGGED} languages={LANGUAGES} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Skill"), "speaking");
+
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Conversation" })).toBeInTheDocument();
+  });
+
+  it("matches a course on any of its tags, not only the first", async () => {
+    // "Conversation" is tagged speaking *and* listening. A filter reading
+    // `skill_areas[0]` would pass the test above and fail this one.
+    render(<CourseCatalogue courses={TAGGED} languages={LANGUAGES} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Skill"), "listening");
+
+    expect(screen.getByRole("heading", { name: "Conversation" })).toBeInTheDocument();
+  });
+
+  it("treats tags that differ only in case as one skill", async () => {
+    /**
+     * `skill_areas` is a free-form `JSONField`, so "Listening" and "listening" are
+     * both real values two instructors can enter. Offering them as separate
+     * options, each matching half the courses, is the failure this guards against.
+     *
+     * The label is the first spelling seen rather than a normalised one, so the
+     * data as entered stays visible — a controlled vocabulary is the real fix and
+     * it is a backend decision, not something a filter should impose quietly.
+     */
+    const mixed = [
+      course({ slug: "a", title: "One", skill_areas: ["Listening"] }),
+      course({ slug: "b", title: "Two", skill_areas: ["listening"] }),
+    ];
+
+    render(<CourseCatalogue courses={mixed} languages={LANGUAGES} />);
+
+    expect(optionsOf("Skill")).toHaveLength(2);
+
+    await userEvent.selectOptions(screen.getByLabelText("Skill"), "listening");
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+  });
+
+  it("survives a tag list that is not a list of strings", () => {
+    // `skill_areas` is a `JSONField`: the generated type is `unknown` and the
+    // stored value is whatever was written. A catalogue page that threw on one
+    // malformed row would fail the build for every course.
+    const odd = [
+      course({ slug: "weird", title: "Odd", skill_areas: { not: "a list" } as unknown as [] }),
+      course({ slug: "mixed", title: "Mixed", skill_areas: ["speaking", 7] as unknown as [] }),
+    ];
+
+    render(<CourseCatalogue courses={odd} languages={LANGUAGES} />);
+
+    expect(optionsOf("Skill")).toEqual(["All skills", "speaking"]);
+  });
+});
+
+describe("clearing the filters", () => {
+  it("is offered only once something is set", async () => {
+    // A permanently visible "Clear" on an unfiltered listing is a button that does
+    // nothing, which is worse than no button.
+    renderCatalogue();
+    expect(screen.queryByRole("button", { name: /clear filters/i })).toBeNull();
+
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "fr");
+
+    expect(screen.getByRole("button", { name: /clear filters/i })).toBeInTheDocument();
+  });
+
+  it("resets every filter at once, not only the last one touched", async () => {
+    renderCatalogue();
+
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "es");
+    await userEvent.selectOptions(screen.getByLabelText("Level"), "B1");
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("button", { name: /clear filters/i }));
+
+    expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(screen.getByLabelText("Language")).toHaveValue("any");
+    expect(screen.getByLabelText("Level")).toHaveValue("any");
+  });
+
+  it("goes away again once nothing is filtered", async () => {
+    renderCatalogue();
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "fr");
+
+    await userEvent.click(screen.getByRole("button", { name: /clear filters/i }));
+
+    expect(screen.queryByRole("button", { name: /clear filters/i })).toBeNull();
+  });
 });
 
 describe("a course with missing optional fields", () => {
