@@ -21,7 +21,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.selectors import get_user_for_me
+from apps.accounts.selectors import get_user_for_me, personal_data_export
 from apps.accounts.serializers import (
     EmailOnlySerializer,
     LoginSerializer,
@@ -413,3 +413,51 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(MeSerializer(get_user_for_me(user=request.user)).data)
+
+
+@extend_schema(
+    responses={
+        200: OpenApiResponse(
+            description=(
+                "Everything this service holds about the signed-in account, as JSON. "
+                "Sent as a download. Course content and administrative records naming "
+                "other people are excluded — see the selector for the full list."
+            )
+        ),
+        403: OpenApiResponse(description="Not signed in."),
+    },
+    summary="Export your own data",
+)
+class DataExportView(APIView):
+    """GDPR Article 15 and 20, served synchronously.
+
+    Identity comes from the session, exactly as ``MeView`` does and for the same
+    reason: there is no path, query or header parameter that selects a user, so
+    there is no identifier to manipulate. This is the endpoint where that
+    property matters most — it returns everything about one person.
+
+    A GET, because it reads. That means it must not be cached: an export sitting
+    in a shared proxy or a disk cache is somebody's whole profile left behind on
+    a machine they borrowed, so ``Cache-Control: no-store`` is set below and a
+    test asserts it.
+
+    What the file contains, and the reasoning for every exclusion, is documented
+    on ``personal_data_export`` rather than here — this view does four things:
+    check the session, call the selector, name the file, refuse caching.
+    """
+
+    throttle_scope = "data_export"
+
+    def get(self, request):
+        data = personal_data_export(user=request.user)
+
+        response = Response(data)
+        # A filename with the account id rather than the address: an export is
+        # likely to be saved and forwarded, and putting an email address in a
+        # filename puts it in every directory listing and mail client that
+        # touches it afterwards.
+        response["Content-Disposition"] = (
+            f'attachment; filename="lingua-data-export-{request.user.id}.json"'
+        )
+        response["Cache-Control"] = "no-store"
+        return response

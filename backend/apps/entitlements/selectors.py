@@ -236,3 +236,67 @@ def reconciliation_findings(*, now=None) -> list[Finding]:
         )
 
     return findings
+
+
+def personal_billing_data(*, user: User) -> dict:
+    """This user's subscriptions and manual grants, as JSON-ready data.
+
+    For the GDPR Article 15 export, which is assembled in
+    ``apps.accounts.selectors.personal_data_export``.
+
+    **It lives here rather than there because of invariant 3, enforced by a test
+    that caught the first attempt.** The export originally imported
+    ``Subscription`` directly into the accounts selector, and
+    ``TestNothingElseRederivesAccess`` refused it: nothing outside this app may
+    import the subscription model or its status enum, because that import is the
+    seam where a second entitlement rule appears. Nothing here decides access —
+    the status is read as a value to print, never compared — but the guard is
+    deliberately structural and the right answer to it is this, not an exemption.
+
+    Returns plain dictionaries rather than model instances, so the caller cannot
+    read anything off them that this function did not choose to disclose.
+
+    ``granted_by`` is deliberately absent from the grants: an override's reason
+    and window are the person's own data, and the name of the administrator who
+    granted it is somebody else's. ``personal_data_export`` documents the full
+    set of exclusions.
+    """
+    subscriptions = (
+        Subscription.objects.filter(user=user).prefetch_related("events").order_by("created_at")
+    )
+    overrides = AccessOverride.objects.filter(user=user).order_by("starts_at")
+
+    return {
+        "subscriptions": [
+            {
+                "status": subscription.status,
+                "current_period_end": subscription.current_period_end.isoformat(),
+                "trial_end": (
+                    subscription.trial_end.isoformat() if subscription.trial_end else None
+                ),
+                "cancellation_requested": subscription.cancel_at_period_end,
+                "provider": subscription.provider,
+                "provider_subscription_id": subscription.provider_subscription_id,
+                # The history, which is what answers "why was my access wrong in
+                # March" — the question a mutable status cannot.
+                "history": [
+                    {
+                        "event": event.event_type,
+                        "from_status": event.from_status,
+                        "to_status": event.to_status,
+                        "at": event.created_at.isoformat(),
+                    }
+                    for event in subscription.events.all()
+                ],
+            }
+            for subscription in subscriptions
+        ],
+        "manual_access_grants": [
+            {
+                "reason": override.reason,
+                "starts_at": override.starts_at.isoformat(),
+                "ends_at": override.ends_at.isoformat(),
+            }
+            for override in overrides
+        ],
+    }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AccountDetails } from "@/components/account/AccountDetails";
 import { ChangePassword } from "@/components/account/ChangePassword";
+import { DataExport } from "@/components/account/DataExport";
 import { PageTitle } from "@/components/ui/PageTitle";
 
 /**
@@ -9,8 +10,9 @@ import { PageTitle } from "@/components/ui/PageTitle";
  *
  * In `(learner)` rather than `(marketing)`: it is per-user and can never be
  * prerendered, and the static-marketing check would fail if it sat in the other
- * group. Nothing is fetched here — both children are client components, so no
- * Server Component reaches Django and CLAUDE.md §11 #5 stays moot under B-lite.
+ * group. Nothing is fetched here — `AccountDetails` and `ChangePassword` are client
+ * components and `DataExport` is a plain link, so no Server Component reaches Django
+ * and CLAUDE.md §11 #5 stays moot under B-lite.
  *
  * No `<main>` of its own: `SiteShell` owns that landmark, and two on one page is
  * what the document-structure check catches.
@@ -29,6 +31,7 @@ export default function AccountPage() {
       <PageTitle>Account</PageTitle>
       <AccountDetails />
       <ChangePassword />
+      <DataExport />
     </div>
   );
 }

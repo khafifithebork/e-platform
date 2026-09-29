@@ -3,6 +3,7 @@
 from django.urls import path
 
 from apps.accounts.views import (
+    DataExportView,
     LoginView,
     LogoutView,
     MeView,
@@ -20,6 +21,9 @@ app_name = "accounts"
 urlpatterns = [
     path("csrf/", csrf, name="csrf"),
     path("me/", MeView.as_view(), name="me"),
+    # Under me/, because it is the same subject read a different way: the
+    # signed-in account and nothing selectable.
+    path("me/export/", DataExportView.as_view(), name="data-export"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("register/", RegisterView.as_view(), name="register"),
