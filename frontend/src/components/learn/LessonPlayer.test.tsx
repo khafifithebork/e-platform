@@ -558,3 +558,180 @@ describe("the captions track", () => {
     expect(container.querySelector("track")).toBeNull();
   });
 });
+
+/**
+ * The two comfort controls, and the one that could have corrupted completion.
+ *
+ * A speed control is not a display setting here. The server measures completion as
+ * `watched_seconds >= duration_seconds * threshold`, so what the player claims has
+ * to be denominated in content seconds — see `watchedSince`. These tests assert the
+ * claim, not the label.
+ *
+ * Both are real controls rather than single-character shortcuts, because WCAG 2.2 AA
+ * 2.1.4 constrains those and ADR-030 committed this product to 2.2 AA. Being
+ * reachable by `getByRole` is the same property a keyboard user relies on.
+ */
+describe("the comfort controls", () => {
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  /** Every watched second this player has claimed so far. */
+  function totalClaimed() {
+    return progressPuts()
+      .map(bodyOf)
+      .reduce((sum, beat) => sum + (beat.watched_delta_seconds as number), 0);
+  }
+
+  it("claims content seconds watched, not wall-clock seconds", async () => {
+    /**
+     * **The assertion that makes the speed control safe**, and it spans four beats
+     * rather than one for a reason.
+     *
+     * Sixty wall-clock seconds at 1.5× is ninety seconds of content, and ninety is
+     * what the server must be told — otherwise a learner who watches a lesson
+     * through at 1.5× never completes it, because completion is measured against the
+     * lesson's *duration*.
+     *
+     * A beat is fifteen seconds, so each one carries 22.5 — which is fractional, and
+     * `watched_delta_seconds` is an `IntegerField`. Flooring each beat and rounding
+     * would drift; **flooring and carrying the remainder does not**, and only a
+     * multi-beat total can tell those two apart. 22 + 23 + 22 + 23 = 90.
+     */
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    await userEvent.selectOptions(screen.getByLabelText(/speed/i), "1.5");
+    await userEvent.click(screen.getByRole("button", { name: /play/i }));
+    await tick(60);
+
+    expect(totalClaimed()).toBe(90);
+  });
+
+  it("claims wall-clock seconds at 1x, so nothing changed for everyone else", async () => {
+    // The twin. A player multiplying by something other than the rate could pass
+    // the test above on a coincidence; this pins the untouched case.
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    await userEvent.click(screen.getByRole("button", { name: /play/i }));
+    await tick(60);
+
+    expect(totalClaimed()).toBe(60);
+  });
+
+  it("does not drift at a speed whose beats never come out whole", async () => {
+    /**
+     * 0.75× puts 11.25 seconds in each beat, so every single one has a remainder.
+     * Sixty wall-clock seconds is forty-five seconds of content, and the carry is
+     * what makes the total come out exactly — rounding each beat would give 44 or
+     * 48 depending on which way each one went.
+     */
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    await userEvent.selectOptions(screen.getByLabelText(/speed/i), "0.75");
+    await userEvent.click(screen.getByRole("button", { name: /play/i }));
+    await tick(60);
+
+    expect(totalClaimed()).toBe(45);
+  });
+
+  it("advances the stand-in's own clock at the chosen speed", async () => {
+    /**
+     * The stand-in honours the rate too, which is what makes the control
+     * demonstrable before a video provider exists — the whole argument for the
+     * stand-in existing (ADR-016 §4). Ten seconds at 0.5× is five seconds of
+     * content, and the position readout is where a learner would see it.
+     */
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    await userEvent.selectOptions(screen.getByLabelText(/speed/i), "0.5");
+    await userEvent.click(screen.getByRole("button", { name: /play/i }));
+    await tick(10);
+
+    expect(screen.getByText(/At 0:05/)).toBeVisible();
+  });
+
+  it("remembers the speed for the next lesson", async () => {
+    // Per device and without an endpoint — `preferences.ts` says why. The point of
+    // the control is somebody setting it once.
+    const first = render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+    await userEvent.selectOptions(screen.getByLabelText(/speed/i), "0.75");
+    first.unmount();
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    await waitFor(() => expect(screen.getByLabelText(/speed/i)).toHaveValue("0.75"));
+  });
+
+  it("takes the playhead back five seconds", async () => {
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    await userEvent.click(screen.getByRole("button", { name: /play/i }));
+    await tick(12);
+    expect(screen.getByText(/At 0:12/)).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: /back 5 seconds/i }));
+
+    expect(screen.getByText(/At 0:07/)).toBeVisible();
+  });
+
+  it("does not seek before the start", async () => {
+    // Pressing it at the beginning of a lesson is ordinary, and a negative
+    // `currentTime` throws on a real media element.
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    await userEvent.click(screen.getByRole("button", { name: /back 5 seconds/i }));
+
+    expect(screen.getByText(/At 0:00/)).toBeVisible();
+  });
+
+  it("names the action rather than a direction", async () => {
+    // "Back 5 seconds" is what a screen reader should read out. An icon-only
+    // control, or one labelled "«", says nothing to anybody not looking at it.
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+
+    expect(screen.getByRole("button", { name: "Back 5 seconds" })).toBeVisible();
+  });
+
+  it("disables both when the subscription lapsed mid-lesson", async () => {
+    // Same reasoning as "Mark complete": continuing to operate a player somebody is
+    // no longer entitled to is the thing the denial exists to stop.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/progress/") && init?.method === "PUT") {
+          return json(
+            {
+              type: "/problems/entitlement-denied",
+              title: "Access denied",
+              status: 403,
+              detail: "Your subscription has ended.",
+              errors: null,
+              reason: "SUBSCRIPTION_EXPIRED",
+            },
+            403,
+          );
+        }
+        if (String(url).includes("/progress/")) return json(progress());
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+    await userEvent.click(screen.getByRole("button", { name: /play/i }));
+    await tick(16);
+    await screen.findByRole("alert");
+
+    expect(screen.getByRole("button", { name: /back 5 seconds/i })).toBeDisabled();
+    expect(screen.getByLabelText(/speed/i)).toBeDisabled();
+  });
+});

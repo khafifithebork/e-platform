@@ -56,6 +56,79 @@ describe("watchedSince", () => {
   });
 });
 
+describe("watchedSince, at a playback rate", () => {
+  /**
+   * **This is the property that makes a speed control safe to ship**, and the
+   * reason it had to be thought about at all.
+   *
+   * `is_complete` on the server is
+   * `watched_seconds >= duration_seconds * LESSON_COMPLETION_THRESHOLD`, so
+   * `watched_seconds` is denominated in *content* seconds — the same units as a
+   * duration. At 1× wall-clock and content seconds are identical, which is why
+   * nothing noticed until a rate existed.
+   */
+  it("counts content seconds, not wall-clock seconds", () => {
+    expect(watchedSince(1, true, 1.5)).toBe(1.5);
+    expect(watchedSince(1, true, 0.5)).toBe(0.5);
+  });
+
+  it("defaults to 1, so existing callers are unchanged", () => {
+    expect(watchedSince(1, true)).toBe(watchedSince(1, true, 1));
+  });
+
+  it("makes a ten-minute lesson completable at 1.5x and not before", () => {
+    /**
+     * The failure this prevents, stated as the arithmetic. A learner watches a
+     * 600-second lesson through at 1.5x, which takes 400 wall-clock seconds.
+     *
+     * Counting wall clock they claim 400 seconds against a 540-second threshold
+     * (600 x 0.9) and **never complete the lesson**, however many times they watch
+     * it. Counting content they claim 600 and complete it, which is what happened.
+     */
+    const wallClockSeconds = 400;
+    const claimed = wallClockSeconds * watchedSince(1, true, 1.5);
+
+    expect(claimed).toBe(600);
+    expect(claimed).toBeGreaterThanOrEqual(600 * 0.9);
+
+    const ifItCountedWallClock = wallClockSeconds * watchedSince(1, true);
+    expect(ifItCountedWallClock).toBeLessThan(600 * 0.9);
+  });
+
+  it("does not complete a lesson that was only half heard at 0.5x", () => {
+    /**
+     * The other direction, and the worse one: ten wall-clock minutes at 0.5x cover
+     * five minutes of content. Counting wall clock would complete a 600-second
+     * lesson on 300 seconds of listening — exactly the "heard nothing" failure
+     * ADR-016 §2 built this rule to prevent, arrived at from the other side.
+     */
+    const wallClockSeconds = 600;
+    const claimed = wallClockSeconds * watchedSince(1, true, 0.5);
+
+    expect(claimed).toBe(300);
+    expect(claimed).toBeLessThan(600 * 0.9);
+  });
+
+  it("still clamps to the server's ceiling, after scaling", () => {
+    // The clamp bounds what the server will accept, so it applies to the scaled
+    // figure rather than to the wall-clock one.
+    expect(watchedSince(MAX_DELTA_SECONDS, true, 1.5)).toBe(MAX_DELTA_SECONDS);
+  });
+
+  it("treats an unusable rate as 1 rather than as no watching", () => {
+    // `preferences.ts` refuses to store anything off the menu, so this is defence
+    // in depth — and losing somebody's progress is the worse of the two failures,
+    // so a nonsense multiplier costs them nothing.
+    for (const rate of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(watchedSince(1, true, rate), String(rate)).toBe(1);
+    }
+  });
+
+  it("counts nothing while paused, whatever the rate", () => {
+    expect(watchedSince(1, false, 1.5)).toBe(0);
+  });
+});
+
 describe("worthSending", () => {
   it("sends a beat that watched something", () => {
     expect(worthSending({ positionSeconds: 30, watchedDeltaSeconds: 15 }, null)).toBe(true);

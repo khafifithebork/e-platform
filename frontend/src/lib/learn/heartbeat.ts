@@ -34,10 +34,44 @@ export interface Beat {
  * Takes elapsed wall-clock seconds and returns what may be claimed. Negative
  * elapsed time — a clock adjustment, or a `performance.now` reading that went
  * backwards — is zero, never a rewind of somebody's progress.
+ *
+ * ## Why `rate` exists, and why it is not cosmetic
+ *
+ * **The server compares the accumulated total against the lesson's *duration***:
+ * `is_complete` is `watched_seconds >= duration_seconds * LESSON_COMPLETION_THRESHOLD`.
+ * So `watched_seconds` has to be denominated in *content* seconds, the same units
+ * as a duration — not in wall-clock seconds.
+ *
+ * At 1× the two are identical, which is why this went unnoticed until a speed
+ * control existed. Once one does, wall-clock counting breaks completion in both
+ * directions:
+ *
+ * - **At 1.5×** a learner consumes a ten-minute lesson in under seven wall-clock
+ *   minutes, claims under seven minutes of watching, and **never completes it**
+ *   however many times they watch it through.
+ * - **At 0.5×** ten wall-clock minutes cover five minutes of content, so the lesson
+ *   **completes having been half heard** — which is exactly the "scrubbed to the end
+ *   and heard nothing" failure ADR-016 §2 built this rule to prevent.
+ *
+ * Scaling here rather than on the server is deliberate: the server cannot know the
+ * rate, and sending it would be a second number to validate and to disbelieve. What
+ * arrives is what it already expects — content seconds watched.
+ *
+ * The clamp applies *after* scaling, so what is claimed is bounded by what the
+ * server will accept rather than by what the wall clock did.
  */
-export function watchedSince(elapsedSeconds: number, playing: boolean): number {
+export function watchedSince(
+  elapsedSeconds: number,
+  playing: boolean,
+  rate = 1,
+): number {
   if (!playing || !Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return 0;
-  return Math.min(elapsedSeconds, MAX_DELTA_SECONDS);
+  // A rate that is not a usable multiplier counts as 1 rather than as zero
+  // watching: losing somebody's progress is the worse failure, and `preferences.ts`
+  // already refuses to store anything outside the offered set.
+  const multiplier = Number.isFinite(rate) && rate > 0 ? rate : 1;
+
+  return Math.min(elapsedSeconds * multiplier, MAX_DELTA_SECONDS);
 }
 
 /**

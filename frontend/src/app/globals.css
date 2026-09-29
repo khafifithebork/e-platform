@@ -130,3 +130,29 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Captions, made legible over whatever frame is behind them.
+ *
+ * `::cue` is the only hook a page gets into a `<track>`'s rendering — the text is
+ * drawn by the browser inside a shadow tree, so nothing else here can reach it.
+ *
+ * **Not the palette tokens.** Captions sit over video, not over `--color-paper`, so
+ * the contrast that `contrast.test.ts` certifies between our own colours says
+ * nothing about them: the background is whatever the film is showing, and it
+ * changes every frame. White on a semi-opaque black box is what the WebVTT default
+ * is for, and the box is what makes it reliable rather than the colour.
+ *
+ * Left at the browser's own font and size deliberately. Caption size is an
+ * operating-system accessibility setting on every major platform, and overriding it
+ * would take that control away from the people who have already set it.
+ *
+ * `text-shadow` rather than a heavier box: it keeps letterforms readable if a
+ * browser ignores the background, which some do when the OS caption style wins.
+ */
+/* Pinned by `assert-css-tokens.mjs`: nothing else can observe this rule. */
+::cue {
+  background-color: rgb(0 0 0 / 0.75);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
