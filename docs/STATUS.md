@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-09-28
+**Last updated:** 2026-09-29
 **Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
 its four ADRs, the fixes that followed, the owner's verification passes, and the
-professional-quality addendum's first two batches)
+professional-quality addendum's first two batches — both merged)
 
 ---
 
@@ -19,6 +19,20 @@ verification. The owner approved **batch one**, then **batch two**. **Two of the
 fourteen areas have been touched**, and one of those two is half blocked.
 
 **This checklist is not complete and must not be reported as complete.**
+
+| PR | | Merged |
+|---|---|---|
+| #95 | Batch one — the two emailed tokens, redeemable at last | 2026-09-28 |
+| #96 | Batch two — canonical URLs, sitemap, robots, the icon | 2026-09-29 |
+
+**Two ADRs — ADR-034 (emailed tokens are pasted) and ADR-035 (canonical URLs and
+indexing) — and one dependency bump nobody asked for**, which turned out to be a
+pre-existing red gate rather than anything either batch caused. See "The audit gate
+was red before either batch touched it" below.
+
+**Also merged earlier: PR #94 and before** — the accessibility audit's own run, which
+the next section covers. The addendum is a separate workstream that happens to follow
+it, not a continuation of it.
 
 ### Batch one — two emailed tokens that could not be redeemed
 
@@ -72,13 +86,27 @@ version after it — and it changed between two reads. Restored from the clean c
 `next typegen` had just produced. Nothing to do with the code, and it would have
 read as one.
 
-### Batch one's own open item
+### Batch one's own open items
 
 **Nothing here has been run against the live API.** The tests use recorded
 responses. An end-to-end pass needs a person: register, copy the token out of
 Mailpit, paste it, confirm the account verifies, then the same for a reset. Both
 routes are served by the dev container and confirmed rendering
 (`/verify-email/` → 200, `<h1>` present, both forms).
+
+**`/verify-email` has never been walked for keyboard order**, and it is the only
+page in the product carrying two forms — which is exactly where a tab order goes
+wrong. Runbook §3.2 lists it; §6 says plainly that nobody has walked it.
+
+**Two questions for the owner, from ADR-034 §5**, neither of them blocking:
+
+1. **Should the emails send real links?** That is a backend change — a settings
+   variable for the frontend's base URL, per environment. If yes, the `?token=`
+   branch these pages already have is its destination and only the copy softens
+   back toward "link".
+2. **The backend's own refusal copy still says "link"** — *"That verification link
+   is not valid."* The page displays it verbatim, deliberately, because it must not
+   invent a reason the API refused to give. Changing it is a backend edit.
 
 ### Batch two — the site had nothing to say to a crawler
 
@@ -137,11 +165,78 @@ compliance claim nobody has made. **So "footer completeness" is done only in the
 sense that the footer links nowhere false.** That half of batch two is blocked on
 owner-supplied content, not on engineering.
 
-### Batch two's own open item
+### Batch two's own open items
 
 **`SITE_URL` is unset, and the site is therefore deliberately unindexed.** That is
 intended behaviour until a domain exists, not a gap — but it is one line away from
-being a gap if somebody deploys expecting to be found.
+being a gap if somebody deploys expecting to be found. The long comment in
+`frontend/.env.example` exists for whoever meets that surprise.
+
+**The Open Graph image is undecided**, and it is the one thing that would make a
+shared link look like a product rather than a URL. Two routes: `next/og` generating
+it at build time, which adds no dependency and keeps the public routes static, or a
+drawn static asset. ADR-035 §5 records why neither was improvised.
+
+**A course with no description inherits the site's.** `t8-spanish` is the only
+seeded course and its `description` is `""`, so it ships "Curated language courses,
+reviewed before publication…" as its own. Acceptable and documented. The better
+answer, if anyone wants it, is composing one from facts the API does have — title,
+level, language — which is composition, not the invention §6 forbids.
+
+### The twelve areas nobody has touched
+
+Recorded by name so the next session does not re-derive the list, and so "two of
+fourteen" stays a number rather than an impression. **None of these has been
+proposed, let alone approved.**
+
+| Area | What the read-only review noted |
+|---|---|
+| **Trust and policy pages** | Terms, Privacy, an imprint. Half-addressed in batch two only in the sense that the footer links nowhere false. **Blocked on owner-supplied content** — real terms, a real data-protection statement, a real controller identity for EU learners |
+| **Multilingual** | ADR-033 deferred interface localisation with a named trigger. Still deferred, and CLAUDE.md §11 treats it as a separately scoped workstream |
+| **Account and privacy** | No page where somebody can see, export or delete their own data. An EU product will need one |
+| **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
+| **Course discovery** | Search exists (M11, Postgres full-text with trigram fallback). Browsing beyond language and level does not |
+| **Learning comfort** | Playback rate, captions styling, keyboard shortcuts in the player. `<track>`'s `srclang` and `label` remain **blocked on the API modelling caption language** |
+| **Brand assets** | The icon landed in batch two. No OG image, no `apple-icon`, no touch icons |
+| **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
+| **Interaction polish** | Not reviewed in detail. The motion system and focus treatment are both settled and tested |
+| **Accessible HTML** | Covered by ADR-030, axe, `verify:a11y` and the runbook. The outstanding items are the human passes, not markup |
+| **Performance** | Measured — 312–326 KB gz per route. **A 350 KB budget is proposable and enforcing it needs the owner** |
+| **Security and operations** | Sentry, CSP, `_headers`, throttling and lockout all exist. The four moderate advisories above are the live item |
+
+**The honest summary: the two batches that shipped were the two areas where
+something was actually broken.** The rest is a mix of genuinely blocked (policy
+content, billing, caption language), already covered by earlier work, and not yet
+looked at properly. Treating them as a single "checklist" would flatten that
+difference, which is why they are separated here.
+
+### The audit gate was red before either batch touched it
+
+**`npm audit --audit-level=high` failed on PR #96, and not because of PR #96.**
+`package.json` and `package-lock.json` on that branch were byte-identical to
+`master`, so the same failure was sitting on `master` and on every open branch. Two
+advisories had been published upstream against `fast-uri` 3.0.0–3.1.6 — authority
+injection via an unvalidated port, and host confusion via an unclosed bracket.
+
+`fast-uri` arrives transitively and build-time only:
+`@sentry/nextjs → @sentry/webpack-plugin → webpack → schema-utils → ajv`. Nothing
+ships to a browser. It still trips the gate, which is the gate working — ADR-022 §3
+set it at `high` precisely so it fires on things worth acting on.
+
+Fixed with `npm audit fix` and **not** `--force`: two patch bumps in the lockfile,
+`fast-uri` 3.1.6 → 3.1.8 and `qs` 6.15.3 → 6.16.0, no change to `package.json`.
+
+**Four moderate advisories remain, and they need a decision rather than a command.**
+The `undici` one reaches us through `miniflare` and `wrangler`, and clearing it wants
+`wrangler@4.101.0` — npm itself flags that as a breaking change, which makes it a
+CLAUDE.md §5 call about a deployment dependency and not something to fold into a CI
+fix. The gate does not fire on moderate, by ADR-022 §3's own argument, so this will
+keep appearing in `npm audit` output without turning anything red. **Worth an owner
+decision before M13 rather than during it.**
+
+**The thing to take from this:** a green CI on a feature branch says nothing about
+the dependency tree's age, because the audit reads a live advisory database rather
+than the diff. Any branch can go red overnight without an edit.
 
 ---
 
@@ -358,9 +453,30 @@ repository could ever have shown it holding.
 
 ## Current milestone
 
-**The approved frontend redesign is four stages in and the visual work is done.
-No new product milestone is started.** ADR-029 records the Linglee reference and
-scope. Stage 1 refreshed tokens, navigation, buttons and cards and gave mobile
+**Still no new product milestone.** The order in CLAUDE.md §10 is unchanged and
+nothing has started ahead of it. Everything since M16 has been frontend
+consolidation: the redesign's four stages, then the accessibility audit, then the
+quality addendum's two batches at the top of this file.
+
+**Where the milestone list actually stands**, stated carefully because this file
+contains two different M13 counts and they are snapshots rather than a
+contradiction — "6 of 10" under *Previous milestone* is the older one:
+
+- **M0–M12, M15 and M16: complete.** M16 is 9 of 9, M15 is 10 of 10.
+- **M13: 10 of 10 with two tasks honestly incomplete.** T8's verification needs a
+  Neon branch to run `check_database` against; T10's §2 rollback rehearsal needs a
+  registry and an environment. Both say so in their own documents rather than being
+  marked done.
+- **M14: the unblocked half only.** T7–T10 there and in M13 are unblocked by the
+  B-lite decision and **still blocked by the bill** — ADR-025 chose the option, and
+  CLAUDE.md §11 #3 is explicit that choosing it is not authorising the spend.
+
+**The four moderate advisories above are worth settling before M13 touches
+`wrangler`, not during it.**
+
+**The approved frontend redesign is four stages in and the visual work is done.**
+ADR-029 records the Linglee reference and scope. Stage 1 refreshed tokens,
+navigation, buttons and cards and gave mobile
 keyboard navigation regression tests. Stages 2 and 3 landed as **PR #71**
 (`85bbc42`); stage 4 as **PR #73** (`44e6ca0`).
 
