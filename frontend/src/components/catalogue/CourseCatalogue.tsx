@@ -37,6 +37,20 @@ import type { CourseSearchResults } from "@/lib/catalogue/search";
 /** The "no filter" value. A sentinel rather than `""` so the option is real. */
 const ANY = "any";
 
+/**
+ * A course's skill tags, defensively.
+ *
+ * `skill_areas` is a `JSONField`, so the generated type is `unknown` and the value
+ * is whatever was stored — an array of strings in practice, and not guaranteed to
+ * be. `CourseCard` guards it the same way; this is the second reader, which is why
+ * it is a function rather than a repeated expression.
+ */
+function skillsOf(course: PublicCourse): string[] {
+  return Array.isArray(course.skill_areas)
+    ? (course.skill_areas as unknown[]).filter((tag): tag is string => typeof tag === "string")
+    : [];
+}
+
 export function CourseCatalogue({
   courses,
   languages,
@@ -46,6 +60,7 @@ export function CourseCatalogue({
 }) {
   const [language, setLanguage] = useState(ANY);
   const [level, setLevel] = useState(ANY);
+  const [skill, setSkill] = useState(ANY);
 
   // Search results replace the browse listing while a query is active, rather
   // than being combined with the filters. Combining them would mean two
@@ -66,15 +81,55 @@ export function CourseCatalogue({
     [courses],
   );
 
+  /**
+   * The skill areas this catalogue actually has, for the third filter.
+   *
+   * Derived from the data for the same reason levels are, and with one extra
+   * problem: `Course.skill_areas` is a `JSONField` of **free-form tags** —
+   * "e.g. ['listening', 'grammar']" — not a controlled vocabulary. So two
+   * instructors can tag the same thing "Listening" and "listening", and a filter
+   * built on exact values would offer both, each matching half the courses.
+   *
+   * Grouped case-insensitively and labelled with the first spelling seen, which
+   * gives a usable filter without pretending the underlying data is tidy.
+   * **The real fix is a controlled vocabulary**, and that is a backend decision
+   * about content modelling rather than something to impose from a filter.
+   */
+  const skills = useMemo(() => {
+    const byKey = new Map<string, string>();
+
+    for (const course of courses) {
+      for (const tag of skillsOf(course)) {
+        const key = tag.trim().toLowerCase();
+        if (key && !byKey.has(key)) byKey.set(key, tag.trim());
+      }
+    }
+
+    return [...byKey.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([value, label]) => ({ value, label }));
+  }, [courses]);
+
   const visible = useMemo(
     () =>
       courses.filter(
         (course) =>
           (language === ANY || course.language.code === language) &&
-          (level === ANY || course.level === level),
+          (level === ANY || course.level === level) &&
+          (skill === ANY ||
+            skillsOf(course).some((tag) => tag.trim().toLowerCase() === skill)),
       ),
-    [courses, language, level],
+    [courses, language, level, skill],
   );
+
+  /** Whether anything is narrowing the list, for the clear control below. */
+  const filtered = language !== ANY || level !== ANY || skill !== ANY;
+
+  function clearFilters() {
+    setLanguage(ANY);
+    setLevel(ANY);
+    setSkill(ANY);
+  }
 
   if (searching) {
     return (
@@ -118,6 +173,36 @@ export function CourseCatalogue({
           anyLabel="All levels"
           options={levels.map((item) => ({ value: item, label: item }))}
         />
+
+        {/*
+         * Only when the catalogue has tags at all. An empty "Skill" select is a
+         * control that promises a way to narrow and delivers one option.
+         */}
+        {skills.length > 0 && (
+          <Select
+            label="Skill"
+            value={skill}
+            onChange={setSkill}
+            anyLabel="All skills"
+            options={skills}
+          />
+        )}
+
+        {/*
+         * Shown only when something is set, and last in the tab order after the
+         * controls it undoes. A permanently visible "Clear" on an unfiltered
+         * listing is a button that does nothing, which is worse than absent.
+         */}
+        {filtered && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="self-end rounded-(--radius-md) border border-line-strong px-3.5 py-2.5
+              text-sm text-ink-muted transition-colors hover:border-ink-subtle hover:text-ink"
+          >
+            Clear filters
+          </button>
+        )}
       </section>
 
       {/*
@@ -134,7 +219,25 @@ export function CourseCatalogue({
           : `${visible.length} of ${courses.length} courses`}
       </p>
 
-      {visible.length === 0 ? (
+      {/*
+       * Two different emptinesses, and conflating them was a real defect.
+       *
+       * This branch said "No courses match those filters yet. Try widening one of
+       * them" for *both* — so a catalogue with nothing published yet told its first
+       * visitors to widen filters they had not set, and pointed them at controls
+       * that were not the problem. That is the state on the first day after launch
+       * and the state a build against an empty database produces, and the existing
+       * test only asserted that this component "renders without crashing".
+       *
+       * `courses.length === 0` is the honest signal: it is what the *page* was given,
+       * before any filtering, so no combination of controls can produce it.
+       */}
+      {courses.length === 0 ? (
+        <p className="text-ink-muted">
+          No courses have been published yet. They appear here as soon as they are
+          reviewed.
+        </p>
+      ) : visible.length === 0 ? (
         <p className="text-ink-muted">
           No courses match those filters yet. Try widening one of them.
         </p>
