@@ -271,7 +271,7 @@ proposed, let alone approved.**
 | ~~**Account and privacy**~~ | **Batch three, 2026-09-29.** `/account` shows what the API knows and changes a password; `GET /auth/me/export/` is the Article 15 export. **Deletion is not built** — ADR-036 §5, and it is a retention question, not an engineering one |
 | **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
 | **Course discovery** | Search exists (M11, Postgres full-text with trigram fallback). Browsing beyond language and level does not |
-| **Learning comfort** | Playback rate, captions styling, keyboard shortcuts in the player. `<track>`'s `srclang` and `label` remain **blocked on the API modelling caption language** |
+| **Learning comfort** | Playback rate, captions styling and a replay control are open. **`<track>`'s `srclang` and `label` are done — 2026-09-29 — and were never actually blocked**, see below |
 | **Brand assets** | The icon landed in batch two. No OG image, no `apple-icon`, no touch icons |
 | **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
 | **Interaction polish** | Not reviewed in detail. The motion system and focus treatment are both settled and tested |
@@ -360,7 +360,7 @@ needs either a browser and a person, or backend work that is not scheduled:
 | The four unconfirmed claims below | A person with a browser. Minutes each |
 | A2 — reproduce the 2.4.11 focus fault | The same. **The remedy cannot be scoped until it is reproduced** (ADR-006) |
 | ~~A5 — per-route first-load JS~~ | **Done 2026-09-28**: 312–326 KB gz, routes nearly identical. A budget is now proposable — 350 KB gz per route — and enforcing it needs the owner |
-| `<track>`'s `srclang` and `label` | The API to model caption language. Not knowable from the frontend |
+| ~~`<track>`'s `srclang` and `label`~~ | **Done 2026-09-29.** The blocker was not real: `Transcript.language` has been a foreign key since M6 and `language_code` was already in the payload the player fetched |
 | ~~B2 — the architecture.md §8.2 tooling discrepancy~~ | **Resolved 2026-09-28** — `axe-core` adopted, `MSW` and `Playwright` declined. Playwright worth revisiting at M8 |
 
 **All four ADRs accepted by the owner on 2026-09-27, and two defects fixed in the
@@ -429,7 +429,7 @@ have cost a revert of a correct change.
 | **No error or loading boundaries anywhere** in `src/app`, so a render error showed Next's unstyled default page and what reached Sentry was whatever the framework did | **Fixed** 2026-09-27. Three boundaries, reporting through the one Sentry seam, and an assertion that no error message, digest or address reaches the DOM |
 | **`/me/courses/` pagination ignored** — a learner past the first page saw part of their list with no indication more existed | **Fixed** 2026-09-27. Root cause was a hand-written response type omitting `next` (invariant 16). A "load more" control, and `next` is **not followed** — Django builds it from the internal host |
 | **`color-scheme` never declared**, so dark mode kept light scrollbars and autofill — the latter can push text below the contrast `contrast.test.ts` certifies and cannot see | **Fixed** 2026-09-27, with a provoked test. Measurement corrected the ADR on the way: form-control boxes were never affected, because Tailwind's Preflight already resets them |
-| **`<track>` lacks `srclang` and `label`** | **Blocked, not open** — the correct value is not knowable from the frontend because nothing models caption language. Backend work, roadmap D4. Hardcoding a guess would be wrong for exactly the courses that matter most |
+| **`<track>` lacks `srclang` and `label`** | **Fixed 2026-09-29, and it was never blocked.** This row said the value was "not knowable from the frontend because nothing models caption language". `Transcript.language` has been a foreign key to `Language` since M6, and `LessonTranscript.language_code` was in the generated types all along — the player fetched that payload and discarded the field. ADR-033 §3a |
 
 Three more, each found by a different kind of looking — which is the useful pattern,
 and the reason none of them could have been found by the others:
@@ -482,7 +482,7 @@ rest**, because the sections below the hero use a different mechanism.
 | `docs/adr/030-accessibility-wcag-22-aa.md` | Proposes WCAG 2.2 AA. Five of the six criteria 2.2 adds at AA appear already satisfied; **2.4.11 Focus Not Obscured is a real risk** below `xl` |
 | `docs/adr/031-error-and-loading-boundaries.md` | Proposes three boundary files. **There are none in the tree today**, so a render error shows Next's default page and may never reach Sentry |
 | `docs/adr/032-theme-system-only.md` | Proposes keeping the system theme and declining a toggle. Records a defect: **`color-scheme` is never declared** |
-| `docs/adr/033-interface-and-learning-languages.md` | Names the four language axes, defers localisation, and records that `<track>` lacks `srclang`/`label` — which the API cannot yet supply |
+| `docs/adr/033-interface-and-learning-languages.md` | Names the four language axes and defers localisation. **§3's `<track>` blocker was wrong and §3a corrects it** — the API had the value the whole time |
 | `docs/design-system.md` | Reference for tokens, the three component tiers, variants and states. Carries the two open design questions rather than settling them |
 | `docs/specs/frontend-state-and-api.md` | State boundaries, problem-type handling, retry safety, and a **measured** bundle baseline |
 | `docs/runbooks/accessibility-verification.md` | Automated versus human checks. **§3.1 partly walked 2026-09-28; nothing else** |

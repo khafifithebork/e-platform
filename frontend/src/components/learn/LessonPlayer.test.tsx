@@ -438,3 +438,123 @@ describe("completion", () => {
     expect(screen.getByRole("button", { name: /mark complete/i })).toBeDisabled();
   });
 });
+
+/**
+ * The captions track, and a blocker that was not one.
+ *
+ * ADR-033 §3 recorded `<track>`'s missing `srclang` and `label` as **blocked on the
+ * backend**: "the API does not expose the caption language... nothing models content
+ * or caption language separately from the course's learning language."
+ *
+ * Both halves were false. `Transcript.language` has been a foreign key to `Language`
+ * since M6, `kind` distinguishes a transcript in the language being taught from one
+ * translated for the learner, and `LessonTranscriptSerializer` has carried
+ * `language_code` since the panel existed. **This component fetched that payload and
+ * threw the field away.** `language_name` was added on 2026-09-29 for the label; that
+ * was the only backend work needed, and it is one line.
+ *
+ * These tests need a configured video provider, which the rest of this file
+ * deliberately does without — no template means no `<video>` and therefore no
+ * `<track>`. `PLAYBACK_URL_TEMPLATE` is read at module scope, so the environment is
+ * stubbed and the module re-imported rather than merely set.
+ */
+describe("the captions track", () => {
+  const TEMPLATE = "https://video.example/{playback_id}?t={token}";
+
+  /** Render with a provider configured and `transcript` as the panel's payload. */
+  async function renderWithVideo(transcript: Response | null) {
+    vi.stubEnv("NEXT_PUBLIC_PLAYBACK_URL_TEMPLATE", TEMPLATE);
+    vi.resetModules();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        const path = String(url);
+        if (path.includes("/transcript/")) {
+          return transcript ?? new Response("", { status: 404 });
+        }
+        if (path.includes("/playback-token/") || path.includes("/playback/")) {
+          return json({
+            token: "a-signed-token",
+            playback_id: "pid-42",
+            expires_at: "2026-01-01T01:00:00Z",
+          });
+        }
+        if (path.includes("/progress/")) return json(progress());
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    const { LessonPlayer: Fresh } = await import("@/components/learn/LessonPlayer");
+    const view = render(<Fresh lesson={LESSON} />);
+    await screen.findByRole("heading", { name: "Intro to Spanish" });
+    return view;
+  }
+
+  function transcriptPayload(languageCode: string, languageName: string) {
+    return json({
+      language_code: languageCode,
+      language_name: languageName,
+      updated_at: "2026-01-01T00:00:00Z",
+      segments: [{ position: 1, start_ms: 0, end_ms: 1000, text: "hola" }],
+    });
+  }
+
+  beforeEach(() => {
+    // jsdom implements neither, and the transcript panel calls both as soon as
+    // there are segments to follow. Without the stub the effect throws during
+    // commit, React tears the tree down, and the `<track>` query below returns
+    // null — which reads exactly like the attribute being missing.
+    // `TranscriptPanel.test.tsx` stubs the same pair for the same reason.
+    Element.prototype.scrollIntoView = vi.fn();
+    vi.stubGlobal("matchMedia", undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("declares the language the payload gave it", async () => {
+    const { container } = await renderWithVideo(transcriptPayload("es", "Spanish"));
+
+    await waitFor(() => expect(container.querySelector("track")).not.toBeNull());
+    const track = container.querySelector("track");
+
+    expect(track).toHaveAttribute("srclang", "es");
+    expect(track).toHaveAttribute("label", "Spanish");
+    expect(track).toHaveAttribute("kind", "captions");
+  });
+
+  it("takes the language from the payload rather than hardcoding one", async () => {
+    /**
+     * **The twin, and the assertion that makes the pair a control.** A component
+     * that wrote `srclang="es"` — the obvious guess for this fixture, and the exact
+     * fabrication ADR-033 §3 warned against — would pass the test above.
+     *
+     * Arabic here, on a lesson whose course slug is still `spanish`, so inferring
+     * the value from the course rather than reading it also fails.
+     */
+    const { container } = await renderWithVideo(transcriptPayload("ar", "Arabic"));
+
+    await waitFor(() => expect(container.querySelector("track")).not.toBeNull());
+    const track = container.querySelector("track");
+
+    expect(track).toHaveAttribute("srclang", "ar");
+    expect(track).toHaveAttribute("label", "Arabic");
+  });
+
+  it("is absent when the lesson has no transcript", async () => {
+    /**
+     * It used to render unconditionally, so a lesson without a transcript offered
+     * a captions entry pointing at an endpoint that answers 404 — the browser shows
+     * the option and choosing it produces nothing.
+     *
+     * A missing transcript is ordinary: an unapproved one is indistinguishable from
+     * none by design (ADR-014 §3).
+     */
+    const { container } = await renderWithVideo(null);
+
+    await waitFor(() => expect(container.querySelector("video")).not.toBeNull());
+    expect(container.querySelector("track")).toBeNull();
+  });
+});

@@ -1660,9 +1660,24 @@ export interface components {
          *     text was produced, and a learner reading along has no business with any of
          *     it — `status` in particular would let them infer that unreviewed words
          *     exist, which is the thing ADR-014 §3 is keeping from them.
+         *
+         *     `language_name` was added on 2026-09-29 so the player can give its
+         *     `<track>` a `label`, which is what a browser's captions menu shows. The code
+         *     alone would leave that menu offering "es" rather than "Spanish".
+         *
+         *     Both language fields cost nothing: `approved_transcript_for` already joins
+         *     `language` — "Joined for the panel, which renders the language code" — so the
+         *     name comes off a row that was fetched anyway.
+         *
+         *     `kind` stays out, and that is deliberate rather than an oversight repeated.
+         *     The distinction it carries — a transcript in the language being taught versus
+         *     one translated for the learner — cannot reach this endpoint at all: the
+         *     selector filters `kind=TARGET`, so a learner is never served a translation
+         *     here. The label is therefore unambiguous without it.
          */
         LessonTranscript: {
             readonly language_code: string;
+            readonly language_name: string;
             readonly segments: components["schemas"]["LearnerSegment"][];
             /** Format: date-time */
             readonly updated_at: string;

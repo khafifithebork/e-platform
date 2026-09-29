@@ -99,6 +99,18 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
   const lessonId = lesson.id;
   const [progress, setProgress] = useState<LessonProgress | null>(null);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
+  /**
+   * The captions' language, for the `<track>` below.
+   *
+   * **Held rather than discarded, as of 2026-09-29.** This component has fetched
+   * `/lessons/{id}/transcript/` since M7 and kept only `segments`, throwing away
+   * the `language_code` that was sitting in the same payload — which is why the
+   * `<track>` had no `srclang` and why ADR-033 §3 recorded that as blocked on the
+   * API. It was not: `Transcript.language` has been a foreign key to `Language`
+   * since M6, and this endpoint has carried the code since the panel existed.
+   * `language_name` was added alongside it for the `label`.
+   */
+  const [captions, setCaptions] = useState<{ code: string; name: string } | null>(null);
   const [playback, setPlayback] = useState<PlaybackToken | null>(null);
   const [denial, setDenial] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -207,7 +219,13 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
 
         try {
           const transcript = await api.lessonTranscript(lessonId);
-          if (!cancelled) setSegments(transcript.segments);
+          if (!cancelled) {
+            setSegments(transcript.segments);
+            setCaptions({
+              code: transcript.language_code,
+              name: transcript.language_name,
+            });
+          }
         } catch {
           // 404 is ordinary: no approved transcript for this lesson. An
           // unapproved one is indistinguishable from none, by design
@@ -337,9 +355,32 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
             }}
             className="w-full rounded-(--radius-md) bg-black shadow-(--shadow-md)"
           >
-            {/* Subtitles come from the same rows the panel renders, as the
-                projection a `<track>` element can consume (invariant 13). */}
-            <track kind="captions" src={`/api/v1/lessons/${lessonId}/transcript.vtt`} default />
+            {/*
+             * Subtitles come from the same rows the panel renders, as the
+             * projection a `<track>` element can consume (invariant 13).
+             *
+             * **Only when there is a transcript.** It used to render
+             * unconditionally, so a lesson without one pointed a caption track at
+             * an endpoint that answers 404 — a captions entry the browser offers
+             * and which produces nothing when chosen.
+             *
+             * `srclang` matters beyond tidiness: without it nothing can tell what
+             * language the captions are in, which is WCAG 3.1.2 Language of Parts
+             * territory once they differ from the page. `label` is what the
+             * browser's captions menu shows; without it the learner picks from an
+             * unnamed entry. Both come from the payload — never hardcoded, and
+             * never inferred from the course, which is what ADR-033 §3 rightly
+             * warned against and wrongly concluded was unavoidable.
+             */}
+            {captions ? (
+              <track
+                kind="captions"
+                src={`/api/v1/lessons/${lessonId}/transcript.vtt`}
+                srcLang={captions.code}
+                label={captions.name}
+                default
+              />
+            ) : null}
           </video>
         ) : (
           <div className="rounded-(--radius-md) border border-line bg-surface-sunken p-6 shadow-(--shadow-sm)">
