@@ -25,7 +25,7 @@ been touched**, and two of the three are half blocked on decisions rather than c
 |---|---|---|
 | #95 | Batch one — the two emailed tokens, redeemable at last | 2026-09-28 |
 | #96 | Batch two — canonical URLs, sitemap, robots, the icon | 2026-09-29 |
-| #98 | Batch three — the account page, and a data export | open |
+| #98 | Batch three — the account page, and a data export | 2026-09-29 |
 
 **Two ADRs — ADR-034 (emailed tokens are pasted) and ADR-035 (canonical URLs and
 indexing) — and one dependency bump nobody asked for**, which turned out to be a
