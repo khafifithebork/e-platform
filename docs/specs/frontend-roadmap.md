@@ -265,18 +265,24 @@ scroll padding and its `xl` reset, both provoked.
   both.
 - **Approval:** granted.
 
-### D4 · Caption language, end to end
+### D4 · Caption language, end to end — **done 2026-09-29**
 
 - **Benefit:** the captions menu names its track, and assistive technology knows
   what language captions are in (WCAG 3.1.2).
-- **Scope:** **backend first.** Model caption language, expose it, regenerate the
-  schema and types, then add `srclang` and `label`.
-- **Dependencies:** ADR-033 §3. **Blocked on backend modelling that is not
-  scheduled**, and belongs to whichever milestone owns caption metadata.
-- **Acceptance:** `srclang` and `label` come from the API. **Never hardcoded** — a
-  guessed value would be wrong for exactly the courses that matter most, a
-  beginner course captioned in the learner's language rather than the one taught.
-- **Approval:** owner, plus a milestone home.
+- **What it actually took:** one serializer field. This entry said "backend first:
+  model caption language, expose it" and **both were already done** —
+  `Transcript.language` has been a foreign key to `Language` since M6 and
+  `LessonTranscript.language_code` was in the generated types the whole time. The
+  player fetched that payload on every lesson load and kept only `segments`. Only
+  `language_name`, for the human-readable `label`, was missing.
+- **Acceptance, met:** `srclang` and `label` come from the API and are asserted
+  against a payload whose language deliberately disagrees with the course's, so a
+  hardcoded or inferred value fails. The `<track>` is also now absent when there is
+  no transcript, rather than pointing at a 404.
+- **The caution was right and the conclusion was wrong.** A guessed value *would*
+  be wrong for a beginner course captioned in the learner's language — and
+  `approved_transcript_for` filters `kind=TARGET`, so that case cannot reach this
+  endpoint at all. ADR-033 §3a.
 
 ### D5 · Application-wide session-expiry response
 

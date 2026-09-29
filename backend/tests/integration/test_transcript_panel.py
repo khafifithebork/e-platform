@@ -141,6 +141,46 @@ class TestThePanel:
             "segunda linea",
         ]
 
+    def test_carries_the_language_name_as_well_as_its_code(self, client, lesson, learner) -> None:
+        """Added 2026-09-29, for the player's `<track label>`.
+
+        `label` is what a browser's captions menu shows, and the code alone leaves
+        that menu offering "es" rather than "Spanish". The name comes off the row
+        `approved_transcript_for` already joins, so it costs nothing —
+        `test_the_panel_does_not_cost_a_query_per_cue` still pins seven.
+
+        **This closes a gap ADR-033 §3 recorded as blocked and it never was.** That
+        ADR said "the API does not expose the caption language... nothing models
+        content or caption language separately from the course's learning language".
+        `Transcript.language` has been a foreign key to `Language` since M6, and
+        `language_code` has been in this payload since the panel existed.
+        """
+        _transcript(lesson, status=TranscriptStatus.APPROVED, text="hola")
+        _sign_in(client, "learner@example.test")
+
+        body = client.get(_panel(lesson)).json()
+
+        assert body["language_name"] == "Spanish"
+
+    def test_still_says_nothing_about_how_the_text_was_produced(
+        self, client, lesson, learner
+    ) -> None:
+        """The twin for the field above, and the reason this serializer exists
+        separately from the reviewer's.
+
+        `status` would let a learner infer that unreviewed words exist, which is what
+        ADR-014 §3 keeps from them; `kind`, `confidence` and `error_message` are all
+        about the pipeline rather than about Spanish. Adding a language field is not
+        licence to widen the payload generally.
+        """
+        _transcript(lesson, status=TranscriptStatus.APPROVED, text="hola")
+        _sign_in(client, "learner@example.test")
+
+        body = client.get(_panel(lesson)).json()
+
+        for field in ("status", "kind", "confidence", "error_message", "provider"):
+            assert field not in body, field
+
     def test_cues_carry_their_timings(self, client, lesson, learner) -> None:
         """Without these the panel cannot highlight the current line or seek
         when one is clicked, which is the only reason it exists rather than

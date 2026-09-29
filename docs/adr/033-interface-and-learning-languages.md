@@ -1,7 +1,8 @@
 # ADR-033 — Four kinds of language, and deferring localisation without paying for it later
 
 **Status:** accepted by the owner 2026-09-27 (§2 was extracted and fixed the same
-day, ahead of the decision on §4)
+day, ahead of the decision on §4). **§3 was wrong and is corrected below —
+2026-09-29.** The rest stands.
 **Date:** 2026-09-27
 **Decides:** the vocabulary for four language axes a language-learning product
 confuses at its peril, and what we do *now* so an RTL interface is cheap later
@@ -20,7 +21,7 @@ the cost of retrofitting them grows with every page written.
 |---|---|---|
 | 1 | Name the four axes (§1) and use those names in code and in conversation | reference, in use |
 | 2 | Prefer **logical** CSS properties over physical ones | **done 2026-09-27** — §2, six swaps and a guard |
-| 3 | Give `<track>` its `srclang` and `label` | **blocked** — §3, the API cannot supply the value yet |
+| 3 | Give `<track>` its `srclang` and `label` | **done 2026-09-29** — §3's "blocked" was a mistake. See §3a |
 
 **Localisation is deferred — accepted by the owner 2026-09-27.** No interface
 language is committed to, and §4 states the trigger that would reopen it: a named
@@ -156,6 +157,59 @@ are in the learner's language, not the one being taught.
 expose it in the schema, regenerate types, then fill in the attributes. Hardcoding
 `srclang="en"` today to satisfy a validator would be a fabricated fact about
 content nobody has checked. Recorded here, not fixed here.
+
+---
+
+## 3a. §3 was wrong — **correction, 2026-09-29**
+
+**The blocker described above does not exist and never did.** §3 is left standing
+rather than rewritten, because an accepted ADR's reasoning is the record of what was
+believed at the time, and quietly editing it would hide that this was believed for two
+days and cited in five places.
+
+§3 says:
+
+> "the API does not expose the caption language. Nothing in the generated types
+> carries it, because nothing models content or caption language separately from the
+> course's learning language."
+
+Both halves are false, and checking took one grep each:
+
+| §3 claimed | Actually |
+|---|---|
+| Nothing models caption language separately | **`Transcript.language` is a `ForeignKey(Language)`** and has been since M6. `Transcript.kind` further distinguishes `TARGET` — "in the language being taught" — from `TRANSLATION` — "translated for the learner", which is precisely the distinction §3 said was unmodelled |
+| Nothing in the generated types carries it | **`LessonTranscript.language_code`** has been in `src/types/api.d.ts` since the panel existed. `LessonPlayer` fetched that payload on every lesson load and kept only `segments` |
+
+And the specific danger §3 named — *"a beginner course whose captions are in the
+learner's language, not the one being taught"* — **cannot occur through this
+endpoint at all.** `approved_transcript_for` filters `kind=TranscriptKind.TARGET`, so
+a learner is never served a translation here. The caution was sound; the conclusion
+drawn from it was not.
+
+**One line of backend work was genuinely needed**, and only for the other attribute:
+`label` is what a browser's captions menu shows, and the payload carried the code but
+not a human-readable name. `LessonTranscriptSerializer` now also exposes
+`language_name`, off a row `approved_transcript_for` already joins — so it costs no
+query, and the panel's seven-query pin is unchanged.
+
+`kind` stays out of that payload. Its omission is a reasoned decision in the
+serializer's own docstring, and the label is unambiguous without it.
+
+### What this is worth learning from
+
+**"Blocked on the backend" was recorded without reading the backend.** The claim was
+plausible, it was written carefully, it named a real hazard, and it was cited in
+STATUS three times and in this ADR twice as a reason not to do the work. Nothing in
+the process caught it, because a documented blocker looks exactly like a documented
+decision.
+
+The cheap habit that would have: **when an ADR says the API cannot supply something,
+name the model and the serializer it checked.** §3 named neither, and the two greps
+that would have settled it are the ones written above.
+
+**A fix while we were here:** the `<track>` was rendered unconditionally, so a lesson
+with no transcript offered a captions entry pointing at an endpoint that answers 404.
+It now renders only when a transcript exists.
 
 ---
 
