@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { MotionProvider } from "@/components/motion/MotionProvider";
+import { siteUrl } from "@/lib/site";
 
 import "./globals.css";
 
@@ -16,13 +17,53 @@ import "./globals.css";
  * If a licensed brand face is chosen later, self-host it with
  * `next/font/local` rather than reintroducing the network dependency.
  */
+/** One description, so the page copy and the link preview cannot drift apart. */
+const DESCRIPTION =
+  "Curated language courses, reviewed before publication. Video and audio lessons with transcripts.";
+
+/**
+ * Root metadata.
+ *
+ * **`metadataBase` is the whole reason `siteUrl()` exists.** Next resolves every
+ * relative `alternates.canonical` and every Open Graph URL against it, and with no
+ * base it emits either nothing or a warning-laden localhost URL. Left `undefined`
+ * when no origin is configured, which is what makes the missing-origin case emit
+ * no canonical rather than a wrong one — see `src/lib/site.ts`.
+ *
+ * **No `openGraph.images`.** A link preview without an image is plain; one
+ * pointing at an image that does not exist is broken, and the only honest way to
+ * get one is to generate or draw it, which is its own decision (`next/og` at build
+ * time versus a static asset). Deliberately deferred rather than half-done —
+ * Open Graph degrades gracefully to the title and description below.
+ *
+ * **No `alternates.canonical` here, and that is the subtle one.** Metadata is
+ * inherited, so a canonical on the root layout becomes every route's canonical
+ * unless that route overrides it — which would have `/login` telling crawlers its
+ * real address is `/`, the strongest possible instruction to treat two different
+ * pages as one. Canonicals belong to the pages that have them, and only the public
+ * ones do: `publicMetadata()` in `src/lib/site.ts` builds them, and `seo.test.ts`
+ * asserts no other route group grows one.
+ *
+ * `openGraph.url` is left out for the same reason.
+ */
 export const metadata: Metadata = {
+  metadataBase: siteUrl() ?? undefined,
   title: {
     default: "Lingua",
     template: "%s · Lingua",
   },
-  description:
-    "Curated language courses, reviewed before publication. Video and audio lessons with transcripts.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "Lingua",
+    locale: "en",
+  },
+  twitter: {
+    // `summary`, not `summary_large_image`: the large card is defined by its
+    // image, and there is no image yet. Claiming the layout without the asset
+    // renders an empty box.
+    card: "summary",
+  },
 };
 
 export default function RootLayout({

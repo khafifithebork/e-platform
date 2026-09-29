@@ -4,11 +4,13 @@ import Link from "next/link";
 import { PricingPlans } from "@/components/pricing/PricingPlans";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { PRICE_BOOK } from "@/lib/pricing";
+import { publicMetadata } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: "Pricing",
   description: "One subscription covering every course, billed monthly or yearly.",
-};
+  path: "/pricing/",
+});
 
 /**
  * Pricing — the page, deliberately not the price.

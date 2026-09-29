@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
+
 import { FeaturedCourses } from "@/components/catalogue/FeaturedCourses";
 import { Reveal } from "@/components/motion/Reveal";
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Hero } from "@/components/site/Hero";
 import { allPublishedCourses } from "@/lib/catalogue/courses";
+import { publicMetadata } from "@/lib/site";
 
 /**
  * The landing page.
@@ -36,6 +39,21 @@ import { allPublishedCourses } from "@/lib/catalogue/courses";
  * section crosses the boundary. `Home` itself stays `async` and server-only,
  * so the page is still built once and served identically to everyone.
  */
+/**
+ * The landing page's own metadata, for its canonical URL and share card.
+ *
+ * `absoluteTitle`, because the root template would compose this one into
+ * "Lingua · Lingua". The description is the site description rather than a second
+ * version of it — this page is what the site is.
+ */
+export const metadata: Metadata = publicMetadata({
+  title: "Lingua",
+  description:
+    "Curated language courses, reviewed before publication. Video and audio lessons with transcripts.",
+  path: "/",
+  absoluteTitle: true,
+});
+
 export default async function Home() {
   const courses = await allPublishedCourses();
 

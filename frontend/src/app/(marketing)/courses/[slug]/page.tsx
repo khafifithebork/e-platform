@@ -13,6 +13,7 @@ import {
   publishedCourse,
   publishedCourseSlugs,
 } from "@/lib/catalogue/courses";
+import { publicMetadata } from "@/lib/site";
 
 /**
  * One course.
@@ -69,12 +70,31 @@ export async function generateMetadata({
   const { slug } = await params;
   const course = await loadCourse(slug);
 
-  return {
+  return publicMetadata({
     title: course.title,
-    // The catalogue description, not an invented one. An empty description is
-    // better than a generated sentence that claims something about the course.
+    /*
+     * The catalogue description, not an invented one — the original decision
+     * here, kept.
+     *
+     * **What an empty one actually renders is inheritance, not absence**, and the
+     * comment this replaces implied otherwise. `publicMetadata` omits the key, and
+     * Next then falls back to the root layout's site description, so a course with
+     * no description ships "Curated language courses, reviewed before
+     * publication…" as its own. Verified in the built HTML, not assumed: `t8-spanish`
+     * has `description: ""` today and that is exactly what it emits.
+     *
+     * That is acceptable — the sentence is true of the site and says nothing false
+     * about the course — and it is *not* the same as having no description. The
+     * alternative worth considering later is assembling one from facts the API does
+     * have (title, level, language), which is composition rather than invention.
+     * Out of scope here; §6 forbids the third option of making something up.
+     */
     description: course.description || undefined,
-  };
+    // The canonical form Django and `trailingSlash: true` both serve. Encoded the
+    // same way `sitemap.ts` encodes it, so the two cannot disagree about a slug
+    // with anything unusual in it.
+    path: `/courses/${encodeURIComponent(slug)}/`,
+  });
 }
 
 export default async function CoursePage({ params }: { params: Promise<{ slug: string }> }) {

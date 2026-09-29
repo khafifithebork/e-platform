@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" role="img" aria-label="Lingua">
+  <!--
+    The header mark, drawn rather than screenshotted.
+
+    `SiteShell` builds it from utilities: a 36×36 (`h-9 w-9`) square at
+    `rounded-(--radius-md)` = 12px, filled `--color-accent`, a semibold "L" in
+    `--color-on-accent`, and a 12px coral dot at the top-right with a 2px border in
+    `--color-surface`. Those values are reproduced here as literals because an icon
+    file cannot read the stylesheet, and `seo.test.ts` asserts they still match the
+    tokens — so a palette change fails a test instead of leaving the favicon as the
+    only thing still wearing the old brand colour.
+
+    Light-mode values throughout. A favicon is composited against browser chrome we
+    do not control, and the accent square gives the glyph its own background either
+    way; `#4945a5` on `#ffffff` is 8.6:1, so the mark stays legible in a dark tab
+    strip. `prefers-color-scheme` inside an SVG favicon is honoured inconsistently
+    across browsers, which makes it a worse bet than one deliberate rendering.
+  -->
+  <rect width="36" height="36" rx="12" fill="#4945a5" />
+  <text
+    x="15"
+    y="25"
+    font-family="'Segoe UI', 'Avenir Next', ui-sans-serif, system-ui, sans-serif"
+    font-size="20"
+    font-weight="600"
+    fill="#ffffff"
+    text-anchor="middle"
+  >L</text>
+  <circle cx="30" cy="6" r="6" fill="#ffffff" />
+  <circle cx="30" cy="6" r="4" fill="#c44656" />
+</svg>

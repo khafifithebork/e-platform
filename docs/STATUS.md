@@ -3,11 +3,11 @@
 **Last updated:** 2026-09-28
 **Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
 its four ADRs, the fixes that followed, the owner's verification passes, and the
-professional-quality addendum's first batch)
+professional-quality addendum's first two batches)
 
 ---
 
-## The quality addendum — batch one of several
+## The quality addendum — two batches of fourteen areas
 
 **The audit that produced the section below was about accessibility, boundaries and
 measurement. This one asks a different question: is this a product a stranger could
@@ -15,7 +15,8 @@ actually use.** Fourteen areas were reviewed read-only on 2026-09-28 — trust a
 policy pages, multilingual, account and privacy, subscription transparency, course
 discovery, learning comfort, brand assets, colour and type, interaction polish,
 accessible HTML, SEO, performance, security and operations, and browser
-verification. The owner approved **batch one only**, and only batch one is done.
+verification. The owner approved **batch one**, then **batch two**. **Two of the
+fourteen areas have been touched**, and one of those two is half blocked.
 
 **This checklist is not complete and must not be reported as complete.**
 
@@ -79,10 +80,68 @@ Mailpit, paste it, confirm the account verifies, then the same for a reset. Both
 routes are served by the dev container and confirmed rendering
 (`/verify-email/` → 200, `<h1>` present, both forms).
 
-### Batch two, proposed and not approved
+### Batch two — the site had nothing to say to a crawler
 
-Footer completeness and the SEO files — canonical URLs, `sitemap.ts`, `robots.ts`,
-Open Graph metadata, icons. Not started.
+**No canonical URL, no sitemap, no robots.txt, no Open Graph, and the favicon was
+the Next.js logo** — it arrived with the `create-next-app` scaffold in `66c314b` on
+2026-08-14 and nothing ever replaced it, so the browser tab wore the framework's
+brand through sixteen milestones. ADR-035.
+
+**The decision was what to say with no domain, because that is this repository's
+state.** ADR-025 chose the hosting, not the name. Unset `SITE_URL` now means no
+canonical tags, an empty sitemap and `Disallow: /`.
+
+**Not indexed is recoverable; wrongly indexed is not.** That is the whole argument.
+The obvious default — falling back to localhost — publishes canonicals pointing at a
+machine no crawler can reach, which de-indexes every page *and* looks like it
+worked. A value that is set but malformed stops the build instead: a typo is somebody
+configuring this and getting it wrong, which is a different situation from nobody
+having configured it yet.
+
+**Next's own documentation ruled out the first implementation.** Relative metadata
+paths with no `metadataBase` are a *build error*, not a silent omission — so the
+naive version of this fail-safe would have broken every build in this repository
+today. Recorded in ADR-035 §3 because the failure would have arrived in CI looking
+nothing like its cause.
+
+**The canonical is deliberately not on the root layout.** Metadata is inherited, so
+one there becomes every route's canonical — `/login` telling crawlers its real
+address is `/`. Four public pages carry one, through a helper, and a grep over the
+`(auth)`, `(learner)`, `(app)` and `(instructor)` groups asserts none of them grows
+one. 13 provocations, all caught.
+
+**Verified against built output, both ways.** With an origin: four canonicals, a
+four-entry sitemap, `Host` and `Sitemap` lines. Without one: zero canonical tags
+anywhere, an empty `<urlset>`, `Disallow: /`, and no occurrence of `localhost` in any
+built page.
+
+**What the build corrected.** A course with an empty description does not ship *no*
+description — Next inherits the root's, so `t8-spanish` renders the site description
+as its own. Acceptable and now documented where it happens; the code read as if the
+tag were absent.
+
+`robots.txt` also stops advertising the authentication routes. Not a control — the
+session cookie and the server's checks are that — but an indexed sign-in form is a
+phishing lure wearing our name.
+
+**Left out on purpose, each with a reason in ADR-035 §5:** `lastModified` and
+`changeFrequency` (no modification time exists; inventing a cadence is inventing a
+fact), the Open Graph image (needs its own decision), an `apple-icon` (needs a raster
+asset), and `favicon.ico` (deleted — it was the framework's logo and would still
+have been served at that path).
+
+**Terms, Privacy and an imprint are not written and not stubbed.** The owner declined
+stub routes on 2026-09-28. They need real terms, a real data-protection statement and
+a real controller identity for EU learners — an empty policy page reads as a
+compliance claim nobody has made. **So "footer completeness" is done only in the
+sense that the footer links nowhere false.** That half of batch two is blocked on
+owner-supplied content, not on engineering.
+
+### Batch two's own open item
+
+**`SITE_URL` is unset, and the site is therefore deliberately unindexed.** That is
+intended behaviour until a domain exists, not a gap — but it is one line away from
+being a gap if somebody deploys expecting to be found.
 
 ---
 
