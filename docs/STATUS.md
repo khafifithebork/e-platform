@@ -7,7 +7,7 @@ professional-quality addendum's first two batches — both merged)
 
 ---
 
-## The quality addendum — two batches of fourteen areas
+## The quality addendum — three batches of fourteen areas
 
 **The audit that produced the section below was about accessibility, boundaries and
 measurement. This one asks a different question: is this a product a stranger could
@@ -15,8 +15,9 @@ actually use.** Fourteen areas were reviewed read-only on 2026-09-28 — trust a
 policy pages, multilingual, account and privacy, subscription transparency, course
 discovery, learning comfort, brand assets, colour and type, interaction polish,
 accessible HTML, SEO, performance, security and operations, and browser
-verification. The owner approved **batch one**, then **batch two**. **Two of the
-fourteen areas have been touched**, and one of those two is half blocked.
+verification. The owner approved **batch one**, then **batch two**, then **batch
+three** — which carried the first backend work. **Three of the fourteen areas have
+been touched**, and two of the three are half blocked on decisions rather than code.
 
 **This checklist is not complete and must not be reported as complete.**
 
@@ -24,6 +25,7 @@ fourteen areas have been touched**, and one of those two is half blocked.
 |---|---|---|
 | #95 | Batch one — the two emailed tokens, redeemable at last | 2026-09-28 |
 | #96 | Batch two — canonical URLs, sitemap, robots, the icon | 2026-09-29 |
+| #98 | Batch three — the account page, and a data export | open |
 
 **Two ADRs — ADR-034 (emailed tokens are pasted) and ADR-035 (canonical URLs and
 indexing) — and one dependency bump nobody asked for**, which turned out to be a
@@ -183,7 +185,80 @@ reviewed before publication…" as its own. Acceptable and documented. The bette
 answer, if anyone wants it, is composing one from facts the API does have — title,
 level, language — which is composition, not the invention §6 forbids.
 
-### The twelve areas nobody has touched
+### Batch three — an account surface, and a data export
+
+**Nothing existed at `/account`**, and `POST /auth/password/change/` — the only
+authenticated endpoint in the auth group, present since M2 — **had no caller**. That
+is the fourth uncalled endpoint this addendum has found, and the pattern is now
+recorded: a wrapper in `client.ts` looks like coverage and proves only that somebody
+typed the URL. ADR-036.
+
+**The first backend work of the addendum**, because the owner authorised it.
+
+**`AccessSerializer` gained the reason's `label`.** `resolve_account_access` can
+return twelve of the fourteen reasons and an account page needs words for all twelve;
+a frontend table of them would be a second copy of that vocabulary, which is exactly
+what `denial.ts` documents going wrong — `LessonPlayer` branched for nine milestones
+on two reasons the server has never sent. `reason` stays the thing to branch on, the
+label is the thing to show, and a reason added in M8 arrives with words attached.
+
+**`GET /auth/me/export/`** returns everything the service holds about the signed-in
+account, as a JSON download. GDPR Article 15 and 20, which `docs/specs/m10-admin.md`
+§6 deferred along with erasure. Export is the tractable half: it destroys nothing and
+conflicts with no retention obligation.
+
+**The exclusions are the substance, and one of them is another person's name.**
+`AuditLog` is out entirely — every row carries an `actor_label` naming the
+administrator who acted, and Article 15 does not extend to other people's data.
+`AccessOverride` is in and `granted_by` is not. Also out: password material, token
+hashes, `WebhookEvent` (not keyed to a user at all), and course content, which is the
+product rather than personal data.
+
+**An existing guard changed the design and was right to.**
+`TestNothingElseRederivesAccess` refused the first version, which imported
+`Subscription` into the accounts selector — nothing outside `entitlements/` may, because
+that import is the seam where a second entitlement rule appears. Strictly a false
+positive: the export prints the status and never compares it. **The exemption was still
+the wrong fix** (§6 forbids weakening a control to make a test pass), so the reads moved
+into `entitlements.selectors.personal_billing_data`. Better layering, arrived at by
+being told no.
+
+**Two invented facts were caught before they shipped**, and they are the same mistake
+twice. The account page's first draft said "email support" — there is no support
+address anywhere in this repository. The export's own `about` text said "See the
+privacy documentation" — there is none, that page being blocked on owner-supplied
+content. Both now say what is true and point at nothing, and both have tests pinning
+the absence. A published channel nobody reads is worse than an admitted gap.
+
+**30 provocations, all caught — after one test turned out not to be a control.**
+"States whether access is allowed, from `allowed` and not from the reason" used
+fixtures where both readings agree, so replacing the read with the derivation left it
+green. `GRACE_PERIOD` and `TRIAL` are grants; keying on `SUBSCRIPTION_ACTIVE` denies a
+paying customer mid-grace and every trial user. Fixed and re-provoked. **That is the
+third time this week a provocation has found a test that could not fail.**
+
+**Verified against the live API, which is a first for this addendum.** A real session
+through the Next rewrite: 200, `Content-Disposition: attachment`,
+`Cache-Control: no-store`, all seven sections present, and no `password`, `argon2` or
+`token_hash` anywhere in the file.
+
+Four database constraints and one guard caught fixture faults on the way:
+`course_published_has_published_at`, `max_position_is_at_least_last`, `AuditLog`'s real
+field names, and an assumption that `create_account` issues a verification token. The
+query count claimed eight and measured seven — **because the fixture had no
+subscription, and `prefetch_related` skips its second query on an empty outer
+queryset.** A prefetch cannot be proven by a fixture with no rows.
+
+### Batch three's own open item, and it is not engineering
+
+**Account deletion is not built and not stubbed.** The engineering is the easy part;
+what must *survive* an erasure is a set of questions with legal weight, and ADR-036 §5
+lists them: invoices against tax retention in a jurisdiction that is itself unresolved
+(§11 #1), the audit trail whose only job is to be complete (ADR-018), content an
+instructor wrote, and the fact that **there is no contact route for a request to
+arrive through**. The page says so out loud and names no channel.
+
+### The areas nobody has touched
 
 Recorded by name so the next session does not re-derive the list, and so "two of
 fourteen" stays a number rather than an impression. **None of these has been
@@ -193,7 +268,7 @@ proposed, let alone approved.**
 |---|---|
 | **Trust and policy pages** | Terms, Privacy, an imprint. Half-addressed in batch two only in the sense that the footer links nowhere false. **Blocked on owner-supplied content** — real terms, a real data-protection statement, a real controller identity for EU learners |
 | **Multilingual** | ADR-033 deferred interface localisation with a named trigger. Still deferred, and CLAUDE.md §11 treats it as a separately scoped workstream |
-| **Account and privacy** | No page where somebody can see, export or delete their own data. An EU product will need one |
+| ~~**Account and privacy**~~ | **Batch three, 2026-09-29.** `/account` shows what the API knows and changes a password; `GET /auth/me/export/` is the Article 15 export. **Deletion is not built** — ADR-036 §5, and it is a retention question, not an engineering one |
 | **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
 | **Course discovery** | Search exists (M11, Postgres full-text with trigram fallback). Browsing beyond language and level does not |
 | **Learning comfort** | Playback rate, captions styling, keyboard shortcuts in the player. `<track>`'s `srclang` and `label` remain **blocked on the API modelling caption language** |
@@ -204,11 +279,14 @@ proposed, let alone approved.**
 | **Performance** | Measured — 312–326 KB gz per route. **A 350 KB budget is proposable and enforcing it needs the owner** |
 | **Security and operations** | Sentry, CSP, `_headers`, throttling and lockout all exist. The four moderate advisories above are the live item |
 
-**The honest summary: the two batches that shipped were the two areas where
-something was actually broken.** The rest is a mix of genuinely blocked (policy
-content, billing, caption language), already covered by earlier work, and not yet
-looked at properly. Treating them as a single "checklist" would flatten that
+**The honest summary: the three batches that shipped were the three areas where
+something was actually broken** — two unredeemable tokens, a site invisible to
+crawlers, and an account with no surface. The rest is a mix of genuinely blocked
+(policy content, billing, caption language), already covered by earlier work, and not
+yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
+
+**Eleven areas remain untouched**, and the table above is the list.
 
 ### The audit gate was red before either batch touched it
 
