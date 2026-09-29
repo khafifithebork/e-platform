@@ -42,6 +42,15 @@ export function CourseSearch({
 }) {
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState(false);
+  /**
+   * The search's own failure, inline rather than a `LoadFailure`.
+   *
+   * Every other failed load in the app offers a "Try again" button (see
+   * `components/ui/LoadFailure.tsx`), and this one deliberately does not: the
+   * debounce re-fires on the next keystroke, so the retry already exists and is the
+   * gesture somebody is mid-way through anyway. A button beside a box being typed in
+   * is noise, and the message is already announced in the field's live region below.
+   */
   const [error, setError] = useState("");
 
   // Derived rather than stored, and that is a correction. The first version

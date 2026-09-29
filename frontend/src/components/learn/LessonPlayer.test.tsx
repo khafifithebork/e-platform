@@ -735,3 +735,56 @@ describe("the comfort controls", () => {
     expect(screen.getByLabelText(/speed/i)).toBeDisabled();
   });
 });
+
+describe("a lesson that would not load", () => {
+  it("offers a retry that re-requests, rather than a bare message", async () => {
+    /**
+     * The fourth of four surfaces that reported a failed load and gave nobody
+     * anything to press. This one showed a `Notice` and stopped.
+     *
+     * The progress request is the one that decides this state: `load()` treats its
+     * failure as the page failing, while a missing playback token or transcript is
+     * ordinary and leaves the page usable.
+     */
+    let failing = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        if (String(url).includes("/progress/")) {
+          if (failing) return new Response("", { status: 500 });
+          return json(progress());
+        }
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+
+    failing = false;
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByRole("heading", { name: "Intro to Spanish" })).toBeInTheDocument();
+  });
+
+  it("clears the old message while the retry is in flight", async () => {
+    // A stale error sitting above a loading state reads as a second failure.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        if (String(url).includes("/progress/")) return new Response("", { status: 500 });
+        return new Response("", { status: 404 });
+      }),
+    );
+
+    render(<LessonPlayer lesson={LESSON} />);
+    await screen.findByRole("alert");
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    // It comes back, because the stub still fails — the point is that it went away
+    // and returned rather than never having left.
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+  });
+});

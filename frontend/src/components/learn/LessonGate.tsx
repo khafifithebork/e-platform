@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { LessonPlayer } from "@/components/learn/LessonPlayer";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { ApiError, api, type GatedLesson } from "@/lib/api/client";
 import { refusalFor } from "@/lib/entitlements/denial";
@@ -42,6 +43,14 @@ export function LessonGate({
   lessonSlug: string;
 }) {
   const [state, setState] = useState<GateState>({ status: "loading" });
+  /** Bumped to retry a failed load. See `LoadFailure`. */
+  const [attempt, setAttempt] = useState(0);
+
+  /** Re-run the load that failed. The reset is here, not in the effect. */
+  function retry() {
+    setState({ status: "loading" });
+    setAttempt((n) => n + 1);
+  }
 
   useEffect(() => {
     let current = true;
@@ -81,7 +90,7 @@ export function LessonGate({
     return () => {
       current = false;
     };
-  }, [courseSlug, lessonSlug]);
+  }, [courseSlug, lessonSlug, attempt]);
 
   if (state.status === "loading") {
     // A live region, because the rest of the page is empty while this
@@ -139,7 +148,14 @@ export function LessonGate({
           <PageTitle variant="interstitial">
             This lesson could not be loaded
           </PageTitle>
-          <p className="text-ink-muted">Something went wrong. Try again in a moment.</p>
+          {/*
+           * The page keeps its own heading, so the notice carries no title — two
+           * headings saying the same thing is what a shared component produces if
+           * it insists on one.
+           */}
+          <LoadFailure onRetry={retry}>
+            Something went wrong.
+          </LoadFailure>
         </>
       )}
 

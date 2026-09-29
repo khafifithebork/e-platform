@@ -211,6 +211,41 @@ describe("the states nobody designs for", () => {
     );
   });
 
+  it("offers a retry that re-requests, rather than advice", async () => {
+    /**
+     * **This used to say "Try again in a moment" and give nobody anything to
+     * press.** The common cause is a transient connection failure, which is exactly
+     * the case one click fixes.
+     *
+     * The retry re-runs the load rather than reloading the page: a reload would
+     * throw away everything else on screen to recover one request.
+     */
+    vi.mocked(globalThis.fetch).mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    render(<MyCourses />);
+    await screen.findByText(/could not be loaded/i);
+    const before = vi.mocked(globalThis.fetch).mock.calls.length;
+
+    vi.mocked(globalThis.fetch).mockResolvedValue(json({ results: [enrollment()] }));
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("Spanish for beginners")).toBeInTheDocument();
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBeGreaterThan(before);
+  });
+
+  it("offers the retry again when the retry also fails", async () => {
+    // The second failure is the one where somebody is most likely to give up, and a
+    // component that dropped the control after one attempt would strand them.
+    vi.mocked(globalThis.fetch).mockRejectedValue(new TypeError("fetch failed"));
+
+    render(<MyCourses />);
+    await screen.findByText(/could not be loaded/i);
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
   it("reports a real failure as a failure", async () => {
     // The negative that keeps the signed-out branch honest. If every error
     // became "sign in", an outage would look like a session problem and
