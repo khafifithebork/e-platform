@@ -7,7 +7,7 @@ professional-quality addendum's first two batches — both merged)
 
 ---
 
-## The quality addendum — four batches of fourteen areas
+## The quality addendum — five batches of fourteen areas
 
 **The audit that produced the section below was about accessibility, boundaries and
 measurement. This one asks a different question: is this a product a stranger could
@@ -16,9 +16,9 @@ policy pages, multilingual, account and privacy, subscription transparency, cour
 discovery, learning comfort, brand assets, colour and type, interaction polish,
 accessible HTML, SEO, performance, security and operations, and browser
 verification. The owner approved **batch one**, then **batch two**, then **batch
-three** — which carried the first backend work — and then **batch four**. **Four of
-the fourteen areas have been touched**, and two of them are half blocked on decisions
-rather than on code.
+three** — which carried the first backend work — then **batch four**, then **batch
+five**. **Five of the fourteen areas have been touched**, and two of them are half
+blocked on decisions rather than on code.
 
 **This checklist is not complete and must not be reported as complete.**
 
@@ -329,6 +329,54 @@ all need a real provider and a person.
 caption size is an operating-system accessibility setting and overriding it takes that
 control from the people who have already set it.
 
+### Batch five — course discovery, and an empty catalogue that blamed the visitor
+
+**The area was in better shape than its name suggested.** Search (M11, Postgres
+full-text with trigram fallback), language and level filters, an honest truncation
+notice and a polite live count all existed. Three gaps, and the first is a defect.
+
+**A catalogue with nothing published told its first visitors they had filtered it
+away.** One branch served both emptinesses — "No courses match those filters yet. Try
+widening one of them" — so the state on the first day after launch, and the state a
+build against an empty database produces, pointed people at controls that were not the
+problem and implied they had done something. `courses.length === 0` is the honest
+signal: it is what the page was *given*, before any filtering, so no combination of
+controls can produce it.
+
+**The existing test is why it lasted.** It asserted the component "renders without
+crashing" and shows "0 courses" — both true of the wrong message as well as the right
+one. Both directions are now pinned, because a component that always said "nothing
+published" would mislead just as badly the other way.
+
+**A skill filter, from data that was already on screen.** Every card renders
+`skill_areas` as badges and nothing could narrow by them. Options are derived from the
+loaded courses for the same reason levels are: a catalogue with no C2 courses should
+not offer a C2 filter that always yields nothing.
+
+**`skill_areas` is a free-form `JSONField`** — "e.g. `['listening', 'grammar']`" — so
+"Listening" and "listening" are both values two instructors can enter. Tags are grouped
+case-insensitively and labelled with the first spelling seen, which gives a usable
+filter without pretending the data is tidy. **A controlled vocabulary is the real fix
+and it is a backend content decision**, not something a filter should impose quietly.
+The generated type is `unknown`, so a malformed row is filtered rather than thrown on —
+one bad row must not fail the build for every course.
+
+**Clear filters**, shown only when something is set. 9 provocations, all caught.
+
+**Two things deliberately not done.** The card's skill badges stay non-interactive:
+`CourseCard` is pointedly presentational and server-renderable, reused on the landing
+and detail pages where filtering makes no sense, and a callback would drag hydration
+into all three. And filter state stays out of the URL — invariant 15 forbids
+`searchParams` here, and the component already records that the answer, when linkable
+filters are wanted, is route segments with `generateStaticParams`. That is an ADR-024
+change rather than a tweak.
+
+### Batch five's own open item
+
+**A filtered view still cannot be linked or bookmarked**, which the component has
+recorded as a known cost since M15. It becomes worth paying for when somebody wants to
+share "B1 Spanish, speaking" — and the fix is route segments, not a query string.
+
 ### The areas nobody has touched
 
 Recorded by name so the next session does not re-derive the list, and so "two of
@@ -341,7 +389,7 @@ proposed, let alone approved.**
 | **Multilingual** | ADR-033 deferred interface localisation with a named trigger. Still deferred, and CLAUDE.md §11 treats it as a separately scoped workstream |
 | ~~**Account and privacy**~~ | **Batch three, 2026-09-29.** `/account` shows what the API knows and changes a password; `GET /auth/me/export/` is the Article 15 export. **Deletion is not built** — ADR-036 §5, and it is a retention question, not an engineering one |
 | **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
-| **Course discovery** | Search exists (M11, Postgres full-text with trigram fallback). Browsing beyond language and level does not |
+| ~~**Course discovery**~~ | **Batch five, 2026-09-29.** A skill-area filter, a clear control, and a fix for an empty catalogue that blamed the visitor's filters. **Linkable filtered views remain open** — that is an ADR-024 change |
 | ~~**Learning comfort**~~ | **Batch four, 2026-09-29.** Captions declare their language, playback speed 0.5×–1.5× persisted per device, a back-5-seconds control, and `::cue` styling. **Nobody has watched a real video at any of it** — no provider is configured |
 | **Brand assets** | The icon landed in batch two. No OG image, no `apple-icon`, no touch icons |
 | **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
@@ -350,15 +398,16 @@ proposed, let alone approved.**
 | **Performance** | Measured — 312–326 KB gz per route. **A 350 KB budget is proposable and enforcing it needs the owner** |
 | **Security and operations** | Sentry, CSP, `_headers`, throttling and lockout all exist. The four moderate advisories above are the live item |
 
-**The honest summary: the four batches that shipped were the four areas where
+**The honest summary: the five batches that shipped were the five areas where
 something was actually broken** — two unredeemable tokens, a site invisible to
-crawlers, an account with no surface, and a player whose captions could not say what
-language they were in. The rest is a mix of genuinely blocked
+crawlers, an account with no surface, a player whose captions could not say what
+language they were in, and a catalogue that blamed its first visitors for being
+empty. The rest is a mix of genuinely blocked
 (policy content, billing, caption language), already covered by earlier work, and not
 yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
 
-**Ten areas remain untouched**, and the table above is the list.
+**Nine areas remain untouched**, and the table above is the list.
 
 ### The audit gate was red before either batch touched it
 
