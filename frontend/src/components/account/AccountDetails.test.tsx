@@ -138,11 +138,48 @@ describe("course access", () => {
   });
 
   it("states whether access is allowed, from `allowed` and not from the reason", async () => {
-    stubApi(() => json(me()));
-    const granted = render(<AccountDetails />);
+    /**
+     * **The first version of this test could not fail, and provoking found it.**
+     *
+     * It used `allowed: true` with `SUBSCRIPTION_ACTIVE` and `allowed: false` with
+     * `SUBSCRIPTION_EXPIRED` — fixtures where reading `allowed` and deriving it from
+     * `reason === "SUBSCRIPTION_ACTIVE"` give the same answer. Replacing the read
+     * with exactly that derivation left the test green, while the test's own name
+     * claimed to rule it out.
+     *
+     * So the fixtures now **disagree**. `GRACE_PERIOD` is a grant — the payment
+     * failed and the person is still inside the window — and `TRIAL` is a grant too.
+     * A component deriving access from the reason denies both, which is a real bug:
+     * it would tell a paying customer mid-grace and every trial user that they have
+     * no access. Eight of the fourteen reasons are grants; keying on one of them is
+     * wrong for seven.
+     */
+    stubApi(() =>
+      json(
+        me({
+          access: {
+            allowed: true,
+            reason: "GRACE_PERIOD",
+            cta: null,
+            label: "Payment failed, within grace period",
+          },
+        }),
+      ),
+    );
+    const inGrace = render(<AccountDetails />);
 
     expect(await screen.findByText(/you have access to every published course/i)).toBeVisible();
-    granted.unmount();
+    inGrace.unmount();
+
+    stubApi(() =>
+      json(
+        me({ access: { allowed: true, reason: "TRIAL", cta: null, label: "Trial in progress" } }),
+      ),
+    );
+    const onTrial = render(<AccountDetails />);
+
+    expect(await screen.findByText(/you have access to every published course/i)).toBeVisible();
+    onTrial.unmount();
 
     stubApi(() =>
       json(
