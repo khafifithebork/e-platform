@@ -7,7 +7,7 @@ professional-quality addendum's first two batches — both merged)
 
 ---
 
-## The quality addendum — six batches of fourteen areas
+## The quality addendum — seven batches of fourteen areas
 
 **The audit that produced the section below was about accessibility, boundaries and
 measurement. This one asks a different question: is this a product a stranger could
@@ -16,9 +16,9 @@ policy pages, multilingual, account and privacy, subscription transparency, cour
 discovery, learning comfort, brand assets, colour and type, interaction polish,
 accessible HTML, SEO, performance, security and operations, and browser
 verification. The owner approved **batch one**, then **batch two**, then **batch
-three** — which carried the first backend work — then **batch four**, **five** and
-**six**. **Six of the fourteen areas have been touched**, and two of them are half
-blocked on decisions rather than on code.
+three** — which carried the first backend work — then **batch four**, **five**,
+**six** and **seven**. **Seven of the fourteen areas have been touched**, and two of
+them are half blocked on decisions rather than on code.
 
 **This checklist is not complete and must not be reported as complete.**
 
@@ -426,6 +426,54 @@ serve a case that happens rarely. They live in the retry handlers now.
 owner before starting and kept together deliberately: splitting it would leave the
 application inconsistent between merges, which is the thing the batch exists to fix.
 
+### Batch seven — share images, and a regression the SEO batch had shipped
+
+**ADR-035 §5 had left the Open Graph image and the `apple-icon` out** because
+generating one needed a decision and authoring a 180×180 PNG by hand was not something
+to improvise. `next/og` answers both: it ships with Next, so nothing was installed, and
+an `opengraph-image` route is statically optimized — three routes, three PNGs, all
+prerendered, one per published course. ADR-035 §6a.
+
+**Then the finding, which is the reason this batch matters.** `publicMetadata` — added
+by the SEO batch itself — **had been stripping `og:site_name` and `og:locale` from all
+four public pages since PR #96.**
+
+Next merges metadata *shallowly*: "duplicate keys are replaced based on their
+ordering". A page that sets `openGraph` replaces the root layout's whole object, and
+that helper set `openGraph: { title, description, url }`. Today it would also have
+discarded the `og:image` the new file convention contributes — **three of the four
+cards would not have appeared**, and the fourth works only because a course's image is
+colocated in the same segment, where file-based metadata outranks the object.
+
+**Found by comparing built HTML, not by reasoning.** `/login`, which sets no
+`openGraph`, carried all three tags. `/`, which used the helper, carried none.
+
+**This is the same trap ADR-035 §4 documents, from the other side.** §4 explains why
+the root layout must not set a canonical — inheritance would spread it everywhere. The
+mirror image, that a page setting a key destroys what it inherited, was not written
+down, and the helper written in the same change fell into it.
+
+**Why nothing caught it:** every test written with that helper asserted the fields it
+*set*. The fault was in what the object *removed*, which is invisible to anything
+reading that object and invisible to a component test, because the framework assembles
+metadata. `assert-page-structure.mjs` now checks `og:image` and `og:site_name` on built
+HTML, matching pages by shape rather than by slug — and **failing if it matched fewer
+than four**, which is the guard on the guard. Both halves provoked.
+
+**Two guards did real work.** `verify:static` refused the course image route until it
+declared `dynamicParams = false`; without it the route keeps a dynamic fallback and
+becomes server-rendered under `(marketing)`, which the build reports as success either
+way. And `seo.test.ts`'s icon guard now also covers `lib/share/card.ts`, which carries
+the same brand literals for the same reason — there is no stylesheet inside an
+`ImageResponse`.
+
+**Known and accepted:** the cards render in whatever font `ImageResponse` bundles,
+because this app ships no web fonts and Satori cannot see system ones. And with no
+`SITE_URL` the `og:image` URL falls back to localhost — inert, because that is exactly
+the state where `robots.txt` is `Disallow: /`, and correct the moment an origin exists.
+
+10 provocations, all caught. 624 frontend tests across 50 files.
+
 ### The areas nobody has touched
 
 Recorded by name so the next session does not re-derive the list, and so "two of
@@ -440,23 +488,28 @@ proposed, let alone approved.**
 | **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
 | ~~**Course discovery**~~ | **Batch five, 2026-09-29.** A skill-area filter, a clear control, and a fix for an empty catalogue that blamed the visitor's filters. **Linkable filtered views remain open** — that is an ADR-024 change |
 | ~~**Learning comfort**~~ | **Batch four, 2026-09-29.** Captions declare their language, playback speed 0.5×–1.5× persisted per device, a back-5-seconds control, and `::cue` styling. **Nobody has watched a real video at any of it** — no provider is configured |
-| **Brand assets** | The icon landed in batch two. No OG image, no `apple-icon`, no touch icons |
+| ~~**Brand assets**~~ | **Batch seven, 2026-09-30.** A site share card, a per-course card, and the `apple-icon` — all generated at build time by `next/og`, nothing installed. The font does not match the site's, knowingly |
 | **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
 | ~~**Interaction polish**~~ | **Batch six, 2026-09-29.** Reviewed, and it was one finding in four places: every failed load dispensed advice instead of offering a retry. The motion system and focus treatment were already settled and needed nothing |
 | **Accessible HTML** | Covered by ADR-030, axe, `verify:a11y` and the runbook. The outstanding items are the human passes, not markup |
 | **Performance** | Measured — 312–326 KB gz per route. **A 350 KB budget is proposable and enforcing it needs the owner** |
 | **Security and operations** | Sentry, CSP, `_headers`, throttling and lockout all exist. The four moderate advisories above are the live item |
 
-**The honest summary: the six batches that shipped were the six areas where
+**The honest summary: the seven batches that shipped were the seven areas where
 something was actually broken** — two unredeemable tokens, a site invisible to
 crawlers, an account with no surface, a player whose captions could not say what
 language they were in, a catalogue that blamed its first visitors for being empty,
-and four failed loads that told people to try again without giving them a way to. The rest is a mix of genuinely blocked
+four failed loads that told people to try again without giving them a way to, and a
+metadata helper quietly deleting the tags it did not set.
+
+**Three of the seven were found by a test that passed against the fault it nominally
+covered**, and the seventh by a fault that no test in the repository *could* have
+seen. That is the pattern worth carrying forward rather than any of the features. The rest is a mix of genuinely blocked
 (policy content, billing, caption language), already covered by earlier work, and not
 yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
 
-**Eight areas remain untouched**, and the table above is the list. **Most of them are
+**Seven areas remain untouched**, and the table above is the list. **Most of them are
 not ours to close** — policy content, billing, a launch locale and two budget
 decisions are the owner's; colour/type and accessible HTML are already the most
 examined parts of the product and nothing outstanding was found in either.
