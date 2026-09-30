@@ -121,9 +121,33 @@ export function canonical(path: string): string | null {
  *
  * `path` is the canonical form, with the trailing slash `next.config.ts` serves.
  *
- * The Open Graph title is the page's own, not the templated `"%s · Lingua"`: a
- * share card already shows the site name separately, so the template would render
- * "Courses · Lingua — Lingua".
+ * ## It no longer sets `openGraph` or `twitter`, and that is a correction
+ *
+ * **It did, and doing so silently stripped three tags from every public page.**
+ * Next merges metadata *shallowly*: a page that sets `openGraph` **replaces** the
+ * parent's whole object rather than merging into it — the documentation's own words
+ * are that "duplicate keys are replaced based on their ordering". So setting
+ * `openGraph: { title, description, url }` here discarded the root layout's
+ * `og:site_name` and `og:locale`, and from 2026-09-30 it would also have discarded
+ * the `og:image` that `opengraph-image.tsx` contributes.
+ *
+ * Found by comparing built HTML: `/login`, which sets no `openGraph` at all, carried
+ * `og:site_name`, `og:locale` and `og:image`. `/`, which used this helper, carried
+ * none of the three. The tests written with this helper asserted the fields it set
+ * and could not see the ones it removed.
+ *
+ * **So it sets none of them, and everything is inherited.** Next derives `og:title`
+ * from the resolved title and `og:description` from the resolved description when
+ * `openGraph` does not name them, which is where those two now come from.
+ *
+ * What that costs, stated rather than discovered: **`og:url` is no longer emitted**,
+ * and `og:title` is now the *templated* title — "Courses · Lingua" rather than
+ * "Courses". Both are acceptable. `og:url` duplicates the `<link rel="canonical">`
+ * this helper still sets, which is what crawlers use; and the site name appearing
+ * twice on a share card is a smaller fault than the card having no image.
+ *
+ * `scripts/assert-page-structure.mjs` now asserts `og:image` on every built public
+ * page, because this was invisible to every test that existed.
  *
  * **The URLs are absolute, and that is not a style choice.** Next's documentation
  * is explicit: *"Using a relative path in a URL-based metadata field without
@@ -154,16 +178,13 @@ export function publicMetadata({
   absoluteTitle?: boolean;
 }): Metadata {
   const url = canonical(path);
-  // Spread rather than `x: value ?? undefined` throughout, so absent keys are
-  // genuinely absent. Next treats absent and `undefined` the same; a test reading
-  // the exported object does not, and `seo.test.ts` reads it.
-  const shared = { title, ...(description ? { description } : {}) };
 
   return {
-    ...shared,
+    // Spread rather than `x: value ?? undefined`, so absent keys are genuinely
+    // absent. Next treats absent and `undefined` the same; a test reading the
+    // exported object does not, and `seo.test.ts` reads it.
     title: absoluteTitle ? { absolute: title } : title,
+    ...(description ? { description } : {}),
     ...(url === null ? {} : { alternates: { canonical: url } }),
-    openGraph: { ...shared, ...(url === null ? {} : { url }) },
-    twitter: shared,
   };
 }

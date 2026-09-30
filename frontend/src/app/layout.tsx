@@ -30,11 +30,12 @@ const DESCRIPTION =
  * when no origin is configured, which is what makes the missing-origin case emit
  * no canonical rather than a wrong one — see `src/lib/site.ts`.
  *
- * **No `openGraph.images`.** A link preview without an image is plain; one
- * pointing at an image that does not exist is broken, and the only honest way to
- * get one is to generate or draw it, which is its own decision (`next/og` at build
- * time versus a static asset). Deliberately deferred rather than half-done —
- * Open Graph degrades gracefully to the title and description below.
+ * **`openGraph.images` is not set here, and does not need to be.** Next detects
+ * `opengraph-image.tsx` beside a route and emits the `og:image` tags itself, with the
+ * absolute URL, the dimensions and the alt text — so writing them by hand would be a
+ * second source for the same fact. `src/app/opengraph-image.tsx` is the site card and
+ * `(marketing)/courses/[slug]/opengraph-image.tsx` is the per-course one, both
+ * generated at build time (2026-09-30, ADR-035 §5).
  *
  * **No `alternates.canonical` here, and that is the subtle one.** Metadata is
  * inherited, so a canonical on the root layout becomes every route's canonical
@@ -59,10 +60,17 @@ export const metadata: Metadata = {
     locale: "en",
   },
   twitter: {
-    // `summary`, not `summary_large_image`: the large card is defined by its
-    // image, and there is no image yet. Claiming the layout without the asset
-    // renders an empty box.
-    card: "summary",
+    /*
+     * `summary_large_image` since 2026-09-30, and the comment it replaces is worth
+     * keeping in view: this was `summary` because "the large card is defined by its
+     * image, and there is no image yet. Claiming the layout without the asset renders
+     * an empty box."
+     *
+     * The asset now exists — `opengraph-image.tsx`, which Twitter falls back to when
+     * there is no `twitter-image` — so the large card has something to show. If the
+     * images are ever removed, this goes back.
+     */
+    card: "summary_large_image",
   },
 };
 

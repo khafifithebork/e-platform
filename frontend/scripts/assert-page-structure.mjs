@@ -38,6 +38,25 @@ function markup(html) {
   return html.replace(/<script[\s\S]*?<\/script>/g, "");
 }
 
+/**
+ * Whether a built page is one a stranger can reach and might share.
+ *
+ * Matched by shape rather than by a list of slugs: pinning `courses/t8-spanish.html`
+ * would tie this to seeded data, and the day that seed changed the check would match
+ * nothing and pass. The counter below is what notices if this stops matching at all.
+ */
+function isPublic(name) {
+  const path = name.replaceAll("\\", "/");
+
+  return (
+    path === "index.html" ||
+    path === "courses.html" ||
+    path === "pricing.html" ||
+    /^courses\/[^/]+\.html$/.test(path)
+  );
+}
+
+let publicPagesSeen = 0;
 const failures = [];
 
 let pages;
@@ -104,6 +123,53 @@ for (const page of pages) {
   for (const [tag] of html.matchAll(/<img\b[^>]*>/g)) {
     if (!/\balt=/.test(tag)) failures.push(`${name}: <img> without an alt attribute`);
   }
+
+  /**
+   * Every public page carries a share image, and this check exists because nothing
+   * else could see it going missing.
+   *
+   * **`opengraph-image.tsx` contributes `og:image` to the segment it sits in**, and
+   * Next merges metadata *shallowly*: a page that sets its own `openGraph` object
+   * **replaces** the parent's, image included. `publicMetadata` did exactly that from
+   * PR #96 until 2026-09-30, which silently stripped `og:site_name` and `og:locale`
+   * from all four public pages — and would have stripped `og:image` the moment one
+   * existed.
+   *
+   * It was invisible to every test in the repository, because the unit tests read the
+   * metadata object each page *sets* and the fault was in what the object *removed*.
+   * Only assembled HTML shows it, which is what this script reads.
+   *
+   * Scoped to the public pages: the authenticated ones are `Disallow`ed in robots.txt
+   * and nobody shares a link to a sign-in form.
+   */
+  if (isPublic(name)) {
+    publicPagesSeen += 1;
+
+    if (!/<meta property="og:image"/.test(html)) {
+      failures.push(`${name}: no og:image — a shared link to this page has no card`);
+    }
+    if (!/<meta property="og:site_name"/.test(html)) {
+      failures.push(
+        `${name}: no og:site_name — check whether a page-level openGraph object ` +
+          `replaced the root layout's`,
+      );
+    }
+  }
+}
+
+/**
+ * The check that keeps the check above honest.
+ *
+ * `isPublic` matches by filename, so a rename, a route move or a change to the seeded
+ * course would make it match nothing — and a rule that matches nothing reports
+ * success. Four is the number of public pages today: the landing page, the catalogue,
+ * pricing, and at least one course.
+ */
+if (publicPagesSeen < 4) {
+  failures.push(
+    `only ${publicPagesSeen} public pages were checked for a share image, expected at ` +
+      `least 4 — has a route moved, or did the seeded catalogue change?`,
+  );
 }
 
 if (failures.length > 0) {

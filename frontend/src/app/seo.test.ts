@@ -103,7 +103,6 @@ describe("canonical URLs", () => {
     expect(canonical("/courses/")).toBeNull();
     expect(meta.alternates).toBeUndefined();
     expect("alternates" in meta).toBe(false);
-    expect(meta.openGraph).not.toHaveProperty("url");
     expect(JSON.stringify(meta)).not.toMatch(/localhost/);
   });
 
@@ -115,7 +114,6 @@ describe("canonical URLs", () => {
     const meta = publicMetadata({ title: "Courses", description: "d", path: "/courses/" });
 
     expect(meta.alternates?.canonical).toBe("https://lingua.example/courses/");
-    expect(meta.openGraph).toHaveProperty("url", "https://lingua.example/courses/");
   });
 
   it("render the root as the origin itself", () => {
@@ -143,7 +141,36 @@ describe("canonical URLs", () => {
     const meta = publicMetadata({ title: "Spanish", description: "", path: "/courses/spanish/" });
 
     expect("description" in meta).toBe(false);
-    expect(meta.openGraph).not.toHaveProperty("description");
+  });
+
+  it("sets no `openGraph` or `twitter`, because doing so replaced the inherited ones", () => {
+    /**
+     * **This is the assertion that would have caught a bug that shipped.**
+     *
+     * Next merges metadata *shallowly* — its own words are that "duplicate keys are
+     * replaced based on their ordering" — so a page setting `openGraph` **replaces**
+     * the root layout's whole object rather than merging into it.
+     *
+     * From PR #96 until 2026-09-30 this helper set
+     * `openGraph: { title, description, url }`, which silently stripped
+     * `og:site_name` and `og:locale` from all four public pages, and would have
+     * stripped `og:image` the moment `opengraph-image.tsx` existed. Found by
+     * comparing built HTML: `/login`, which sets no `openGraph`, carried all three;
+     * `/`, which used this helper, carried none.
+     *
+     * Every test written alongside the helper asserted the fields it *set*. None
+     * could see what it removed — which is why `assert-page-structure.mjs` now checks
+     * `og:image` and `og:site_name` on the assembled HTML as well.
+     *
+     * The cost of not setting them: `og:url` is not emitted, and `og:title` is the
+     * templated form. Both are accepted, and `site.ts` says why.
+     */
+    vi.stubEnv("SITE_URL", ORIGIN);
+
+    const meta = publicMetadata({ title: "Courses", description: "d", path: "/courses/" });
+
+    expect("openGraph" in meta).toBe(false);
+    expect("twitter" in meta).toBe(false);
   });
 
   it("opt out of the title template only where asked", () => {
@@ -399,6 +426,36 @@ describe("the icon", () => {
     expect(icon).toContain(`fill="${token("color-brand-coral")}"`);
     expect(icon).toContain(`fill="${token("color-on-accent")}"`);
     expect(icon).toContain(`rx="${token("radius-md")?.replace("px", "")}"`);
+  });
+
+  it("shares its brand values with the share cards, which also cannot read the CSS", () => {
+    /**
+     * `icon.svg` is no longer the only file carrying brand colours as literals.
+     * `lib/share/card.ts` does too, because `ImageResponse` renders outside the
+     * document — no stylesheet, no `var(--color-accent)`, nothing to inherit.
+     *
+     * Two files repeating the palette is twice the drift, so the same guard covers
+     * both: a palette change fails here rather than leaving the favicon *and* every
+     * share card in the old brand colour.
+     */
+    const card = readFileSync(join(process.cwd(), "src", "lib", "share", "card.ts"), "utf8");
+    const css = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+
+    const token = (name: string) =>
+      css.match(new RegExp(`^\\s*--${name}:\\s*([^;]+);`, "m"))?.[1]?.trim();
+
+    for (const [constant, name] of [
+      ["CARD_ACCENT", "color-accent"],
+      ["CARD_ON_ACCENT", "color-on-accent"],
+      ["CARD_PAPER", "color-paper"],
+      ["CARD_INK", "color-ink"],
+      ["CARD_INK_MUTED", "color-ink-muted"],
+      ["CARD_CORAL", "color-brand-coral"],
+    ] as const) {
+      const value = token(name);
+      expect(value, name).toBeDefined();
+      expect(card, `${constant} should be ${value}`).toContain(`${constant} = "${value}"`);
+    }
   });
 
   it("is the only icon, and the framework default is gone", () => {
