@@ -7,7 +7,7 @@ professional-quality addendum's first two batches — both merged)
 
 ---
 
-## The quality addendum — seven batches of fourteen areas
+## The quality addendum — eight batches of fourteen areas
 
 **The audit that produced the section below was about accessibility, boundaries and
 measurement. This one asks a different question: is this a product a stranger could
@@ -16,9 +16,21 @@ policy pages, multilingual, account and privacy, subscription transparency, cour
 discovery, learning comfort, brand assets, colour and type, interaction polish,
 accessible HTML, SEO, performance, security and operations, and browser
 verification. The owner approved **batch one**, then **batch two**, then **batch
-three** — which carried the first backend work — then **batch four**, **five**,
-**six** and **seven**. **Seven of the fourteen areas have been touched**, and two of
-them are half blocked on decisions rather than on code.
+three** — which carried the first backend work — then batches **four** through
+**eight**, the last of which followed a full re-audit and implemented everything
+remaining that needed no owner decision.
+
+**The fourteen areas, counted honestly**, because a single "touched" number has
+drifted in this file twice:
+
+- **Seven had work shipped** — account and privacy, course discovery, learning
+  comfort, brand assets, interaction polish, accessible HTML, SEO.
+- **Two were assessed and needed nothing** — colour and typography (already the most
+  examined part of the product), and performance (measured, and re-measured on
+  2026-09-30).
+- **Five are blocked** on content, a provider, or a decision, not on engineering —
+  trust and policy pages, multilingual, subscription transparency, the operational
+  half of security and readiness, and browser verification.
 
 **This checklist is not complete and must not be reported as complete.**
 
@@ -474,6 +486,64 @@ the state where `robots.txt` is `Disallow: /`, and correct the moment an origin 
 
 10 provocations, all caught. 624 frontend tests across 50 files.
 
+### Batch eight — the unblocked remainder, after a full re-audit
+
+**The addendum was re-audited item by item against the code before anything was
+built**, and the result is in this file's own terms: of fourteen areas, the work left
+that needed no decision from the owner came to four things. They are done.
+
+**`schema.org/Course` on public course pages.** A course could say its title and
+description to a crawler and nothing else; it now says language, CEFR level, skills
+taught and instructor — all already stored and already on screen. **The omissions are
+the substance**: no `offers` (the price is unresolved, §11 #1, and `offers` is the one
+field rendered as a number beside a search result), no `aggregateRating` or `review`
+(none exist), no `hasCourseInstance` (needs a schedule; live classes are unapproved),
+no `timeRequired` (ADR-007 §4 deferred the aggregate). Each absence is asserted.
+
+**A course title is user-supplied and goes into a `<script>` element**, and §6 forbids
+`dangerouslySetInnerHTML` on user content. Checked rather than assumed with a probe
+route: React's server renderer emits `Hostile </script>` as `Hostile </\u0073cript>`,
+so a plain text child is safe and no exception was needed. That escaping exists only
+in server-rendered HTML — jsdom sets text through the DOM, where no parser is involved
+— so it is checked on built output instead.
+
+**A link cannot ship pointing at a page that does not exist.** §10 asked for it and
+nothing checked it; the fault has been one merge-order away twice. Every internal
+`<a href>` resolves to a built file, and `#`, `""`, `/todo` and `javascript:void(0)`
+are refused. Two exemptions, both found by running it: `/api/*` is Django behind the
+rewrite, and the lesson route is dynamic (ADR-026) — and for that one **only the
+unresolvable half is exempt**, so a lesson link still verifies its course was built.
+
+**No positive `tabIndex`**, which was true and unasserted (ADR-023 §1). Worth guarding
+because the failure is non-local: one `tabIndex={1}` is visited before every natural
+tab stop on the page, not before its siblings.
+
+**A complete cookie and storage inventory**, which decides something rather than
+merely recording it: three entries — `sessionid`, `csrftoken`, and one
+`localStorage` number for playback speed — and no third-party script of any kind. **So
+no consent banner is required today**, and the addendum's instruction not to add one
+"purely for appearance" now has evidence behind it. What would change that is written
+down: a video provider is the most likely source of a non-essential cookie here, and
+**the inventory should be re-run the day one is chosen**.
+
+### What provoking found this time
+
+Four guards were wrong on their first attempt, and each was caught before it shipped:
+
+- The JSON-LD check was pointed at `markup()`, which **strips every `<script>`**
+  before the structural checks run — so it matched nothing. The floor asserting it saw
+  at least one block is the only reason that surfaced.
+- The link check accepted the whole dynamic-lesson pattern, so a link under a course
+  that was never built passed.
+- The link check's total-count floor did not notice one page losing every anchor,
+  because twelve others still had links. It is now per page *and* in total.
+- The `tabIndex` guard read files raw, which would have fired the day somebody wrote
+  the rule in a comment. `src/test/source.ts` exists because that trap has caught four
+  guards here; this is the fifth avoided rather than repeated.
+
+Two provocations were themselves wrong and read as passes until checked: `data-href="`
+still contains `href="`, and the landing page's hrefs carry trailing slashes.
+
 ### The areas nobody has touched
 
 Recorded by name so the next session does not re-derive the list, and so "two of
@@ -486,7 +556,7 @@ proposed, let alone approved.**
 | **Multilingual** | ADR-033 deferred interface localisation with a named trigger. Still deferred, and CLAUDE.md §11 treats it as a separately scoped workstream |
 | ~~**Account and privacy**~~ | **Batch three, 2026-09-29.** `/account` shows what the API knows and changes a password; `GET /auth/me/export/` is the Article 15 export. **Deletion is not built** — ADR-036 §5, and it is a retention question, not an engineering one |
 | **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
-| ~~**Course discovery**~~ | **Batch five, 2026-09-29.** A skill-area filter, a clear control, and a fix for an empty catalogue that blamed the visitor's filters. **Linkable filtered views remain open** — that is an ADR-024 change |
+| ~~**Course discovery**~~ | **Batches five and eight.** A skill-area filter, a clear control, and a fix for an empty catalogue that blamed the visitor's filters. **Linkable filtered views remain open** — that is an ADR-024 change |
 | ~~**Learning comfort**~~ | **Batch four, 2026-09-29.** Captions declare their language, playback speed 0.5×–1.5× persisted per device, a back-5-seconds control, and `::cue` styling. **Nobody has watched a real video at any of it** — no provider is configured |
 | ~~**Brand assets**~~ | **Batch seven, 2026-09-30.** A site share card, a per-course card, and the `apple-icon` — all generated at build time by `next/og`, nothing installed. The font does not match the site's, knowingly |
 | **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
@@ -509,7 +579,7 @@ seen. That is the pattern worth carrying forward rather than any of the features
 yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
 
-**Seven areas remain untouched**, and the table above is the list. **Most of them are
+**Five areas remain blocked**, and the table above is the list. **None of them is
 not ours to close** — policy content, billing, a launch locale and two budget
 decisions are the owner's; colour/type and accessible HTML are already the most
 examined parts of the product and nothing outstanding was found in either.
