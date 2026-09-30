@@ -13,6 +13,7 @@ import {
   publishedCourse,
   publishedCourseSlugs,
 } from "@/lib/catalogue/courses";
+import { courseStructuredData } from "@/lib/seo/structured-data";
 import { publicMetadata } from "@/lib/site";
 
 /**
@@ -104,6 +105,22 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
 
   return (
     <article className="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-16">
+      {/*
+       * `schema.org/Course`, from stored facts only.
+       *
+       * **A plain text child, never `dangerouslySetInnerHTML`.** A course title and
+       * description are instructor-authored and then admin-approved — user-supplied
+       * content twice over, which CLAUDE.md §6 forbids injecting as markup. React's
+       * server renderer escapes the one sequence that could terminate this element:
+       * verified against built output, a title containing `</script>` is emitted as
+       * `</script>`.
+       *
+       * What this deliberately does *not* claim — no `offers`, no `aggregateRating`,
+       * no schedule — is documented in `lib/seo/structured-data.ts`, and it is the
+       * more important half.
+       */}
+      <script type="application/ld+json">{JSON.stringify(courseStructuredData(course))}</script>
+
       <header className="flex flex-col gap-4">
         <p className="flex items-center gap-2 text-sm text-ink-subtle">
           <Link href="/courses" className="hover:text-ink">
