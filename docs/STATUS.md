@@ -585,7 +585,7 @@ needs either a browser and a person, or backend work that is not scheduled:
 |---|---|
 | The four unconfirmed claims below | A person with a browser. Minutes each |
 | A2 — reproduce the 2.4.11 focus fault | The same. **The remedy cannot be scoped until it is reproduced** (ADR-006) |
-| ~~A5 — per-route first-load JS~~ | **Done 2026-09-28**: 312–326 KB gz, routes nearly identical. A budget is now proposable — 350 KB gz per route — and enforcing it needs the owner |
+| ~~A5 — per-route first-load JS~~ | **Done 2026-09-28, re-measured 2026-09-30**: 314–327 KB gz across twelve routes, still nearly identical. **Seven batches of the addendum cost 1.2–1.6 KB per route**, all of it in shared modules — no runtime dependency moved, which was checked. A 350 KB budget still has 7% headroom; enforcing it needs the owner |
 | ~~`<track>`'s `srclang` and `label`~~ | **Done 2026-09-29.** The blocker was not real: `Transcript.language` has been a foreign key since M6 and `language_code` was already in the payload the player fetched |
 | ~~B2 — the architecture.md §8.2 tooling discrepancy~~ | **Resolved 2026-09-28** — `axe-core` adopted, `MSW` and `Playwright` declined. Playwright worth revisiting at M8 |
 
