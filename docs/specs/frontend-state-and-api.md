@@ -423,6 +423,58 @@ sent an event**, because no DSN is configured in this repository (ADR-027 §3). 
 is not an argument for removing it — a DSN will exist — but it is where to look
 first, and lazy-loading it is a real option ADR-027 did not consider.
 
+## 11a. Cookies and browser storage — a complete inventory
+
+**Written down because §3 of the quality addendum asks for it, and because the
+answer decides whether this product needs a consent banner.** Verified against
+settings and source on 2026-09-30, not assumed.
+
+| Stored | Where | Set by | Purpose | Class |
+|---|---|---|---|---|
+| `sessionid` | cookie, `HttpOnly`, `SameSite=Lax`, `Secure` in production | Django | Authentication. The session itself lives in Postgres (`SESSION_ENGINE = ...backends.db`) — the cookie is an opaque key | Strictly necessary |
+| `csrftoken` | cookie, `SameSite=Lax`, `Secure` in production | Django | CSRF defence. Readable by script on purpose: `client.ts` reads it to set `X-CSRFToken`, which is how the double-submit check works | Strictly necessary |
+| `lingua.playbackRate` | `localStorage` | the player (batch four) | Remembers a playback speed between 0.5 and 1.5 | Functional, set only by a deliberate user action |
+
+**That is the whole list.** There is no analytics, no tag manager, no embedded
+player, no font CDN, no social widget, and **no third-party script of any kind** —
+grepped for `<Script`, `gtag`, `analytics` and `plausible`, and the compiled output
+loads nothing off-origin.
+
+### What follows from it
+
+**No consent banner is required today, and adding one would be worse than not.** The
+two cookies are strictly necessary for a service the user asked for, which is the
+exemption every EU implementation of the ePrivacy rule provides. The one
+`localStorage` entry is a preference the user sets by operating a control, stores a
+number, and reveals nothing. A banner asking permission for that would train people
+to dismiss a dialogue that protects nothing — the quality addendum's own instruction
+is not to add one "purely for appearance", and this is the evidence behind that call.
+
+**What would change it**, and this is the useful half of writing it down:
+
+- **A video provider.** Mux, Cloudflare Stream and YouTube all set storage of their
+  own, and an embedded player is the single most likely source of a non-essential
+  cookie in this product. §11 #1's sibling decision. **Re-run this inventory the day
+  a provider is chosen.**
+- **Any analytics**, including self-hosted.
+- **Sentry session replay.** The SDK ships on every page and has never sent an event
+  (no DSN, ADR-027 §3), and replay is not enabled. Enabling it would collect
+  interaction data and needs its own assessment.
+
+**This inventory is not a privacy policy and does not substitute for one.** It is the
+factual input a policy needs — §1's policy pages remain blocked on owner-supplied
+content, and a policy asserting this list is accurate is a claim about business
+practice that only the operator can make.
+
+### Nothing auth-related is in browser storage
+
+Invariant 9, and it is asserted rather than trusted: `reset-password`,
+`verify-email` and `ChangePassword` each check that no token or password reaches
+`localStorage` or `sessionStorage`. `preferences.ts` is the only production writer,
+and it writes one number under a namespaced key.
+
+---
+
 ## 12. Open items
 
 | Item | Section | Status |
