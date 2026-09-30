@@ -57,6 +57,7 @@ function isPublic(name) {
 }
 
 let publicPagesSeen = 0;
+let jsonLdBlocksSeen = 0;
 const failures = [];
 
 let pages;
@@ -78,7 +79,20 @@ if (pages.length === 0) {
 
 for (const page of pages) {
   const name = relative(APP_DIR, page);
-  const html = markup(readFileSync(page, "utf8"));
+  /**
+   * Both forms, and the distinction matters.
+   *
+   * `markup()` strips every `<script>` before the structural checks, because the RSC
+   * payload is not the page — without that, its serialised props would be searched
+   * for headings and `<img>` tags. The JSON-LD check needs the opposite: it is *only*
+   * interested in a script element, so it reads the raw file.
+   *
+   * The floor check below caught this the first time it ran: the JSON-LD matcher was
+   * pointed at the stripped copy and matched nothing, which without a floor would
+   * have reported success over having looked at nothing.
+   */
+  const raw = readFileSync(page, "utf8");
+  const html = markup(raw);
 
   // Next's own error pages are its markup, not ours, and holding them to this
   // would be reporting a defect nobody here can fix.
@@ -155,6 +169,59 @@ for (const page of pages) {
       );
     }
   }
+
+  /**
+   * Structured data, checked on the assembled HTML because that is the only place
+   * its most important property exists.
+   *
+   * A course title and description are user-supplied — instructor-authored, then
+   * admin-approved — and they are serialised into a `<script>` element. The sequence
+   * that could terminate that element early is `</script`, and **React's server
+   * renderer escapes it**: a title containing `</script>` comes out as
+   * `</\u0073cript>`. That escaping happens in `react-dom/server` and nowhere else,
+   * so no jsdom test can observe it; a unit test would set text through the DOM,
+   * where no parser is involved and nothing needs escaping.
+   *
+   * So: every block must parse as JSON, and none may contain a raw `</script`.
+   * `structured-data.test.ts` covers what the object *says*; this covers whether it
+   * survives being written into a page.
+   */
+  for (const [, body] of raw.matchAll(
+    /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+  )) {
+    jsonLdBlocksSeen += 1;
+
+    if (/<\/script/i.test(body)) {
+      failures.push(
+        `${name}: a JSON-LD block contains a raw </script — it can terminate the ` +
+          `element early, which is script injection`,
+      );
+      continue;
+    }
+
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed["@context"] !== "https://schema.org") {
+        failures.push(`${name}: JSON-LD has no schema.org @context`);
+      }
+    } catch (cause) {
+      failures.push(`${name}: JSON-LD does not parse — ${cause.message}`);
+    }
+  }
+}
+
+/**
+ * The check that keeps the JSON-LD check honest.
+ *
+ * The matcher is a regex over built HTML, so a renaming, a change in how Next emits
+ * the tag, or the block simply not being rendered would all make it match nothing —
+ * and a loop over nothing reports success. One course page carries one block today.
+ */
+if (jsonLdBlocksSeen < 1) {
+  failures.push(
+    "no JSON-LD blocks were found in any built page — structured data should be on " +
+      "every course page, so either it stopped rendering or this check stopped matching",
+  );
 }
 
 /**
