@@ -580,9 +580,10 @@ yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
 
 **Five areas remain blocked**, and the table above is the list. **None of them is
-not ours to close** — policy content, billing, a launch locale and two budget
-decisions are the owner's; colour/type and accessible HTML are already the most
-examined parts of the product and nothing outstanding was found in either.
+blocked on engineering** — policy content, a payment provider, a launch locale, a
+video provider and two budget decisions are the owner's. Colour/type and accessible
+HTML are not in that five: both were assessed, and nothing outstanding was found in
+either.
 
 ### The audit gate was red before either batch touched it
 
