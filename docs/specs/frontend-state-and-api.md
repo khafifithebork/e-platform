@@ -328,27 +328,54 @@ There is no cache, which makes this short and is a feature.
 
 ## 11. Measured baseline, per route
 
-Measured 2026-09-28 from a production build. **Nothing here is enforced**; see the
-note on a budget below.
+**Re-measured 2026-09-30**, after seven batches of the quality addendum added two
+routes and roughly eight components. The 2026-09-28 figures are kept beside the new
+ones, because the delta is the useful number and a replaced table loses it.
+**Nothing here is enforced**; see the note on a budget below.
 
-| Route | JS chunks | JS gz | CSS gz | **Total gz** |
-|---|---|---|---|---|
-| `/` | 14 | 320,035 | 5,979 | **326,014** |
-| `/my-courses` | 15 | 318,555 | 5,979 | **324,534** |
-| `/courses` | 14 | 317,187 | 5,979 | **323,166** |
-| `/courses/[slug]` | 14 | 316,309 | 5,979 | **322,288** |
-| `/pricing` | 14 | 314,677 | 5,979 | **320,656** |
-| `/reset-password` | 14 | 311,330 | 5,979 | **317,309** |
-| `/register` | 14 | 311,176 | 5,979 | **317,155** |
-| `/forgot-password` | 14 | 311,109 | 5,979 | **317,088** |
-| `/login` | 14 | 311,087 | 5,979 | **317,066** |
-| `/_not-found` | 12 | 306,512 | 5,979 | **312,491** |
-| `_global-error` | 8 | 249,941 | 0 | **249,941** |
+| Route | JS chunks | JS gz | CSS gz | **Total gz** | vs 2026-09-28 |
+|---|---|---|---|---|---|
+| `/` | 15 | 321,223 | 6,061 | **327,284** | +1,270 |
+| `/account` | 16 | 320,036 | 6,061 | **326,097** | *new* |
+| `/my-courses` | 16 | 319,855 | 6,061 | **325,916** | +1,382 |
+| `/courses` | 15 | 318,698 | 6,061 | **324,759** | +1,593 |
+| `/courses/[slug]` | 15 | 317,496 | 6,061 | **323,557** | +1,269 |
+| `/pricing` | 15 | 315,871 | 6,061 | **321,932** | +1,276 |
+| `/verify-email` | 15 | 312,660 | 6,061 | **318,721** | *new* |
+| `/reset-password` | 15 | 312,494 | 6,061 | **318,555** | +1,246 |
+| `/register` | 15 | 312,335 | 6,061 | **318,396** | +1,241 |
+| `/forgot-password` | 15 | 312,279 | 6,061 | **318,340** | +1,252 |
+| `/login` | 15 | 312,217 | 6,061 | **318,278** | +1,212 |
+| `/_not-found` | 13 | 307,619 | 6,061 | **313,680** | +1,189 |
+| `_global-error` | 8 | 250,704 | 0 | **250,704** | +763 |
+
+### What the delta says, and what it rules out
+
+**Every route grew by 1.2–1.6 KB, and the uniformity is the finding.** `_global-error`
+imports none of the seven batches' components and still grew 763 bytes, so this is not
+per-page code — it is shared modules getting bigger. `lib/api/client.ts` alone gained
+three methods (`changePassword`, `resendVerification`, `verifyEmail`'s first caller
+pulling it in) and is imported almost everywhere, `global-error` included.
+
+**It is not a dependency bump, and that was checked rather than assumed.** No runtime
+package moved: the last lockfile change touching one was `1b4c0d1`, which *is* the
+baseline commit. 2026-09-30's lockfile work — `wrangler`, `undici`, `brace-expansion`
+— is dev and build-time only.
+
+**CSS grew 82 bytes**, 5,979 → 6,061, which is the `::cue` rule from batch four.
+
+**Seven batches cost about 0.4%.** Two new routes, an account surface, a share-card
+module, a retry component used by four surfaces, playback preferences, a skill filter
+and three generated images, for roughly 1.3 KB gz on a cold visit. The attribution to
+shared modules is inference from the shape of the numbers rather than a bundle
+analysis; the dependency fact above is measured.
 
 **How measured.** `rm -rf .next && npm run build`, then for each prerendered page
 under `.next/server/app/**/*.html`, the unique `<script src>` and stylesheet
 references were resolved to files and gzipped at level 9. That is what a browser
-downloads for a cold visit to that route, not an estimate.
+downloads for a cold visit to that route, not an estimate. The 2026-09-30 figures
+reproduce that method exactly, which is the only reason the deltas mean anything —
+a different method would have produced a different number and looked like a change.
 
 **Next 16 with Turbopack emits no `app-build-manifest.json`**, and its build output
 no longer prints a size table, so the served HTML is the honest source. An earlier
@@ -357,16 +384,18 @@ per-route figures are 312–326 KB, so that proxy was close but it was a proxy.
 
 ### Two things the table says
 
-**The routes are nearly identical — a 14 KB spread across ten of them.** Almost
-everything is shared baseline rather than per-page code, so route-level splitting
-has little left to give. Any meaningful reduction has to come out of the shared
-chunks.
+**The routes are nearly identical — a 14 KB spread across ten of them**, and still
+nearly identical after seven batches: 13.6 KB across twelve. Almost everything is
+shared baseline rather than per-page code, so route-level splitting has little left to
+give. Any meaningful reduction has to come out of the shared chunks — which is also
+why the growth landed on every route at once.
 
-**`_global-error` is 76 KB lighter and loads 8 chunks instead of 14, with no CSS at
+**`_global-error` is 76 KB lighter and loads 8 chunks instead of 15, with no CSS at
 all.** That is ADR-031's design intent showing up in a measurement rather than a
 docstring: the last-resort boundary was written to depend on nothing, and it
 measurably does not. `boundaries.test.tsx` asserts the same property from the
-source side.
+source side. It held through seven batches — still 8 chunks, and the only route whose
+growth is under a kilobyte.
 
 ### The lesson route is not in the table
 
@@ -378,8 +407,11 @@ waits on.
 ### No budget is proposed as a gate — but here is the shape of one
 
 A ceiling of **350 KB gzipped per route** would sit about 7% above today's worst
-(`/` at 326 KB), which is enough headroom for ordinary work and tight enough to
-catch a dependency arriving unnoticed. Enforcing it needs the owner (roadmap E4),
+(`/` at 327 KB on 2026-09-30, 326 KB when this was written), which is enough
+headroom for ordinary work and tight enough to catch a dependency arriving
+unnoticed. **Seven batches moved the worst route by 1.3 KB**, so 7% is a great deal
+of room — the gate would be catching a dependency, not ordinary feature work, which
+is what it is for. Enforcing it needs the owner (roadmap E4),
 and it should be a script beside `verify:static` and `verify:css` rather than a
 number in a document nobody runs.
 
