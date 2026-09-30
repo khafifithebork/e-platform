@@ -119,10 +119,88 @@ stop enforcing that the moment a fifth appeared; the grep does not.
 | Left out | Why |
 |---|---|
 | **`lastModified`, `changeFrequency`, `priority`** | The only date the catalogue exposes is `published_at`, which is not a modification time. The other two are hints search engines have said for years they ignore. Inventing a weekly cadence for a curated catalogue is the same class of fabrication as inventing a price (§6), and a test pins their absence so they are not "improved" back in |
-| **An Open Graph image** | A card without an image is plain; one pointing at a missing image is broken. Generating it needs a decision — `next/og` at build time versus a drawn static asset — and it is worth making properly rather than half-doing. `twitter.card` is `summary`, not `summary_large_image`, because the large card is *defined* by its image and would render an empty box |
-| **An `apple-icon`** | Needs a 180×180 PNG. Authoring raster assets is not something to improvise, and the SVG icon covers every browser that reads `<link rel="icon">` |
+| ~~**An Open Graph image**~~ | **Done 2026-09-30.** `next/og` at build time, which ships with Next and stays static — plus a per-course card, which is the one people actually share. `twitter.card` is now `summary_large_image`. See §6a |
+| ~~**An `apple-icon`**~~ | **Done 2026-09-30.** The constraint was authoring a raster asset by hand; `ImageResponse` generates the 180×180 PNG at build time from the same brand values, with nothing new installed. See §6a |
 | **`favicon.ico`** | Deleted. It was the framework's logo, verified unchanged since the scaffold commit, and it would still have been served at `/favicon.ico` alongside the new `icon.svg` — crawlers and link aggregators fetch that path directly. SVG-only is a deliberate trade against very old browsers |
 | **Terms, Privacy, an imprint** | **Not written, and not stubbed.** Real terms, a real data-protection statement and, for EU learners, a real controller identity. An empty privacy page reads as a compliance claim nobody has made. The owner declined stub routes on 2026-09-28; the footer therefore links only to pages that exist |
+
+---
+
+## 6a. The share images, and a regression this ADR's own helper had shipped — **2026-09-30**
+
+§5 left the Open Graph image and the `apple-icon` out on the grounds that generating
+one "needs a decision" and that "authoring raster assets is not something to
+improvise". **`next/og` answers both at once**: it ships with Next — no `satori` or
+`resvg` in `package.json`, so §5 of CLAUDE.md is clear — and Next's documentation says
+an `opengraph-image` route is statically optimized unless it uses a request-time API,
+so invariant 15 holds. Three routes, three PNGs, all prerendered, one of them per
+published course.
+
+### What building them exposed
+
+**`publicMetadata` — added by this ADR — had been stripping `og:site_name` and
+`og:locale` from all four public pages since it shipped.**
+
+Next merges metadata *shallowly*. Its own words: "duplicate keys are **replaced**
+based on their ordering". So a page that sets `openGraph` replaces the root layout's
+entire object rather than merging into it, and this helper set
+`openGraph: { title, description, url }`.
+
+Today it would also have discarded the `og:image` the new file convention
+contributes — **three of the four cards would simply not have appeared**, and the one
+that did (the course page) works only because its image is colocated in the same
+segment, where file-based metadata outranks the object.
+
+Found by comparing built HTML, not by reasoning: `/login`, which sets no `openGraph`
+at all, carried `og:site_name`, `og:locale` and `og:image`. `/`, which used the
+helper, carried none of the three.
+
+**This is the same trap §4 documents, arrived at from the other side.** §4 explains
+why the root layout must *not* set a canonical — because inheritance would spread it
+to every route. The mirror image, that a *page* setting a key destroys what it
+inherited, was not written down, and the helper written in the same change fell into
+it.
+
+### The fix, and what it costs
+
+The helper now sets neither `openGraph` nor `twitter`. Everything is inherited, and
+Next derives `og:title` and `og:description` from the resolved title and description
+— which is where `/login`'s tags came from all along.
+
+Stated rather than discovered: **`og:url` is no longer emitted**, and `og:title` is
+now the templated form, "Courses · Lingua" rather than "Courses". `og:url` duplicates
+the `<link rel="canonical">` that crawlers actually use, and a site name appearing
+twice on a card is a smaller fault than a card with no image.
+
+### Why no test could see it
+
+**Every test written with the helper asserted the fields it set.** The fault was in
+what the object *removed*, which is invisible to anything reading that object — and
+invisible to a component test, because metadata is assembled by the framework.
+
+So `scripts/assert-page-structure.mjs` now checks `og:image` and `og:site_name` on the
+**built HTML** of every public page. It matches pages by shape rather than by slug —
+pinning `courses/t8-spanish.html` would tie the check to seeded data, and the day that
+seed changed the check would match nothing and report success — and it fails if it saw
+fewer than four public pages, which is the guard on the guard. Both halves provoked:
+reinstating the override fails it on six counts, and breaking the matcher fails it on
+the floor.
+
+### Two other things worth recording
+
+**`verify:static` refused the course image route** until it declared
+`dynamicParams = false`. Without it the route prerenders the known slugs *and* keeps a
+dynamic fallback, which makes it server-rendered under `(marketing)` — invariant 15 —
+and the build reports success either way. An image route is a separate route handler
+and does not inherit the page's declaration.
+
+**The cards render in the wrong font, knowingly.** This application ships no web fonts
+and uses a system stack deliberately; Satori, which `ImageResponse` runs on, cannot
+see system fonts. Fixing it means committing a font file to serve one image, or the
+site adopting a web font — both larger than the problem. `lib/share/card.ts` says so,
+and `seo.test.ts` guards its colour literals against the tokens, the same way
+`icon.svg`'s are guarded and for the same reason: there is no stylesheet inside an
+`ImageResponse`.
 
 ---
 
