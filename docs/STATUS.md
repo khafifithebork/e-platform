@@ -1,6 +1,6 @@
 # STATUS
 
-**Last updated:** 2026-09-29
+**Last updated:** 2026-10-02
 **Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
 its four ADRs, the fixes that followed, the owner's verification passes, and the
 professional-quality addendum's first two batches — both merged)
@@ -584,6 +584,58 @@ blocked on engineering** — policy content, a payment provider, a launch locale
 video provider and two budget decisions are the owner's. Colour/type and accessible
 HTML are not in that five: both were assessed, and nothing outstanding was found in
 either.
+
+### A critical RCE in a component added two days earlier — 2026-10-02
+
+**`npm audit` reported `critical`**, the highest severity this repository has seen:
+GHSA-vcvr-r3jv-pc5j, remote code execution in `next/og`'s `ImageResponse`, affecting
+Next 16.2.0 – 16.3.5. We were on 16.3.3.
+
+**The exposed component was added on 2026-09-30.** Batch seven introduced three
+`ImageResponse` routes for the share cards and the apple icon; two days earlier this
+advisory would not have described any code here. Nothing was done wrong in adding
+them — `next/og` ships with Next and was the right call — but it is a clean example
+of how adopting a capability moves the dependency surface, and of why the audit gate
+is severity-based rather than a judgement call.
+
+**Our exposure was probably nil, and that is not why it was patched.** All three
+routes are statically generated: params come from `generateStaticParams` over our own
+database and they render during `next build`, so there is no request-time
+`ImageResponse` endpoint to reach. The residual path is build-time — admin-approved
+course content flowing into the renderer in CI — which is narrow and still not
+somewhere to leave a critical RCE sitting (ADR-022 §3).
+
+Patched 16.3.3 → 16.3.8 for `next` and `eslint-config-next`: a patch-level move
+inside 16.3.x, satisfying `@opennextjs/cloudflare`'s declared `next: >=16.3.3`. npm
+calls it "outside the stated dependency range" only because the pin is exact. Same
+class of action as 2ae9524's `wrangler` bump. **Zero vulnerabilities at every
+severity** afterwards.
+
+Verified beyond the usual bar, because a framework bump is not a leaf package: clean
+`rm -rf .next` build with all 13 routes keeping their static/SSG/dynamic
+classification, the three images still emitted as real PNGs at 1200×630 and 180×180
+(magic bytes checked), 636 tests, `tsc`, `eslint`, all three `verify:*`, **the
+Cloudflare Worker still builds**, and every route served by the running container.
+
+### Two things this turned up that are worth keeping
+
+**The dev container was still vulnerable after the host was patched.** Its
+`node_modules` is an anonymous volume, so `npm install` on the host never reached it —
+it kept serving Next 16.3.3 while the lockfile said 16.3.8, and it served *fine*,
+which is what makes it easy to miss. Fixed by recreating the container
+(`docker compose up -d --build web`), confirmed by reading
+`require('next/package.json').version` **from inside** rather than trusting the host.
+**A dependency fix is not applied to a running compose stack until the container is
+rebuilt**, and the host's lockfile is not evidence about what the container is
+running.
+
+**The Worker build failed on the first attempt, and the reason was not Next.**
+`.next/dev/types/*` carried a torn write — the generated-types artefact this session
+has now hit **five times** — and the build type-checks those files, so it reported
+syntax errors that looked exactly like an adapter incompatibility with the new patch.
+Clearing `.next/dev` fixed it. Reasoning from the first failure would have concluded
+`@opennextjs/cloudflare@1.20.4` could not take Next 16.3.8, which is false and would
+have blocked a critical security fix.
 
 ### The audit gate was red before either batch touched it
 
