@@ -213,6 +213,54 @@ It now renders only when a transcript exists.
 
 ---
 
+## 3b. The content axis moved while the interface axis stayed deferred — **2026-10-03**
+
+**§1's four axes earned their keep, and I had stopped believing in them.** Asked on
+2026-10-03 what remained of the multilingual work, I reported the area as deferred.
+That was wrong, and this ADR is the reason it was wrong: §1 separates interface,
+learned, instruction, and caption+transcript language *specifically so that one can
+move without the others*. The owner's deferral in §4 is about the **interface**. It
+says nothing about labelling content, and two faults were sitting in the axes it
+left free.
+
+**The transcript panel rendered the target language with no `lang` at all** — WCAG
+3.1.2, the same criterion §3 was about, one component over. A screen reader applied
+the interface language's pronunciation to the language being taught. The value was
+already in the payload `LessonPlayer` fetched on every lesson load, the same
+`language_code` that §3a put on the `<track>`; the panel simply never received it.
+It now does, on the `<ol>`, and is **omitted rather than defaulted** when unknown,
+because inheriting `en` is a confident false claim and a wrong `lang` is worse than
+none.
+
+**`native_name` had been in the API since M3 and nothing read it.** `LanguageSerializer`
+returns `["code", "name", "native_name"]`; every component rendered `name`. So a
+catalogue for an audience "primarily EU and MENA" offered "Spanish" and "Arabic" and
+never "Español" or "العربية" — and for Arabic the English name is a transliteration
+of a different script. `LanguageName` renders the pair with `lang` and `dir="auto"` on
+the native part; `languageLabel` is the same pair as text for `<option>`, which can
+carry no markup.
+
+**`dir="auto"` is the deliberate choice here, and it is about not pre-empting §4.**
+A code-to-direction table of our own would be the start of the RTL work this ADR
+deferred, built by accident in a catalogue component. `auto` lets the browser read
+direction from the characters, which is correct for Arabic and Hebrew and costs
+nothing to keep.
+
+### What this does not do
+
+It does not localise anything. The interface is still English, §4's conditions are
+untouched, and no library was added. What changed is that the product now *names*
+the languages it teaches correctly, in markup assistive technology can use — which
+was never gated on the interface decision and should not have been treated as if it
+were.
+
+**The generalisable error:** a deferral was allowed to grow. "Localisation is
+deferred" became "anything with a language in it is deferred", and the taxonomy that
+existed to prevent exactly that was the thing being ignored. §1 is only useful if
+each axis is checked separately when the question comes up.
+
+---
+
 ## 4. What would justify revisiting localisation
 
 **A named launch locale from the owner.** Not "we might support Arabic" — a

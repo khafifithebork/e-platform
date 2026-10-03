@@ -137,6 +137,35 @@ it. NVDA with Firefox, or VoiceOver with Safari.
   another tab and reload to reach one.
 - **Cue changes must not flood.** If the transcript announces on every cue the
   page is unusable; that is a finding even though no criterion names it.
+- **The transcript announces in the language it is written in** — added
+  2026-10-03 with the `lang` fix. Spanish cues read with a Spanish voice, not an
+  English one mangling them. This is the only check here that no automated tool
+  can perform: axe cannot know "Hola, buenos días" is not English, which is why
+  twenty-six passing tests and an axe run sat on top of the fault.
+
+### 3.3a Time-based media — **unexamined, added 2026-10-03**
+
+**Nothing in this section has been done.** It exists because ADR-030 §2a found that
+the whole of WCAG 1.2 was never assessed, in a product whose content is video.
+
+**It cannot be performed until a real lesson exists.** Every check below needs
+footage to look at, and `MediaAsset` rows exist only in test fixtures. Do not mark
+these "pass" against a fixture — a fixture has no visual content to describe, so it
+passes everything vacuously.
+
+At the first real lesson upload, for that lesson:
+
+- **1.2.2 Captions (A).** Watch with the captions track on and the sound off. Does
+  it carry non-speech audio and identify speakers, or is it a speech transcript
+  wearing `kind="captions"`? The source is Deepgram output, so expect the latter.
+- **1.2.1 Audio-only (A).** For a `LessonType.AUDIO` lesson: is the transcript
+  presented as an alternative to the audio, or only as a reading aid alongside it?
+- **1.2.3 / 1.2.5 Audio description (A / AA).** Watch with the screen off. Note
+  every piece of teaching that did not survive. **Pronunciation lessons showing
+  mouth position are the expected failure** — their content is visual by design.
+
+A finding here has a per-lesson production cost and is therefore a §5 approval
+matter, not something to fix in code. Record it under §4 and stop.
 
 ### 3.4 Zoom, reflow, and text expansion
 
@@ -231,6 +260,13 @@ player's controls, the transcript's cues) has not been walked. A criterion that
 turned up one fault is worth completing.
 
 **Also outstanding:** the screen-reader pass (§3.3) and zoom and reflow (§3.4).
+
+**§3.3a is outstanding in a different way, and worse.** The others are checks nobody
+has got to. Time-based media is a set of criteria nobody had *written down* until
+2026-10-03 — the whole of WCAG 1.2, in a video product, absent from this runbook and
+from ADR-030. It cannot be walked yet, because there is no lesson footage to walk it
+against, and that is exactly why it had to be recorded rather than left to surface at
+a launch review. See ADR-030 §2a.
 
 **Not §3.5 — that one is done**, and this line said otherwise until 2026-09-28. The
 table above records all three of its checks passing; the sentence had been written
