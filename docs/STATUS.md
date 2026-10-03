@@ -585,6 +585,49 @@ video provider and two budget decisions are the owner's. Colour/type and accessi
 HTML are not in that five: both were assessed, and nothing outstanding was found in
 either.
 
+### `master` is red on an advisory with no fix — decided 2026-10-03: wait
+
+**The fourth red audit gate in five days, and the first with no mechanical fix.**
+`braces` carries a high-severity stack-exhaustion advisory
+(GHSA-vfj7-8cjw-p6xm) at **`*` — every published version, including the latest,
+3.0.3.** So the `overrides` pin that fixed `js-yaml` has nothing to point at.
+
+One root, entirely dev:
+`eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` →
+`braces`. `micromatch@4.0.8` is latest and requires `braces ^3.0.3`; every
+`fast-glob@3.x` uses micromatch. **There is no version of this chain without the
+advisory.**
+
+npm's only offered remedy is `eslint-config-next@14.2.35` — a two-major
+**downgrade**, which npm itself flags as breaking, to lint a Next 16 app with a
+Next 14 config. Declined.
+
+**Decision: wait for upstream. The gate is not touched.** `master` stays red and
+nothing merges until `fast-glob`/`micromatch` move.
+
+The alternatives were both rejected deliberately:
+
+- **`--omit=dev`** would narrow the gate to what ships, and it is the tempting
+  one. It would also have hidden the `undici` chain *and* `fast-uri` — both
+  dev-only, both worth fixing, one of them a TLS-validation bypass. Narrowing the
+  gate to pass today would have retroactively hidden two fixes already made.
+- **A per-advisory exception tool** (`audit-ci`, `better-npm-audit`) would give
+  the frontend the valve ADR-022 §3 gave the backend — `--ignore-vuln` with a
+  comment naming who triaged it, "deliberately more awkward than raising a
+  threshold". It costs a §5 dependency decision and is the right answer if this
+  recurs or if the advisory turns out to be disputed upstream.
+
+**Practical risk here is close to nil** — stack exhaustion reachable only by
+feeding `braces` a deeply nested glob, and the globs come from our own ESLint
+config, on developer machines and in CI. That is context, **not** a reason to act
+case by case: the gate is severity-based precisely so that judgement is not made
+ad hoc, which is ADR-022 §3's whole argument.
+
+**The durable finding, after four of these in five days:** every one came from an
+advisory published against code nobody touched. **CI being green is not a property
+this repository holds between runs**, and that matters for planning a launch
+window more than any individual advisory does.
+
 ### A critical RCE in a component added two days earlier — 2026-10-02
 
 **`npm audit` reported `critical`**, the highest severity this repository has seen:
