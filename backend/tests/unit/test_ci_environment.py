@@ -170,7 +170,26 @@ class TestBothTiersAreAudited:
     audit` without `--audit-level` fails on `low`, which is the setting that
     gets a `|| true` appended during an unrelated deadline — and a disabled
     audit is the failure mode ADR-022 §3 is designed against.
+
+    **The audits became their own jobs on 2026-10-03**, and this class moved
+    with them. The reason is in the workflow: as steps inside `backend` and
+    `frontend` they ran early, and GitHub stops a job at its first failing step,
+    so a `braces` advisory with no patched version at any release reported type
+    check, lint, 649 tests, the build and all four `verify:*` scripts as
+    *skipped*. CI could not say whether any change on any branch was correct.
+
+    Everything this class asserted before, it still asserts. One assertion was
+    added, because splitting opened a hole that did not exist when these were
+    steps: a whole job can be marked `continue-on-error`, which neuters the gate
+    without touching the command or the step.
     """
+
+    #: The jobs that exist to run an audit and nothing else.
+    AUDIT_JOBS = ("audit-backend", "audit-frontend")
+
+    #: The jobs that must *not* contain one, because a failing audit inside them
+    #: skips everything behind it.
+    TEST_JOBS = ("backend", "frontend")
 
     @staticmethod
     def _run_steps(job: str) -> list[str]:
@@ -180,18 +199,37 @@ class TestBothTiersAreAudited:
             if isinstance(step, dict) and "run" in step
         ]
 
+    @classmethod
+    def _run_commands(cls, job: str) -> list[str]:
+        """`run:` scripts with their shell comments stripped.
+
+        **Needed, not tidiness.** `backend`'s install step carries a comment
+        explaining why the install is editable — and that comment contains the
+        literal string `pip-audit`. A check for "no audit command in the test
+        jobs" that read the raw script would fail against entirely correct
+        configuration, which is the comments-versus-code trap this repository
+        has now hit seven times. Caught here before it was written, for once,
+        because the job graph was printed before the test was.
+        """
+        stripped = []
+        for script in cls._run_steps(job):
+            lines = [line for line in script.splitlines() if not line.lstrip().startswith("#")]
+            stripped.append("\n".join(lines))
+        return stripped
+
     def test_the_backend_audits_its_dependencies(self) -> None:
         assert any(
-            "pip_audit" in step or "pip-audit" in step for step in self._run_steps("backend")
+            "pip_audit" in step or "pip-audit" in step
+            for step in self._run_commands("audit-backend")
         )
 
     def test_the_frontend_audits_its_dependencies(self) -> None:
-        assert any("npm audit" in step for step in self._run_steps("frontend"))
+        assert any("npm audit" in step for step in self._run_commands("audit-frontend"))
 
     def test_the_frontend_audit_is_not_left_on_the_default_level(self) -> None:
         """`npm audit` with no level fails on `low`. That is the version that
         gets disabled."""
-        audits = [step for step in self._run_steps("frontend") if "npm audit" in step]
+        audits = [step for step in self._run_commands("audit-frontend") if "npm audit" in step]
 
         assert audits
         assert all("--audit-level=high" in step for step in audits)
@@ -207,20 +245,46 @@ class TestBothTiersAreAudited:
         """
         audits = [
             step
-            for step in self._run_steps("backend")
+            for step in self._run_commands("audit-backend")
             if "pip_audit" in step or "pip-audit" in step
         ]
 
         assert audits
         assert all("|| true" not in step and "continue-on-error" not in step for step in audits)
 
-    def test_neither_audit_step_is_marked_continue_on_error(self) -> None:
+    def test_no_audit_runs_inside_a_job_that_does_other_work(self) -> None:
+        """The reason for the split, asserted so it cannot quietly come back.
+
+        An audit step added to `backend` or `frontend` would restore exactly the
+        failure of 2026-10-03: one unfixable advisory, and every check behind it
+        reported as skipped rather than run. The tempting version of that
+        regression is somebody moving the step back to keep a job count down.
+        """
+        for job in self.TEST_JOBS:
+            for command in self._run_commands(job):
+                assert "pip_audit" not in command, job
+                assert "pip-audit" not in command, job
+                assert "npm audit" not in command, job
+
+    def test_no_audit_step_is_marked_continue_on_error(self) -> None:
         """The other way to neuter a gate: leave the command alone and tell the
         runner to ignore its exit code."""
-        for job in ("backend", "frontend"):
+        for job in self.AUDIT_JOBS:
             for step in _workflow()["jobs"][job]["steps"]:
                 if isinstance(step, dict) and "audit" in str(step.get("name", "")).lower():
                     assert not step.get("continue-on-error"), (job, step.get("name"))
+
+    def test_no_audit_job_is_marked_continue_on_error(self) -> None:
+        """**New with the split, because the split created it.**
+
+        When the audits were steps, `continue-on-error` on the job would have
+        disabled the tests too — nobody would do it by accident. Now that each
+        audit is a job of its own, one line at job level turns a red gate green
+        and touches nothing else. That is the cheapest possible way to undo this
+        work, so it is asserted.
+        """
+        for job in self.AUDIT_JOBS:
+            assert not _workflow()["jobs"][job].get("continue-on-error"), job
 
 
 class TestDeploymentChecksRunInCi:

@@ -704,6 +704,49 @@ advisory published against code nobody touched. **CI being green is not a proper
 this repository holds between runs**, and that matters for planning a launch
 window more than any individual advisory does.
 
+### The cost of waiting was higher than I said — corrected 2026-10-03
+
+**"The gate is not touched" was right. "Waiting is nearly free" was wrong, and I
+did not check before recommending it.**
+
+Opening PR #109 showed what a red audit actually does. The audit was a *step*, and
+GitHub stops a job at its first failing step, so the eleven steps behind it came
+back **skipped**: type check, lint, the 649 frontend tests, the build, and all four
+`verify:*` scripts — including the first-load budget gate added in that same pull
+request, whose first act in CI was not to run.
+
+So the situation was not "one red check beside green ones". **CI could not say
+whether any change on any branch was correct, for as long as an advisory with no
+patched version existed.** Waiting costs the entire pipeline, for an unbounded
+period, and I presented it as a cheap option because I reasoned about the
+advisory's severity and never looked at the step ordering.
+
+**Fixed by splitting both audits into their own jobs** — `audit-backend` and
+`audit-frontend`. The audits are byte-for-byte what they were: same commands, same
+thresholds, same editable install, no `continue-on-error`, and both in
+`deploy-staging`'s `needs`, so a failure still fails the PR and still blocks a
+deploy. The advisory still shows red. It no longer hides everything else.
+
+**The near-miss is the part worth keeping.** The obvious version of that change
+leaves `deploy-staging`'s `needs` untouched — which would have removed the audit
+from the deploy gate, a security control deleted by a change whose stated purpose
+was to strengthen a signal. `test_staging_needs_both_test_jobs` asserted an exact
+set, failed, and is the only reason it surfaced. An exact-set assertion looked
+pedantic when it was written and was the control that mattered.
+
+Three guards now cover the split, each provoked: no audit command may return to a
+job that does other work; neither audit job may be marked `continue-on-error` (a
+hole that did not exist while they were steps, and the cheapest possible way to
+undo this); and the deploy `needs` set is pinned exactly.
+
+**And the comment trap, seventh instance — caught before shipping for once.** The
+"no audit inside the test jobs" guard greps `run:` scripts, and `backend`'s install
+step carries a comment containing the literal string `pip-audit`. Read raw, the
+guard fails against entirely correct configuration. Verified by removing the
+comment-stripping and watching it fail, rather than asserted in a docstring.
+
+ADR-022 §3 carries the amendment.
+
 ### A critical RCE in a component added two days earlier — 2026-10-02
 
 **`npm audit` reported `critical`**, the highest severity this repository has seen:

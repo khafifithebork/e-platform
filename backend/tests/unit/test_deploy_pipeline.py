@@ -42,14 +42,27 @@ def _step_names() -> list[str]:
 
 
 class TestDeployHappensOnlyAfterTheTestsPass:
-    def test_staging_needs_both_test_jobs(self) -> None:
+    def test_staging_needs_every_gating_job(self) -> None:
         """`needs` rather than convention. A separate workflow triggered by
         `workflow_run` would express the same intent and would run against the
         default branch's copy of itself, which is a subtlety nobody wants to
-        reason about while a deploy is going wrong."""
+        reason about while a deploy is going wrong.
+
+        **The audit jobs are in here because this test caught their absence.**
+        On 2026-10-03 the two dependency audits moved out of `backend` and
+        `frontend` into jobs of their own, so that an unfixable advisory would
+        stop skipping the eleven steps behind it. The obvious version of that
+        change leaves `needs` alone — and a failing audit then stops blocking a
+        deploy, which is a security gate removed by a change whose whole purpose
+        was to strengthen the signal. The exact-set assertion is what made that
+        visible rather than discoverable later.
+
+        So this is deliberately an equality and not a subset check: a new test
+        job that nothing waits on is the same failure wearing different clothes.
+        """
         needs = _workflow()["jobs"]["deploy-staging"]["needs"]
 
-        assert set(needs) == {"backend", "frontend"}
+        assert set(needs) == {"backend", "frontend", "audit-backend", "audit-frontend"}
 
     def test_production_comes_after_staging(self) -> None:
         """The thing being approved has already run somewhere."""
