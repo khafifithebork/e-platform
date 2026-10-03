@@ -404,14 +404,33 @@ first load has to be measured in a browser's network panel — which makes it a
 person's job, and it is the route most worth doing, because it is the one a learner
 waits on.
 
-### No budget is proposed as a gate — but here is the shape of one
+### The budget is a gate — **approved and enforced 2026-10-03**
 
-A ceiling of **350 KB gzipped per route** would sit about 7% above today's worst
-(`/` at 327 KB on 2026-09-30, 326 KB when this was written), which is enough
-headroom for ordinary work and tight enough to catch a dependency arriving
-unnoticed. **Seven batches moved the worst route by 1.3 KB**, so 7% is a great deal
-of room — the gate would be catching a dependency, not ordinary feature work, which
-is what it is for. Enforcing it needs the owner (roadmap E4),
+A ceiling of **350 KB gzipped per route** sits about 7% above the worst route
+(`/` at 327 KB), which is enough headroom for ordinary work and tight enough to catch
+a dependency arriving unnoticed. **Seven batches moved the worst route by 1.3 KB**, so
+7% is a great deal of room — the gate catches a dependency, not ordinary feature work,
+which is what it is for.
+
+**Enforced since 2026-10-03** by `scripts/assert-bundle-budget.mjs`, wired as
+`npm run verify:bundle` and run in CI beside `verify:static`, `verify:a11y` and
+`verify:css`. It reproduces the method above exactly — that is the whole point, since
+a different method would produce a different number and read as a regression on the
+first run — and it agrees with the 2026-09-30 figures to within 120 bytes.
+
+**Those 120 bytes are the Next 16.3.3 → 16.3.8 patch**, and the attribution is
+checkable rather than assumed: that security bump is the only change to the client
+bundle between the two measurements, because everything shipped in between is a build
+script, a test, or a server component.
+
+Three floors keep it honest, all provoked: a route over the ceiling fails; a page
+whose assets cannot be resolved at all fails, because a page that weighs zero would
+otherwise pass every budget; and an empty page list fails rather than reporting
+success over nothing.
+
+**It does not cover the lesson route**, which is dynamic (ADR-026) and has no
+prerendered HTML — and that is the route a learner actually waits on. Still a person's
+job with a network panel, and the gate passing must not be read as covering it. Enforcing it needs the owner (roadmap E4),
 and it should be a script beside `verify:static` and `verify:css` rather than a
 number in a document nobody runs.
 

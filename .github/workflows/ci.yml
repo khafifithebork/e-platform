@@ -481,6 +481,25 @@ jobs:
       - name: Design tokens resolve
         run: npm run verify:css
 
+      # The per-route first-load budget, approved 2026-10-03.
+      #
+      # `docs/specs/frontend-state-and-api.md` §11 proposed 350 KB gzipped per route
+      # and said enforcing it "should be a script beside `verify:static` and
+      # `verify:css` rather than a number in a document nobody runs". This is that,
+      # and it runs here for the same reason the others do: measured on the build a
+      # visitor would receive, not on an estimate.
+      #
+      # **The headroom is for a dependency, not for features.** Seven batches of the
+      # quality addendum moved the worst route 1.3 KB — 0.4% — against 23 KB of slack,
+      # so a failure here is far more likely to mean something arrived in the shared
+      # chunks than that somebody wrote too much code. The message says so.
+      #
+      # It cannot cover the lesson route, which is dynamic (ADR-026) and so has no
+      # prerendered HTML — and that is the route a learner actually waits on. §11
+      # records that as a person's job with a network panel.
+      - name: First-load budget
+        run: npm run verify:bundle
+
       # And again inside the image, which is not the same build. `npm run
       # build` above runs on the runner with the full dependency tree; the
       # image builds on node:22-slim, installs with `npm ci --omit=dev`, and
