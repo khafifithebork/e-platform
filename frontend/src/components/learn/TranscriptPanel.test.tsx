@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TranscriptPanel, currentSegmentIndex } from "@/components/learn/TranscriptPanel";
 import type { TranscriptSegment } from "@/lib/api/client";
+import { axeViolations } from "@/test/axe";
 
 function segment(position: number, start_ms: number, end_ms: number, text: string) {
   return { position, start_ms, end_ms, text } as unknown as TranscriptSegment;
@@ -261,5 +262,82 @@ describe("the transcript is text, never markup", () => {
       .replace(/^\s*\/\/.*$/gm, "");
 
     expect(source).not.toContain("dangerouslySetInnerHTML");
+  });
+});
+
+describe("what language the cues are in", () => {
+  /**
+   * **WCAG 3.1.2 Language of Parts, and the fault that prompted the component change.**
+   *
+   * Every one of the fixtures above is Spanish, inside a document whose `<html lang>`
+   * is English, and until 2026-10-03 the panel said nothing about that. Twenty-six
+   * tests passed over the top of it, including an axe run — axe cannot flag it,
+   * because no attribute is *wrong*, one is merely absent, and the tool has no way to
+   * know "Hola, buenos días" is not English.
+   */
+  it("marks the list with the language the payload says", () => {
+    const { container } = render(
+      <TranscriptPanel
+        segments={SEGMENTS}
+        positionSeconds={0}
+        onSeek={vi.fn()}
+        languageCode="es"
+      />,
+    );
+
+    expect(container.querySelector("ol")).toHaveAttribute("lang", "es");
+  });
+
+  it("omits lang entirely when the language is unknown", () => {
+    /**
+     * The twin, and the more important half.
+     *
+     * The alternative was defaulting to `"en"`, which would have passed a test
+     * asserting the attribute exists while telling a screen reader to pronounce
+     * Spanish as English — confidently. An absent `lang` inherits the document's and
+     * is at least honest about having no information; a wrong one is a claim.
+     *
+     * This is also the real case rather than a hypothetical: the field arrived with
+     * the transcript endpoint, and a lesson whose transcript has not been through
+     * Deepgram yet has no `language_code` to pass.
+     */
+    const { container } = render(
+      <TranscriptPanel segments={SEGMENTS} positionSeconds={0} onSeek={vi.fn()} />,
+    );
+
+    const list = container.querySelector("ol");
+
+    expect(list).not.toBeNull();
+    expect(list?.hasAttribute("lang")).toBe(false);
+  });
+
+  it("marks the list once rather than every line", () => {
+    // Not a style preference: 200 identical attributes is what the obvious
+    // implementation produces, and it makes the panel's language a property of each
+    // line rather than of the transcript. Pinned so a later refactor has to think
+    // about it.
+    const { container } = render(
+      <TranscriptPanel
+        segments={SEGMENTS}
+        positionSeconds={0}
+        onSeek={vi.fn()}
+        languageCode="es"
+      />,
+    );
+
+    expect(container.querySelectorAll("[lang]")).toHaveLength(1);
+  });
+
+  it("has no axe violations with a language set", async () => {
+    const { container } = render(
+      <TranscriptPanel
+        segments={SEGMENTS}
+        positionSeconds={1}
+        onSeek={vi.fn()}
+        languageCode="es"
+      />,
+    );
+
+    expect(await axeViolations(container)).toEqual([]);
   });
 });

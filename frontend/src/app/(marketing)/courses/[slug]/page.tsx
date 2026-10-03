@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CourseCard } from "@/components/catalogue/CourseCard";
+import { LanguageName } from "@/components/catalogue/LanguageName";
 import { CourseProgress } from "@/components/catalogue/CourseProgress";
 import { Curriculum } from "@/components/catalogue/Curriculum";
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
@@ -112,8 +113,9 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
        * description are instructor-authored and then admin-approved — user-supplied
        * content twice over, which CLAUDE.md §6 forbids injecting as markup. React's
        * server renderer escapes the one sequence that could terminate this element:
-       * verified against built output, a title containing `</script>` is emitted as
-       * `</script>`.
+       * verified against built output, a title containing a closing script tag has
+       * the `s` emitted as a unicode escape, so the sequence cannot terminate the
+       * element. `lib/seo/structured-data.ts` shows the exact bytes.
        *
        * What this deliberately does *not* claim — no `offers`, no `aggregateRating`,
        * no schedule — is documented in `lib/seo/structured-data.ts`, and it is the
@@ -133,7 +135,19 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
         <PageTitle>{course.title}</PageTitle>
 
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
-          <span>{course.language.name}</span>
+          {/*
+           * The native name goes here rather than in the breadcrumb above, which
+           * already names the language as a path segment. Putting it in both left one
+           * reading "Spanish (Español)" and the other "Spanish" — the same fact told
+           * two ways on one page.
+           *
+           * This is the informational line, and it is where real markup is possible:
+           * the native name carries its own `lang` and `dir`, which an `<option>`
+           * cannot.
+           */}
+          <span>
+            <LanguageName language={course.language} />
+          </span>
           <span aria-hidden="true">·</span>
           <span>Level {course.level}</span>
           {course.instructor_name && (

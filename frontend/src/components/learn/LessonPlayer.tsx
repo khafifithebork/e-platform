@@ -566,7 +566,14 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
 
       {segments.length > 0 ? (
         <div className="max-h-[32rem] rounded-(--radius-md) border border-line bg-surface p-4 shadow-(--shadow-sm)">
-          <TranscriptPanel segments={segments} positionSeconds={position} onSeek={seek} />
+          {/* `captions?.code` is the same value the `<track srclang>` carries, so the
+              spoken and written transcript cannot disagree about their language. */}
+          <TranscriptPanel
+            segments={segments}
+            positionSeconds={position}
+            onSeek={seek}
+            languageCode={captions?.code}
+          />
         </div>
       ) : null}
     </div>
