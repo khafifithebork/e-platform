@@ -747,6 +747,32 @@ comment-stripping and watching it fail, rather than asserted in a docstring.
 
 ADR-022 §3 carries the amendment.
 
+### PR #109 was merged red, deliberately — 2026-10-04
+
+**`master`'s CI is red and that is a known state, not a regression to investigate.**
+`Audit (frontend)` fails on `braces` and will keep failing: the advisory covers `*`,
+`3.0.3` is still the newest published version, and there is no patched release to
+wait for. Re-checked on 2026-10-04 before merging.
+
+The owner was asked, because "merge once CI passes" was a condition that waiting
+could never satisfy, and `master` carries no branch protection — so nothing
+mechanical would have stopped the merge. Overridden knowingly; the merge commit
+`1713ae3` records why.
+
+**What is green:** `Backend`, `Audit (backend)`, and `Frontend` across all 19 steps.
+Before the split, `Frontend` reported eleven of those as skipped.
+
+**Why merging improved the signal rather than spending it.** `master` was already
+red on this same advisory, so the merge introduced nothing — and it brought the job
+split with it, so `master`'s `Frontend` and `Backend` now actually run. For the
+preceding two days `master`'s CI was not red-with-detail, it was dark.
+
+**The next person to see this should not "fix" it** by narrowing the audit. The
+remaining open option is the per-advisory exception tool ADR-022 §3 describes — a
+frontend equivalent of `--ignore-vuln` with a named triager — which costs a §5
+dependency decision and was deliberately not taken. `--omit=dev` remains rejected:
+it would retroactively hide the `undici` chain and `fast-uri`.
+
 ### A critical RCE in a component added two days earlier — 2026-10-02
 
 **`npm audit` reported `critical`**, the highest severity this repository has seen:
