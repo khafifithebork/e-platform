@@ -9,7 +9,7 @@
 | ADR-030 — WCAG 2.2 AA | **accepted** | **nothing.** C3, all of C4 and D2 are done; 2.4.11 was found, reproduced and fixed |
 | ADR-031 — boundaries | **accepted** | **nothing.** D1 built 2026-09-28 |
 | ADR-032 — theme, toggle declined | **accepted** | nothing. §2's defect fixed; A4 still confirms it |
-| ADR-033 — localisation deferred | **accepted** | §3's `<track>` gap, blocked on backend (D4) |
+| ADR-033 — localisation deferred | **accepted** | nothing. D4 closed §3's `<track>` gap; D6 closed the content-language axis the deferral never covered (§3b) |
 
 **Five of six defects are fixed** — `color-scheme` declared, inline-direction
 utilities logical with a pinned guard, error and loading boundaries built (D1),
@@ -284,6 +284,27 @@ scroll padding and its `xl` reset, both provoked.
   `approved_transcript_for` filters `kind=TARGET`, so that case cannot reach this
   endpoint at all. ADR-033 §3a.
 
+### D6 · Content language in markup — **done 2026-10-03**
+
+- **Benefit:** the languages the product teaches are named correctly, and assistive
+  technology knows which is which (WCAG 3.1.2, again).
+- **Why it was not on this roadmap at all:** it was filed under "localisation,
+  deferred". That was a misreading of ADR-033 §1, which separates four language axes
+  so that one can move independently; the deferral covers the *interface*. ADR-033
+  §3b records the error, because a deferral quietly widening its own scope is the
+  kind of thing that happens twice.
+- **Two faults, both pre-existing.** `TranscriptPanel` rendered the target language
+  with no `lang` — the panel next door to D4's `<track>`, failing the same criterion,
+  with the value already in the payload. And `native_name` had been in the API since
+  M3 with no reader, so an EU-and-MENA catalogue never showed "Español" or "العربية".
+- **Acceptance, met:** `lang` comes from the payload and is **absent** when unknown
+  rather than defaulted to `en`; asserted both ways, because the defaulted version
+  would pass a test that only checked the attribute exists. `LanguageName` carries
+  `lang` and `dir="auto"`; verified in built HTML, not only jsdom — the course page
+  emits exactly two `lang` attributes. Every assertion provoked, including one
+  provocation that initially passed because `perl -0` without `/g` edited a docstring
+  instead of the code.
+
 ### D5 · Application-wide session-expiry response
 
 - **Benefit:** a learner whose session expires is told, instead of finding out at
@@ -303,9 +324,11 @@ scroll padding and its `xl` reset, both provoked.
 | **E1** | Rebuild-on-publish trigger for the static catalogue | Provisioning and spend. ADR-024 already records this: a rebuild trigger is a deploy hook, and the hook needs the environment. Hosting is chosen (ADR-025); **spend is still unapproved** |
 | **E2** | Pricing page with a price; subscribe flow; a billing destination for `GRACE_PERIOD_ENDED` | CLAUDE.md §11 #1 — payment provider and jurisdiction. `PRICE_BOOK` stays `null` and its tripwire test stays |
 | ~~**E3**~~ | ~~Any testing dependency~~ | **Unblocked 2026-09-28** — `axe-core` approved and adopted; `MSW` and `Playwright` declined, Playwright to be revisited at M8 |
-| **E4** | A performance budget enforced in CI | **The owner.** A5 is done, and §11 sketches the shape: **350 KB gz per route**, about 7% above today's worst. Enforcing it means a script beside `verify:static` and `verify:css`, not a number in a document nobody runs |
+| ~~**E4**~~ | ~~A performance budget enforced in CI~~ | **Unblocked and done 2026-10-02.** Approved at 350 KB first-load per route and enforced by `scripts/assert-bundle-budget.mjs` beside `verify:static` and `verify:css`. Three floors, so the script cannot pass by measuring nothing. Worst route 327.4 KB after the `next/og` work. On `feat/bundle-budget-gate`, unmerged while `master` is red on `braces` |
 | **E5** | Instructor UI | **An architectural decision that does not exist.** The API has no caller; administration runs through the Django admin (ADR-018, ADR-019). Whether a workflow belongs in a custom Next.js surface needs its own ADR — direct-to-R2 upload progress is the likeliest first candidate, because it is the one thing the Django admin genuinely cannot do |
 | **E6** | Shareable filtered catalogue URLs | Not a bug — a consequence of ADR-024. Changing it is an ADR, not a refactor |
+| **E7** | Audio description, and the rest of WCAG 1.2 Time-based Media | **Content that does not exist.** Whether a video needs description is a property of the footage, and `MediaAsset` rows exist only in fixtures — so the question has no subject, and a fixture would pass it vacuously. Unblocks at the **first real lesson upload**, not on a date. ADR-030 §2a found that the whole of 1.2 was never assessed; runbook §3.3a is the pass to walk. Note the likely answer carries a per-lesson production cost, which makes it §5 rather than engineering |
+| **E8** | Course objectives, prerequisites, total duration | **Backend modelling.** Verified 2026-10-03: `Course` has no such columns and `PublicLessonSerializer` exposes no duration, so a course page cannot state any of them without inventing them (§6). Each is a field plus a serializer change plus regenerated types — small, but backend-first |
 
 ---
 
@@ -334,7 +357,13 @@ revisiting. **No design work belongs here until the trigger fires.**
 redesign. Then **C3, C4, and plan D1**. **A2 next**, because D2 cannot be scoped
 until it says what the fault is; **A3 and A4** close out the two fixes that shipped
 on specification rather than observation. D3 and D5 each want their own
-conversation; D4 needs backend modelling. E waits on you or on money; F waits on
-evidence.
+conversation; D4 and D6 are done. E waits on you, on money, or — for E7 — on the
+first lesson existing; F waits on evidence.
 
 No item is waiting on a decision any more.
+
+**One caveat on "no item", added 2026-10-03.** That sentence is about this file's own
+items. It is not a statement that the frontend's obligations are all enumerated here:
+E7 and E8 were added on 2026-10-03 after a question from the owner surfaced two areas
+this roadmap had never listed, one of them the whole of WCAG 1.2. A list that only
+grows when somebody asks is not yet a complete list.

@@ -1,6 +1,6 @@
 # STATUS
 
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-03
 **Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
 its four ADRs, the fixes that followed, the owner's verification passes, and the
 professional-quality addendum's first two batches — both merged)
@@ -553,7 +553,7 @@ proposed, let alone approved.**
 | Area | What the read-only review noted |
 |---|---|
 | **Trust and policy pages** | Terms, Privacy, an imprint. Half-addressed in batch two only in the sense that the footer links nowhere false. **Blocked on owner-supplied content** — real terms, a real data-protection statement, a real controller identity for EU learners |
-| **Multilingual** | ADR-033 deferred interface localisation with a named trigger. Still deferred, and CLAUDE.md §11 treats it as a separately scoped workstream |
+| **Multilingual** — *partly wrong, corrected 2026-10-03* | **The interface half is still deferred** (ADR-033 §4, a named launch locale). **The content half shipped on 2026-10-03** and should never have been in this column: ADR-033 §1 separates four language axes precisely so one can move alone, and this row had collapsed them into one. The transcript panel was failing WCAG 3.1.2 and `native_name` had sat unread in the API since M3. ADR-033 §3b, roadmap D6 |
 | ~~**Account and privacy**~~ | **Batch three, 2026-09-29.** `/account` shows what the API knows and changes a password; `GET /auth/me/export/` is the Article 15 export. **Deletion is not built** — ADR-036 §5, and it is a retention question, not an engineering one |
 | **Subscription transparency** | Constrained by §11 #1, not by the frontend: no provider, no prices, no self-serve trial. `/pricing` already explains the absence honestly |
 | ~~**Course discovery**~~ | **Batches five and eight.** A skill-area filter, a clear control, and a fix for an empty catalogue that blamed the visitor's filters. **Linkable filtered views remain open** — that is an ADR-024 change |
@@ -561,8 +561,8 @@ proposed, let alone approved.**
 | ~~**Brand assets**~~ | **Batch seven, 2026-09-30.** A site share card, a per-course card, and the `apple-icon` — all generated at build time by `next/og`, nothing installed. The font does not match the site's, knowingly |
 | **Colour and type** | Already the most examined part of the product — ADR-029, `contrast.test.ts`, forced-colours confirmed by the owner. Nothing outstanding found |
 | ~~**Interaction polish**~~ | **Batch six, 2026-09-29.** Reviewed, and it was one finding in four places: every failed load dispensed advice instead of offering a retry. The motion system and focus treatment were already settled and needed nothing |
-| **Accessible HTML** | Covered by ADR-030, axe, `verify:a11y` and the runbook. The outstanding items are the human passes, not markup |
-| **Performance** | Measured — 312–326 KB gz per route. **A 350 KB budget is proposable and enforcing it needs the owner** |
+| **Accessible HTML** — *this row was too confident, 2026-10-03* | Markup is covered by ADR-030, axe, `verify:a11y` and the runbook, and the human passes are outstanding as it said. **What it missed: ADR-030 only ever measured the six criteria WCAG 2.2 *adds*.** The ~44 AA criteria it inherits were assumed from a contrast test, and the whole of **1.2 Time-based Media is absent from every document in this repo** — in a video product. ADR-030 §2a, runbook §3.3a, roadmap E7 |
+| ~~**Performance**~~ | **Approved and enforced 2026-10-02** — `scripts/assert-bundle-budget.mjs` fails CI above 350 KB first-load per route, with three floors so the script cannot pass by finding nothing. Re-measured after the `next/og` work: worst route 327.4 KB. On `feat/bundle-budget-gate`, **not yet merged** — `master` is red on `braces` |
 | **Security and operations** | Sentry, CSP, `_headers`, throttling and lockout all exist. The four moderate advisories above are the live item |
 
 **The honest summary: the seven batches that shipped were the seven areas where
@@ -579,11 +579,173 @@ seen. That is the pattern worth carrying forward rather than any of the features
 yet looked at properly. Treating them as a single "checklist" would flatten that
 difference, which is why they are separated here.
 
-**Five areas remain blocked**, and the table above is the list. **None of them is
-blocked on engineering** — policy content, a payment provider, a launch locale, a
-video provider and two budget decisions are the owner's. Colour/type and accessible
-HTML are not in that five: both were assessed, and nothing outstanding was found in
-either.
+**Three areas remain blocked, not five — recounted 2026-10-03.** Policy content, a
+payment provider, and a video provider are the owner's. The previous count of five
+included two that have since moved: the **performance budget** was approved and
+enforced on 2026-10-02, and **multilingual** was never wholly blocked — its content
+half shipped on 2026-10-03 once ADR-033 §1's axes were read properly.
+
+**And the claim "none is blocked on engineering" no longer holds.** Three things are:
+
+- **Audio description and the rest of WCAG 1.2** (roadmap E7) is blocked on *content
+  not existing* — not on a decision. It becomes answerable at the first real lesson
+  upload, and the answer may carry a per-lesson production cost, which is where the
+  owner enters. Until then nobody can say whether the videos need it, because there
+  are no videos.
+- **Course objectives, prerequisites and total duration** (roadmap E8) are blocked on
+  backend modelling: verified 2026-10-03 that `Course` has no such columns and
+  `PublicLessonSerializer` exposes no duration. Stating any of them today would mean
+  inventing them.
+- **The inherited WCAG AA criteria** have never been passed criterion by criterion.
+  That is engineering work nobody has scoped.
+
+Colour/type was assessed and found sound. **Accessible HTML no longer belongs in that
+sentence** — see its row above.
+
+### Two areas I had written off, re-examined on the owner's question — 2026-10-03
+
+The owner asked what was left of **multilingual, course objectives and audio
+descriptions**. All three were in the "nobody has touched" table above as blocked or
+deferred. **Checking found that classification wrong in one case, incomplete in
+another, and right in the third.**
+
+**Multilingual was wrong, and the ADR I was citing is what makes it wrong.** ADR-033
+§1 separates four language axes — interface, learned, instruction, caption+transcript
+— and the separation is the point: it exists so one can move without the others. The
+owner's deferral covers the *interface*. I had let "localisation is deferred" widen
+into "anything with a language in it is deferred", which is the taxonomy's failure
+mode rather than its use.
+
+Two real faults were sitting in the axes the deferral left free:
+
+- **`TranscriptPanel` rendered the target language with no `lang` at all.** WCAG 3.1.2
+  Language of Parts — a screen reader applied English pronunciation to Spanish. In a
+  language-learning product the thing being mispronounced is the thing being taught.
+  The value was already in the payload `LessonPlayer` fetched on every lesson load:
+  the same `language_code` that D4 put on the `<track>`, one component over, failing
+  the same criterion. **Twenty-six passing tests and an axe run sat on top of it** —
+  axe cannot know that "Hola, buenos días" is not English, so no tool could have
+  found this.
+- **`native_name` had been in the API since M3 and nothing read it.** A catalogue for
+  an audience "primarily EU and MENA" offered "Spanish" and "Arabic" and never
+  "Español" or "العربية" — and for Arabic the English name is a transliteration of a
+  different script.
+
+Both fixed, with `lang` **omitted rather than defaulted** when the language is
+unknown: inheriting `en` would make a screen reader confident about the wrong
+pronunciation, and a wrong `lang` is worse than none. ADR-033 §3b, roadmap D6.
+
+**Audio description was right to be blocked, and for a reason I had not articulated.**
+I would have said "owner decision". It is not: whether a video needs description is a
+property of the footage, and **there is no footage** — `MediaAsset` rows exist only in
+fixtures. The question has no subject, and a fixture would pass the check vacuously.
+It unblocks at the first real lesson upload.
+
+Writing that up turned up something larger. **ADR-030 adopted WCAG 2.2 AA having
+measured only the six criteria 2.2 *adds*.** The ~44 it inherits were assumed from
+`contrast.test.ts`, which computes colour ratios. Grepped before claiming it: **no
+document in this repository mentions 1.2.1, 1.2.2, 1.2.3, 1.2.4 or 1.2.5** — the whole
+of Time-based Media, in a product whose content is video. 1.2.2 Captions is also
+weaker than it looks: the `<track kind="captions">` is fed a *speech* transcript from
+Deepgram, and captions must also carry non-speech audio and identify speakers.
+ADR-030 §2a, runbook §3.3a, roadmap E7.
+
+**Course objectives, prerequisites and duration were right — backend-blocked.**
+Verified rather than assumed: `Course` has no such columns, `PublicLessonSerializer`
+exposes no duration. Roadmap E8.
+
+**What the three have in common** is that the classification was recorded without
+re-reading the thing it cited. Multilingual cited an ADR that said the opposite; audio
+description cited a decision-maker instead of the actual blocker; and the WCAG gap was
+invisible because nobody had listed the criteria. The pattern matches ADR-033 §3a's
+"blocked on the backend was recorded without reading the backend" — second instance,
+and the correction came from a question rather than from review.
+
+### `master` is red on an advisory with no fix — decided 2026-10-03: wait
+
+**The fourth red audit gate in five days, and the first with no mechanical fix.**
+`braces` carries a high-severity stack-exhaustion advisory
+(GHSA-vfj7-8cjw-p6xm) at **`*` — every published version, including the latest,
+3.0.3.** So the `overrides` pin that fixed `js-yaml` has nothing to point at.
+
+One root, entirely dev:
+`eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` →
+`braces`. `micromatch@4.0.8` is latest and requires `braces ^3.0.3`; every
+`fast-glob@3.x` uses micromatch. **There is no version of this chain without the
+advisory.**
+
+npm's only offered remedy is `eslint-config-next@14.2.35` — a two-major
+**downgrade**, which npm itself flags as breaking, to lint a Next 16 app with a
+Next 14 config. Declined.
+
+**Decision: wait for upstream. The gate is not touched.** `master` stays red and
+nothing merges until `fast-glob`/`micromatch` move.
+
+The alternatives were both rejected deliberately:
+
+- **`--omit=dev`** would narrow the gate to what ships, and it is the tempting
+  one. It would also have hidden the `undici` chain *and* `fast-uri` — both
+  dev-only, both worth fixing, one of them a TLS-validation bypass. Narrowing the
+  gate to pass today would have retroactively hidden two fixes already made.
+- **A per-advisory exception tool** (`audit-ci`, `better-npm-audit`) would give
+  the frontend the valve ADR-022 §3 gave the backend — `--ignore-vuln` with a
+  comment naming who triaged it, "deliberately more awkward than raising a
+  threshold". It costs a §5 dependency decision and is the right answer if this
+  recurs or if the advisory turns out to be disputed upstream.
+
+**Practical risk here is close to nil** — stack exhaustion reachable only by
+feeding `braces` a deeply nested glob, and the globs come from our own ESLint
+config, on developer machines and in CI. That is context, **not** a reason to act
+case by case: the gate is severity-based precisely so that judgement is not made
+ad hoc, which is ADR-022 §3's whole argument.
+
+**The durable finding, after four of these in five days:** every one came from an
+advisory published against code nobody touched. **CI being green is not a property
+this repository holds between runs**, and that matters for planning a launch
+window more than any individual advisory does.
+
+### The cost of waiting was higher than I said — corrected 2026-10-03
+
+**"The gate is not touched" was right. "Waiting is nearly free" was wrong, and I
+did not check before recommending it.**
+
+Opening PR #109 showed what a red audit actually does. The audit was a *step*, and
+GitHub stops a job at its first failing step, so the eleven steps behind it came
+back **skipped**: type check, lint, the 649 frontend tests, the build, and all four
+`verify:*` scripts — including the first-load budget gate added in that same pull
+request, whose first act in CI was not to run.
+
+So the situation was not "one red check beside green ones". **CI could not say
+whether any change on any branch was correct, for as long as an advisory with no
+patched version existed.** Waiting costs the entire pipeline, for an unbounded
+period, and I presented it as a cheap option because I reasoned about the
+advisory's severity and never looked at the step ordering.
+
+**Fixed by splitting both audits into their own jobs** — `audit-backend` and
+`audit-frontend`. The audits are byte-for-byte what they were: same commands, same
+thresholds, same editable install, no `continue-on-error`, and both in
+`deploy-staging`'s `needs`, so a failure still fails the PR and still blocks a
+deploy. The advisory still shows red. It no longer hides everything else.
+
+**The near-miss is the part worth keeping.** The obvious version of that change
+leaves `deploy-staging`'s `needs` untouched — which would have removed the audit
+from the deploy gate, a security control deleted by a change whose stated purpose
+was to strengthen a signal. `test_staging_needs_both_test_jobs` asserted an exact
+set, failed, and is the only reason it surfaced. An exact-set assertion looked
+pedantic when it was written and was the control that mattered.
+
+Three guards now cover the split, each provoked: no audit command may return to a
+job that does other work; neither audit job may be marked `continue-on-error` (a
+hole that did not exist while they were steps, and the cheapest possible way to
+undo this); and the deploy `needs` set is pinned exactly.
+
+**And the comment trap, seventh instance — caught before shipping for once.** The
+"no audit inside the test jobs" guard greps `run:` scripts, and `backend`'s install
+step carries a comment containing the literal string `pip-audit`. Read raw, the
+guard fails against entirely correct configuration. Verified by removing the
+comment-stripping and watching it fail, rather than asserted in a docstring.
+
+ADR-022 §3 carries the amendment.
 
 ### A critical RCE in a component added two days earlier — 2026-10-02
 

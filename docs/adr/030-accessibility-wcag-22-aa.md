@@ -68,6 +68,90 @@ which by ADR-023 §1 means none is a control yet. §4 says which become tests.
 
 ---
 
+## 2a. The criteria §2 never looked at — **added 2026-10-03**
+
+**§2 measured what 2.2 *adds*. It never measured what 2.2 *inherits*,** and the
+difference matters more here than it would almost anywhere else.
+
+The reasoning in §1 was: the repository "has been working to 2.1 AA", so moving to
+2.2 only needs the six new criteria checked. The evidence offered for the 2.1 AA
+baseline is `contrast.test.ts` — which computes colour ratios and nothing else. So
+the ~44 AA criteria 2.2 carries forward from 2.0 and 2.1 were adopted on the
+strength of a test that checks one of them.
+
+**The gap this leaves is the whole of 1.2 Time-based Media, in a product whose
+primary content is video.** Searched before claiming it: no document in this
+repository mentions 1.2.1, 1.2.2, 1.2.3, 1.2.4 or 1.2.5 — not this ADR, not
+`architecture.md` §8.2, not the verification runbook. The owner asked about audio
+descriptions on 2026-10-03, which is how this surfaced; it should not have taken a
+question.
+
+### What is actually in place, verified against the code
+
+| Criterion | Level | State |
+|---|---|---|
+| **1.2.1 Audio-only and Video-only (Prerecorded)** | A | **Unassessed, and it has a concrete subject**: `LessonType.AUDIO` is a modelled lesson type, and an audio-only lesson needs a text alternative. A `TARGET` transcript probably *is* that alternative, but nothing in the product says so, no test asserts it, and the player's transcript panel is presented as a reading aid rather than as the alternative — which is a UI question, not only a data one |
+| **1.2.2 Captions (Prerecorded)** | A | **Partial, and weaker than it looks.** `LessonPlayer` emits `<track kind="captions">` from `approved_transcript_for`, with `srcLang` and `label` since ADR-033 §3a. But the source is a *transcript of speech* — Deepgram output, then instructor edits. Captions must also convey non-speech audio and identify speakers. Calling a speech transcript "captions" in the `kind` attribute is a claim the content may not support |
+| **1.2.3 Audio Description or Media Alternative** | A | **Unassessed.** Satisfiable by a full text alternative rather than audio, which may be the cheaper route — see below |
+| **1.2.4 Captions (Live)** | AA | **Inapplicable today.** There is no live content. It arrives with live classes, which are CLAUDE.md §11 row 2 ("whether live classes are on the roadmap") and still open — so this criterion is a cost attached to that decision, and belongs in the argument when it is made |
+| **1.2.5 Audio Description (Prerecorded)** | AA | **Not implemented, and not currently assessable.** Nothing in the model, nothing in the player. The reason it cannot be closed is below, and it is not an owner preference |
+
+### Why 1.2.5 cannot be answered yet, and what it is not blocked on
+
+**It is blocked on content not existing, not on a decision.** Whether a video needs
+audio description is a property of the footage: the criterion applies where visual
+information is not already available in the audio. There is no lesson media to look
+at — `MediaAsset` rows exist only in test fixtures — so the question has no subject.
+
+For language teaching the answer is genuinely unpredictable per lesson, and the
+likeliest failure is specific: **showing mouth and tongue position for
+pronunciation is a real teaching technique whose entire content is visual.** A
+talking-head grammar explanation may be fully carried by its soundtrack and need
+nothing. A lesson that writes on screen, mimes vocabulary, or demonstrates
+articulation is not, and no amount of transcript fixes it.
+
+So this is not "deferred pending owner input". It is **answerable the moment the
+first real lesson is uploaded, and unanswerable before** — which makes the upload
+the right gate, not a date.
+
+### What implementing it would need — and three capability claims I am not making
+
+The data model does not accommodate it. Verified: `TranscriptKind` is `TARGET` and
+`TRANSLATION` only; `MediaAsset` is `OneToOneField` to a lesson with no variant or
+rendition concept; `Transcript` holds text segments, and audio description is
+audio, so forcing it into `Transcript` would be modelling it as the thing it is not.
+
+Three routes exist, and each turns on a fact **this ADR does not assert** (CLAUDE.md
+§6 — a provider or browser capability I have not checked is not something to write
+down as true):
+
+1. **`<track kind="descriptions">`.** In the HTML spec. My understanding is that no
+   major browser surfaces it to users, which would make this route decorative —
+   **needs verification before anyone plans around it.**
+2. **A described audio rendition on the video asset.** Whether Mux supports
+   additional audio tracks, and at what cost, is **unverified** and has a bill
+   attached either way (§5).
+3. **A media alternative in text** — a full description of the visual content
+   alongside the transcript. This satisfies 1.2.3 at Level A but **not 1.2.5 at
+   AA**, which specifically wants audio description. Cheapest, and only a partial
+   answer.
+
+### What this section changes now
+
+Nothing in code. It converts an unexamined assumption into a written gap, which is
+the same thing §6 does for the human verification column. Concretely:
+
+- **§6's prohibition is now broader than it was.** This ADR could already not be
+  cited as a conformance claim. It additionally cannot be cited as evidence that
+  the inherited AA criteria were *examined* — only the six new ones were.
+- **A full 2.2 AA pass against all ~50 AA criteria is outstanding work**, not a
+  box this ADR ticked. It belongs in the runbook, scoped and sized.
+- **The first real lesson upload is a gate**: at that point 1.2.1, 1.2.3 and 1.2.5
+  become answerable, and the answer may carry a per-lesson production cost that is
+  a §5 matter rather than an engineering one.
+
+---
+
 ## 3. The 2.4.11 failure — reported, reproduced, fixed 2026-09-28
 
 The owner found it with a keyboard: the focus ring disappearing behind the "Site
@@ -233,6 +317,11 @@ Adopting 2.2 AA is a commitment to a target and a verification procedure. It is
 not a statement that the product currently conforms, and this file must not be
 cited as one.
 
+**And since 2026-10-03 it cannot be cited as evidence of examination either.** §2a
+records that only the six criteria 2.2 *adds* were ever checked; the ~44 AA criteria
+it inherits were assumed from a contrast test. The whole of 1.2 Time-based Media —
+in a video product — had never been looked at.
+
 ---
 
 ## Consequences
@@ -264,6 +353,10 @@ the criterion.
 3. The runbook exists and names an owner for the human pass.
 4. 2.4.11 is either reproduced and fixed, or recorded as an accepted open fault
    with a date — not left implicit.
+5. **Added 2026-10-03.** The inherited AA criteria are either passed criterion by
+   criterion in the runbook, or listed as unexamined. 1.2.1, 1.2.3 and 1.2.5 are
+   re-opened at the first real lesson upload, because that is when they acquire a
+   subject — not on a date.
 
 ## Related
 

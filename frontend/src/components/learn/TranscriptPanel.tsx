@@ -9,6 +9,26 @@ interface TranscriptPanelProps {
   /** Playhead, in seconds, so the current line can be marked. */
   positionSeconds: number;
   onSeek: (seconds: number) => void;
+  /**
+   * The language the cues are written in, as a BCP 47 code.
+   *
+   * **This panel renders Spanish inside an English document and said nothing about
+   * it** until 2026-10-03 — WCAG 3.1.2 Language of Parts. A screen reader with no
+   * `lang` reads the target language with the interface language's voice and
+   * pronunciation rules, which for a *language-learning* product is not a cosmetic
+   * fault: the thing being mispronounced is the thing being taught.
+   *
+   * The value comes from the payload this component's cues already came with —
+   * `LessonTranscript.language_code`, the same field the `<track srclang>` uses, so
+   * the spoken captions and the written transcript cannot disagree about what
+   * language they are in.
+   *
+   * Optional because the panel predates the field, and a missing `lang` is better
+   * than a guessed one: inheriting `en` from the document is wrong, and so is
+   * inventing a code. ADR-033 §1's distinction is the reason this is not blocked on
+   * the interface-language decision — the caption and transcript axis is separate.
+   */
+  languageCode?: string;
 }
 
 /** The cue covering this moment, or -1. */
@@ -37,7 +57,12 @@ export function currentSegmentIndex(
  * worth nothing if line 87 is off-screen — added at M16 T7, when this component
  * was first exercised.
  */
-export function TranscriptPanel({ segments, positionSeconds, onSeek }: TranscriptPanelProps) {
+export function TranscriptPanel({
+  segments,
+  positionSeconds,
+  onSeek,
+  languageCode,
+}: TranscriptPanelProps) {
   const current = currentSegmentIndex(segments, positionSeconds);
   const currentRef = useRef<HTMLButtonElement | null>(null);
 
@@ -72,7 +97,21 @@ export function TranscriptPanel({ segments, positionSeconds, onSeek }: Transcrip
         Transcript
       </h2>
 
-      <ol className="flex-1 space-y-1 overflow-y-auto pe-1">
+      {/*
+       * `lang` on the list, not on each line.
+       *
+       * Every cue is in the same language, so one attribute covers them all and the
+       * accessibility tree inherits it. Per-line would be 200 identical attributes
+       * saying the same thing.
+       *
+       * Omitted entirely when the code is unknown rather than defaulted: inheriting
+       * the document's `en` is a wrong claim, and a wrong `lang` is worse than none —
+       * it makes a screen reader confident about the wrong pronunciation.
+       */}
+      <ol
+        {...(languageCode ? { lang: languageCode } : {})}
+        className="flex-1 space-y-1 overflow-y-auto pe-1"
+      >
         {segments.map((segment, index) => (
           <li key={segment.position}>
             <button

@@ -114,6 +114,47 @@ remembers".
 useful. The check is run against a deliberately vulnerable pin before it is
 believed — ADR-006, applied to CI configuration rather than application code.
 
+### Where the audits run — amended 2026-10-03
+
+**Both audits now run as their own jobs, `audit-backend` and `audit-frontend`.**
+Nothing above this line changes: same commands, same thresholds, the same
+asymmetry for the same reason, `--skip-editable` on the same editable install,
+and no `continue-on-error`. A failing audit still fails the pull request, and both
+jobs are in `deploy-staging`'s `needs`, so it still blocks a deploy.
+
+**What forced it.** §3 reasoned carefully about *how strict* the gate should be
+and not at all about *where it sits*. As steps, both audits ran early in jobs that
+do other work — and GitHub stops a job at its first failing step. On 2026-10-03
+`braces` (GHSA-vfj7-8cjw-p6xm, high) turned out to be affected at `*`, every
+published version, reachable only through `eslint-config-next`. The frontend audit
+went permanently red, and the eleven steps behind it — type check, lint, 649
+tests, the build, and all four `verify:*` scripts, including a budget gate added
+in the same pull request — were reported **skipped**. CI could not say whether any
+change on any branch was correct, for as long as the advisory stood.
+
+**This is a failure of gate design, not of the threshold.** §3's stated enemy is a
+gate that gets disabled during a deadline. An audit ordered ahead of every other
+check is a *more* tempting thing to disable than a noisy one, because disabling it
+is the only way to learn whether the code works. The ordering was quietly working
+against the decision it was implementing.
+
+**What was nearly lost in the fix.** The obvious version of this change leaves
+`deploy-staging`'s `needs` alone, which would have removed the audit from the
+deploy gate entirely — a security control deleted by a change whose purpose was to
+strengthen a signal. `test_staging_needs_both_test_jobs` asserted an exact set and
+failed, which is the only reason it was noticed. Two further guards were added:
+one that no audit command returns to a job that does other work, and one that
+neither audit *job* is marked `continue-on-error` — a hole that did not exist while
+they were steps, since one line at job level now turns the gate green and touches
+nothing else.
+
+**The threshold decision stands untouched, deliberately.** `braces` is a
+dev-only transitive dependency whose only npm remedy is a two-major downgrade of
+`eslint-config-next`. The recorded decision is to wait for upstream rather than
+reach for `--omit=dev`, which would retroactively have hidden the `undici` chain
+and `fast-uri` as well. The advisory still shows red. It just no longer blinds
+everything else.
+
 **Renovate and CodeQL are out of scope.** Both are repository configuration
 rather than code, and CodeQL changes what runs on every push to a repository
 this project does not yet pay for compute on. M13, with the rest of the

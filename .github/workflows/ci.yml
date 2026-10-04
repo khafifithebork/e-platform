@@ -143,28 +143,10 @@ jobs:
           MEDIA_STORAGE_SECRET_KEY: test
         run: pytest
 
-      # architecture.md §8.4: "pip-audit and npm audit in CI, CI fails on
-      # high-severity". This is the backend half, and it is **stricter than
-      # that line asks** because pip-audit has no severity filter — no
-      # `--severity` flag exists, so the choice is "fail on any known
-      # advisory" or "parse JSON and guess", and OSV entries frequently carry
-      # no CVSS at all. A gate that silently passes what it cannot classify is
-      # worse than one that is occasionally noisy.
-      #
-      # The escape hatch is per-advisory and reviewable: `--ignore-vuln GHSA-x`
-      # with a comment saying who triaged it and why. That is deliberately more
-      # awkward than raising a threshold, because raising a threshold is how a
-      # security gate quietly stops covering anything.
-      #
-      # `--skip-editable` excludes exactly one package: this project, installed
-      # editable above. `--strict` is deliberately absent and its absence does
-      # **not** soften the vulnerability gate — it governs *dependency
-      # collection* failures only, and a found advisory still exits 1 either
-      # way (verified against a known-vulnerable pin). With `--strict` the two
-      # flags contradict each other: it fails on any skipped dependency,
-      # including the one `--skip-editable` was told to skip.
-      - name: Dependency audit
-        run: python -m pip_audit --skip-editable --progress-spinner off
+      # The dependency audit used to sit here. It now runs in `audit-backend`,
+      # for the reason documented on that job: as a step it was ordered ahead of
+      # the release-image build, the smoke test and the deployment check, so an
+      # unfixable advisory skipped all three.
 
       # CLAUDE.md section 8 requires 100% branch coverage on the entitlement
       # resolver, and a target that is only reported is a target nothing
@@ -321,17 +303,9 @@ jobs:
           npm run types
           git diff --exit-code src/types/api.d.ts
 
-      # The frontend half of the §8.4 audit. `--audit-level=high` is exactly
-      # what that line specifies, and unlike pip-audit npm supports it
-      # directly — npm advisories carry a severity, so filtering on one
-      # classifies rather than discards.
-      #
-      # ADR-022 §3: not moderate. A gate that fires on things nobody will act
-      # on this quarter is a gate that gets `|| true` appended during an
-      # unrelated deadline, and the failure to design against is a disabled
-      # audit nobody remembers.
-      - name: Dependency audit
-        run: npm audit --audit-level=high
+      # The dependency audit used to sit here, ahead of everything below it.
+      # It now runs in `audit-frontend` — see that job for what that cost us on
+      # 2026-10-03.
 
       - name: Type check
         run: npm run typecheck
@@ -481,6 +455,25 @@ jobs:
       - name: Design tokens resolve
         run: npm run verify:css
 
+      # The per-route first-load budget, approved 2026-10-03.
+      #
+      # `docs/specs/frontend-state-and-api.md` §11 proposed 350 KB gzipped per route
+      # and said enforcing it "should be a script beside `verify:static` and
+      # `verify:css` rather than a number in a document nobody runs". This is that,
+      # and it runs here for the same reason the others do: measured on the build a
+      # visitor would receive, not on an estimate.
+      #
+      # **The headroom is for a dependency, not for features.** Seven batches of the
+      # quality addendum moved the worst route 1.3 KB — 0.4% — against 23 KB of slack,
+      # so a failure here is far more likely to mean something arrived in the shared
+      # chunks than that somebody wrote too much code. The message says so.
+      #
+      # It cannot cover the lesson route, which is dynamic (ADR-026) and so has no
+      # prerendered HTML — and that is the route a learner actually waits on. §11
+      # records that as a person's job with a network panel.
+      - name: First-load budget
+        run: npm run verify:bundle
+
       # And again inside the image, which is not the same build. `npm run
       # build` above runs on the runner with the full dependency tree; the
       # image builds on node:22-slim, installs with `npm ci --omit=dev`, and
@@ -499,6 +492,123 @@ jobs:
       - name: Build the release image
         run: |
           docker build --network=host             --build-arg API_ORIGIN=http://localhost:8000             --target runtime -t e-platform-frontend:${{ github.sha }} .
+
+  # ---------------------------------------------------------------------------
+  # Dependency audits — separate jobs since 2026-10-03
+  #
+  # **Why these are jobs and not steps.** Both audits used to run inside the
+  # `backend` and `frontend` jobs, early, and GitHub stops a job at its first
+  # failing step. So on 2026-10-03 a `braces` advisory with **no patched version
+  # at any release** turned the frontend audit permanently red, and the eleven
+  # steps behind it — type check, lint, the 649 tests, the build, and all four
+  # `verify:*` scripts, including the first-load budget gate added in the same
+  # pull request — were reported as *skipped*. CI could no longer say whether
+  # any change was correct, on any branch, for as long as the advisory stood.
+  #
+  # That is a worse failure than the advisory. A gate whose red light hides
+  # every other light is not a stricter gate, it is a darker one.
+  #
+  # **What this does not change**, which matters more than what it does. Same
+  # commands, same thresholds, same editable install, no `continue-on-error`,
+  # and both jobs are in `deploy-staging`'s `needs` — so a failing audit still
+  # fails the pull request and still blocks a deploy. The audits are exactly as
+  # strict as architecture.md §8.4 and ADR-022 §3 require. The only thing that
+  # changed is that failing one no longer hides the rest of the pipeline.
+  #
+  # Guarded in `test_ci_environment.py` and `test_deploy_pipeline.py`: both
+  # ways this refactor could quietly weaken things — losing an audit, or
+  # dropping it from the deploy gate — are asserted, because this is precisely
+  # the shape of change that looks harmless in review.
+  # ---------------------------------------------------------------------------
+  audit-backend:
+    name: Audit (backend)
+    runs-on: ubuntu-latest
+
+    # No Postgres and no Redis: an audit reads metadata and talks to OSV. The
+    # services the `backend` job needs are for its tests.
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      # **Editable, and that is load-bearing for the flag below**, not a
+      # copy-paste from the `backend` job. A non-editable install registers
+      # `language-platform-backend 0.0.0` as a distribution and the audit then
+      # looks it up on PyPI, where it will never be.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # architecture.md §8.4: "pip-audit and npm audit in CI, CI fails on
+      # high-severity". This is the backend half, and it is **stricter than
+      # that line asks** because pip-audit has no severity filter — no
+      # `--severity` flag exists, so the choice is "fail on any known
+      # advisory" or "parse JSON and guess", and OSV entries frequently carry
+      # no CVSS at all. A gate that silently passes what it cannot classify is
+      # worse than one that is occasionally noisy.
+      #
+      # The escape hatch is per-advisory and reviewable: `--ignore-vuln GHSA-x`
+      # with a comment saying who triaged it and why. That is deliberately more
+      # awkward than raising a threshold, because raising a threshold is how a
+      # security gate quietly stops covering anything.
+      #
+      # `--skip-editable` excludes exactly one package: this project, installed
+      # editable above. `--strict` is deliberately absent and its absence does
+      # **not** soften the vulnerability gate — it governs *dependency
+      # collection* failures only, and a found advisory still exits 1 either
+      # way (verified against a known-vulnerable pin). With `--strict` the two
+      # flags contradict each other: it fails on any skipped dependency,
+      # including the one `--skip-editable` was told to skip.
+      - name: Dependency audit
+        run: python -m pip_audit --skip-editable --progress-spinner off
+
+  audit-frontend:
+    name: Audit (frontend)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `npm audit` reads the lockfile and queries the registry, so it reports
+      # the same advisories with no `node_modules` at all — checked, and the
+      # exit code and finding count match. Installing anyway: this job runs in
+      # parallel with the others so nothing waits on it, and keeping the
+      # environment identical to the step this replaces means the split is
+      # purely structural. If that ever stops being free, this is the line to
+      # remove.
+      - name: Install dependencies
+        run: npm ci
+
+      # The frontend half of the §8.4 audit. `--audit-level=high` is exactly
+      # what that line specifies, and unlike pip-audit npm supports it
+      # directly — npm advisories carry a severity, so filtering on one
+      # classifies rather than discards.
+      #
+      # ADR-022 §3: not moderate. A gate that fires on things nobody will act
+      # on this quarter is a gate that gets `|| true` appended during an
+      # unrelated deadline, and the failure to design against is a disabled
+      # audit nobody remembers.
+      - name: Dependency audit
+        run: npm audit --audit-level=high
 
   # ---------------------------------------------------------------------------
   # Deploy — M13 T9
@@ -533,7 +643,13 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy-staging:
     name: Deploy to staging
-    needs: [backend, frontend]
+    # **The audit jobs are in here deliberately.** Splitting the audits out of
+    # `backend` and `frontend` would otherwise have stopped a failing audit from
+    # blocking a deploy — a security gate quietly removed by a change whose
+    # stated purpose was the opposite. `test_staging_needs_both_test_jobs` is
+    # the control; it asserted exactly two names and had to be updated, which is
+    # the test doing its job rather than being in the way.
+    needs: [backend, frontend, audit-backend, audit-frontend]
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&

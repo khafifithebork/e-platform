@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { CourseCard } from "@/components/catalogue/CourseCard";
 import { CourseSearch } from "@/components/catalogue/CourseSearch";
+import { languageLabel } from "@/components/catalogue/LanguageName";
 import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import type { Language, PublicCourse } from "@/lib/catalogue/courses";
 import type { CourseSearchResults } from "@/lib/catalogue/search";
@@ -161,9 +162,16 @@ export function CourseCatalogue({
           value={language}
           onChange={setLanguage}
           anyLabel="All languages"
+          /*
+           * `languageLabel`, so the filter offers "Spanish (Español)".
+           *
+           * A plain string rather than the `LanguageName` component, because an
+           * `<option>` renders text only — see that module for what is lost and why
+           * a custom listbox is not worth it.
+           */
           options={languages.map((item) => ({
             value: item.code,
-            label: item.name,
+            label: languageLabel(item),
           }))}
         />
         <Select
