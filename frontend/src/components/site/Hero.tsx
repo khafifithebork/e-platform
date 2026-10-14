@@ -1,148 +1,52 @@
 "use client";
 
-import { motion, useScroll, useTransform, type Variants } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
-import { useRef } from "react";
 
 import { buttonStyles } from "@/components/ui/Button";
-import { PAGE_TITLE } from "@/components/ui/PageTitle";
+import { PageTitle } from "@/components/ui/PageTitle";
 
-const containerVariants: Variants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
-};
-
-/**
- * The landing page's opening section: headline, the two real CTAs, and a
- * decorative stack of cards standing in for the catalogue.
- *
- * **A client component, carved out of an otherwise server-rendered page.**
- * `Home` stays `async`, fetches at build time, and remains statically
- * generated (invariant 15) — only the part that needs mount-triggered motion
- * and scroll position crosses the client boundary, the same split `AuthMenu`
- * and `CourseProgress` already use for their own reasons.
- *
- * **Animates on mount, not on scroll into view.** `Reveal` exists for
- * below-the-fold sections a visitor scrolls to; this is the first thing
- * anyone sees, so it enters immediately rather than waiting for an
- * intersection that has already happened.
- *
- * The three-card stack behind the copy is decorative — `aria-hidden` — and
- * deliberately not an illustration of anything. It stands for "a catalogue",
- * the way three overlapping cards do in most course-marketplace hero
- * sections, without claiming to depict a specific course that does not exist
- * (§6 forbids inventing content, and a screenshot-shaped mock would read as
- * one).
- */
+/** Only the decorative art animates. Text and links work before hydration. */
 export function Hero() {
-  const sectionRef = useRef<HTMLElement>(null);
-
-  // The background glow drifts slightly slower than the page scrolls — a
-  // parallax of a few percent, not a full effect. `useScroll`'s target is
-  // this section itself, so the range is "while the hero is on screen",
-  // not the whole document.
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
-  const glowY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
-
-  // **Not branched on `useReducedMotion()` any more.** These props render into
-  // the markup — `initial` becomes an inline `opacity: 0`, and `whileTap` makes
-  // Motion add a `tabindex` — so deciding them from a media query the server
-  // cannot read produced a hydration mismatch React declined to patch, and the
-  // hero stayed invisible for anyone who preferred reduced motion.
-  // `MotionProvider` makes that decision inside Motion instead.
-  const container = {
-    initial: "hidden" as const,
-    animate: "visible" as const,
-    variants: containerVariants,
-  };
-
-  const item = { variants: itemVariants };
-
   return (
-    <section ref={sectionRef} className="relative overflow-hidden">
-      <motion.div
-        aria-hidden="true"
-        style={{ y: glowY }}
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem]
-          bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,var(--color-accent-subtle),transparent)]"
-      />
-
-      <div className="mx-auto grid max-w-7xl gap-12 px-6 pt-20 lg:grid-cols-[3fr_2fr] lg:items-center">
-        <motion.div className="flex max-w-2xl flex-col gap-6" {...container}>
-          <motion.h1
-            {...item}
-            className={`${PAGE_TITLE.page} sm:text-5xl`}
-          >
-            Language courses, reviewed before they are published.
-          </motion.h1>
-
-          <motion.p {...item} className="text-lg leading-relaxed text-ink-muted">
-            Every course here was submitted by an instructor and approved by a
-            person before anyone could see it. No open marketplace, no
-            auto-published backlog.
-          </motion.p>
-
-          <motion.div {...item} className="flex flex-col gap-3 sm:flex-row">
-            {/* `w-full`, because the flex item is the wrapper rather than the
-                link: in the column layout the wrapper stretches and an
-                inline-flex link inside it would shrink to its text, which is
-                not how these read on a phone. */}
-            <motion.div whileTap={{ scale: 0.97 }}>
-              <Link
-                href="/courses"
-                className={buttonStyles({ variant: "primary", size: "lg", lift: true, className: "w-full" })}
-              >
-                Browse the catalogue
-              </Link>
-            </motion.div>
-            <motion.div whileTap={{ scale: 0.97 }}>
-              <Link
-                href="/pricing"
-                className={buttonStyles({ variant: "secondary", size: "lg", className: "w-full" })}
-              >
-                See pricing
-              </Link>
-            </motion.div>
-          </motion.div>
-        </motion.div>
-
-        {/* The card stack. Hidden below `lg`: three rotated cards beside
-            already-tight copy on a phone screen is clutter, not depth. */}
-        <div aria-hidden="true" className="relative hidden h-64 lg:block">
-          <motion.div
-            initial={{ opacity: 0, y: 30, rotate: -6 }}
-            animate={{ opacity: 1, y: 0, rotate: -6 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-8 top-6 h-40 w-56 rounded-(--radius-lg) border
-              border-line bg-surface-sunken shadow-(--shadow-sm)"
-          />
-          <motion.div
-            initial={{ opacity: 0, y: 30, rotate: 4 }}
-            animate={{ opacity: 1, y: 0, rotate: 4 }}
-            transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-4 top-2 h-40 w-56 rounded-(--radius-lg) border
-              border-line bg-surface shadow-(--shadow-md)"
-          />
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-x-10 bottom-0 flex h-40 w-56 flex-col justify-between
-              rounded-(--radius-lg) border border-line-strong bg-surface p-5 shadow-(--shadow-md)"
-          >
-            <div className="h-2.5 w-16 rounded-full bg-accent" />
-            <div className="flex flex-col gap-1.5">
-              <div className="h-2 w-full rounded-full bg-line" />
-              <div className="h-2 w-3/4 rounded-full bg-line" />
-            </div>
-          </motion.div>
+    <section aria-labelledby="home-title" className="mx-auto grid w-full max-w-7xl gap-4 px-6 pt-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-0 lg:pt-4">
+      <div className="relative z-10 flex min-w-0 flex-col items-start gap-6 lg:py-16">
+        <PageTitle variant="editorial" id="home-title">
+          Language courses, reviewed before they are published.
+        </PageTitle>
+        <p className="max-w-sm font-serif text-lg leading-snug text-ink">
+          Video, audio and written lessons. Transcripts and progress, in one place.
+        </p>
+        <div className="flex w-full flex-col items-start gap-3 sm:w-auto">
+          <Link href="/courses" className={buttonStyles({ variant: "primary", size: "lg", lift: true, className: "w-full gap-5 sm:w-auto" })}>
+            Browse the catalogue
+            <ArrowRight aria-hidden="true" size={18} strokeWidth={1.5} />
+          </Link>
+          <Link href="/pricing" className="inline-flex min-h-11 items-center text-accent underline underline-offset-4 hover:text-accent-hover">
+            See pricing
+          </Link>
         </div>
       </div>
+      {/* MotionConfig owns reduced motion without a server/client render branch. */}
+      <motion.div
+        aria-hidden="true"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        className="mx-auto w-full max-w-xl lg:max-w-none"
+      >
+        <Image
+          src="/illustrations/learning-scene.webp"
+          alt=""
+          width={960}
+          height={960}
+          unoptimized
+          loading="eager"
+          className="h-auto w-full"
+        />
+      </motion.div>
     </section>
   );
 }

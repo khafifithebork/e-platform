@@ -156,3 +156,50 @@ body {
   color: #ffffff;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
+
+
+/* ADR-037: public pages and sign-in use C's paper world in either OS scheme.
+ * Scoped inheritance keeps learner and other authentication palettes intact. */
+[data-site-style="editorial"] {
+  color-scheme: light;
+  --color-paper: #faf7f0;
+  --color-surface: #faf7f0;
+  --color-surface-sunken: #f0ece3;
+  --color-ink: #191919;
+  --color-ink-muted: #50505a;
+  --color-ink-subtle: #5b5963;
+  --color-line: #d1ccc3;
+  --color-line-strong: #817b72;
+  --color-accent: #4541b5;
+  --color-accent-hover: #343087;
+  --color-accent-subtle: #eeebfa;
+  --color-on-accent: #ffffff;
+  --color-brand-coral: #c44656;
+  --color-danger: #9f1e39;
+  --color-danger-subtle: #fdf0f2;
+  --color-success: #2f6b46;
+  --color-success-subtle: #eef6f0;
+  --font-display: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --shadow-sm: 0 2px 4px rgb(25 25 25 / 0.04);
+  --shadow-md: 0 6px 16px rgb(25 25 25 / 0.08);
+  --shadow-card-resting: var(--shadow-sm);
+  --shadow-card-hovered: var(--shadow-md);
+}
+
+[data-site-style="editorial"] ::selection {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+:root:has([data-site-style="editorial"]) {
+  color-scheme: light;
+  --color-paper: #faf7f0;
+  background: var(--color-paper);
+}
+
+[data-site-style="editorial"] nav[aria-label="Main"] a:is([href="/login"], [href="/login/"]) {
+  border-color: transparent;
+}

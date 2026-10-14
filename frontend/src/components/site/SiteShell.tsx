@@ -30,9 +30,13 @@ const NAV = [
   { href: "/pricing", label: "Pricing" },
 ] as const;
 
-export function SiteShell({ children }: { children: React.ReactNode }) {
+export function SiteShell({ children, variant = "learning" }: {
+  children: React.ReactNode;
+  variant?: "learning" | "editorial";
+}) {
+  const editorial = variant === "editorial";
   return (
-    <div className="flex min-h-dvh flex-col bg-paper">
+    <div data-site-style={variant} className="flex min-h-dvh flex-col bg-paper text-ink">
       {/*
        * The skip link, first in the DOM and visible only on focus.
        *
@@ -49,12 +53,11 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-line bg-surface">
+      <header className={editorial ? "relative z-40 bg-paper" : "sticky top-0 z-40 border-b border-line bg-surface"}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5">
           <Link
             href="/"
-            className="flex items-center gap-2 font-display text-xl tracking-tight
-              text-ink transition-colors hover:text-accent"
+            className={editorial ? "font-serif text-3xl font-bold tracking-tight text-ink" : "flex items-center gap-2 font-display text-xl tracking-tight text-ink transition-colors hover:text-accent"}
           >
             {/*
              * A mark, not a logo file — one glyph in the accent colour, so the
@@ -62,14 +65,14 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
              * Decorative: the name beside it already says "Lingua" to a screen
              * reader.
              */}
-            <span
+            {!editorial && <span
               aria-hidden="true"
               className="relative flex h-9 w-9 items-center justify-center rounded-(--radius-md)
                 bg-accent text-lg font-semibold text-on-accent"
             >
               L
               <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-surface bg-brand-coral" />
-            </span>
+            </span>}
             Lingua
           </Link>
 
@@ -109,15 +112,14 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
          * `min-w-0 flex-1` is simply the whole width down there.
          */}
         <div className="flex w-full flex-1">
-          <SiteNavTree />
+          {!editorial && <SiteNavTree />}
           <div className="min-w-0 flex-1">{children}</div>
         </div>
       </main>
 
       <footer className="border-t border-line bg-surface">
         <div
-          className="mx-auto flex max-w-7xl flex-col gap-4 px-6 pb-24 pt-8 text-sm xl:pb-8
-            text-ink-subtle sm:flex-row sm:items-center sm:justify-between"
+          className={`mx-auto flex max-w-7xl flex-col gap-4 px-6 pt-8 text-sm text-ink-subtle sm:flex-row sm:items-center sm:justify-between ${editorial ? "pb-8" : "pb-24 xl:pb-8"}`}
         >
           <p>Every course here is reviewed before it is published.</p>
 
@@ -128,6 +130,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
             <Link href="/pricing" className="hover:text-ink">
               Pricing
             </Link>
+            {editorial && <Link href="/register" className="hover:text-ink">Create account</Link>}
           </nav>
         </div>
       </footer>

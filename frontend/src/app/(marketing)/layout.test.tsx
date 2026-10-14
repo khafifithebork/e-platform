@@ -24,6 +24,7 @@ import { describe, expect, it } from "vitest";
 import { codeOnly, filesMatching, sourceFilesIn } from "@/test/source";
 
 import MarketingLayout from "./layout";
+import { SiteShell } from "@/components/site/SiteShell";
 
 const GROUP = join(process.cwd(), "src", "app", "(marketing)");
 
@@ -319,5 +320,22 @@ describe("invariant 15 — nothing here renders at request time", () => {
     // so a wrong path or a bad glob would look like compliance forever. This
     // is the only thing standing between "no violations" and "no files".
     expect(sourceFilesIn(GROUP).length).toBeGreaterThan(0);
+  });
+});
+
+
+describe("editorial shell isolation", () => {
+  it("public_shell_uses_paper_and_top_navigation", () => {
+    const { container } = render(<MarketingLayout><p>Public content</p></MarketingLayout>);
+    expect(container.querySelector('[data-site-style="editorial"]')).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Site map" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Site map" })).not.toBeInTheDocument();
+    const links = screen.getAllByRole("link").map(link => link.getAttribute("href"));
+    expect(links).toEqual(expect.arrayContaining(["/", "/courses", "/pricing", "/register"]));
+  });
+  it("default_learner_shell_keeps_its_theme_and_navigation", () => {
+    const { container } = render(<SiteShell><p>Learning</p></SiteShell>);
+    expect(container.querySelector('[data-site-style="editorial"]')).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Site map" })).toBeInTheDocument();
   });
 });

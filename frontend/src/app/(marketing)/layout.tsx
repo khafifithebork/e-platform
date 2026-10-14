@@ -20,5 +20,5 @@ import { SiteShell } from "@/components/site/SiteShell";
  * change the other.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
-  return <SiteShell>{children}</SiteShell>;
+  return <SiteShell variant="editorial">{children}</SiteShell>;
 }

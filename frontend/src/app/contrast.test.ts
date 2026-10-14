@@ -43,8 +43,11 @@ const CSS = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8
  * rather than read alone — exactly how the cascade resolves it.
  */
 function tokens(scheme: "light" | "dark"): Record<string, string> {
-  const darkStart = CSS.indexOf("prefers-color-scheme: dark");
-  const source = scheme === "light" ? CSS.slice(0, darkStart) : CSS;
+  const globalCSS = CSS
+    .replace(/\[data-site-style="editorial"\]\s*\{[^}]*\}/g, "")
+    .replace(/:root:has\(\[data-site-style="editorial"\]\)\s*\{[^}]*\}/g, "");
+  const darkStart = globalCSS.indexOf("prefers-color-scheme: dark");
+  const source = scheme === "light" ? globalCSS.slice(0, darkStart) : globalCSS;
 
   const found: Record<string, string> = {};
   for (const [, name, value] of source.matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})/g)) {
@@ -172,5 +175,24 @@ describe("the arithmetic itself", () => {
     // If `tokens()` returned the same palette twice, the dark pass would be
     // the light pass again and nothing about dark mode would be tested.
     expect(tokens("light").ink).not.toBe(tokens("dark").ink);
+  });
+});
+
+
+describe("public editorial palette", () => {
+  const block = CSS.match(/\[data-site-style="editorial"\]\s*\{([^}]*)\}/)?.[1] ?? "";
+  const palette = Object.fromEntries([...block.matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map(([, name, value]) => [name, value]));
+  it("defines an isolated light paper theme", () => {
+    expect(block).toContain("color-scheme: light");
+    expect(palette.paper).toBe("#faf7f0");
+    expect(palette.ink).toBe("#191919");
+  });
+  it.each([...BODY_TEXT, ...SUPPORTING_TEXT])("%s on %s meets AA", (fg, bg) => {
+    expect(palette[fg]).toBeDefined();
+    expect(palette[bg]).toBeDefined();
+    expect(contrast(palette[fg], palette[bg])).toBeGreaterThanOrEqual(4.5);
+  });
+  it.each(UI_BOUNDARIES)("%s on %s stays distinguishable", (fg, bg) => {
+    expect(contrast(palette[fg], palette[bg])).toBeGreaterThanOrEqual(3);
   });
 });
