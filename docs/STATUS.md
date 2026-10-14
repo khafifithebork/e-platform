@@ -42,8 +42,11 @@ single-course captures and does not certify preference emulation. The documenter
 confirmed the incumbent system guide matches the source and all four captures,
 with no further documentation change needed.
 The owner requested commit, push and a pull request. The approved frontend work
-is prepared on `codex/illustrated-journal` from master; the earlier audit-policy
-commit remains on its separate branch. No merge or deployment is performed.
+is committed and pushed on `codex/illustrated-journal` from master, with
+[PR #110](https://github.com/khafifithebork/e-platform/pull/110) open for review.
+The earlier audit-policy commit remains on its separate branch and is excluded.
+No merge or deployment is performed. The PR includes six desktop/mobile captures
+and explicitly records the existing master frontend-audit failure.
 
 ---
 
