@@ -5,9 +5,9 @@ import { useMemo, useState } from "react";
 import { CourseCard } from "@/components/catalogue/CourseCard";
 import { CourseSearch } from "@/components/catalogue/CourseSearch";
 import { languageLabel } from "@/components/catalogue/LanguageName";
-import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
+import { buttonStyles } from "@/components/ui/Button";
 import type { Language, PublicCourse } from "@/lib/catalogue/courses";
-import type { CourseSearchResults } from "@/lib/catalogue/search";
+import { MIN_QUERY_LENGTH, type CourseSearchResults } from "@/lib/catalogue/search";
 
 /**
  * The listing, with its filters.
@@ -132,133 +132,126 @@ export function CourseCatalogue({
     setSkill(ANY);
   }
 
-  if (searching) {
-    return (
-      <div className="flex flex-col gap-8">
-        <CourseSearch
-          onResults={setResults}
-          onQueryChange={(q) => setSearching(q.length > 0)}
-        />
-        <SearchResults results={results} />
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-8">
-      <CourseSearch
-        onResults={setResults}
-        onQueryChange={(q) => setSearching(q.length > 0)}
-      />
-
-      {/*
-       * `<section>` with a label rather than a bare div: filters are a
-       * navigable region, and a screen-reader user landing on the page should
-       * be able to find them without tabbing through every course.
-       */}
-      <section aria-label="Filter courses" className="flex flex-wrap gap-4">
-        <Select
-          label="Language"
-          value={language}
-          onChange={setLanguage}
-          anyLabel="All languages"
-          /*
-           * `languageLabel`, so the filter offers "Spanish (Español)".
-           *
-           * A plain string rather than the `LanguageName` component, because an
-           * `<option>` renders text only — see that module for what is lost and why
-           * a custom listbox is not worth it.
-           */
-          options={languages.map((item) => ({
-            value: item.code,
-            label: languageLabel(item),
-          }))}
-        />
-        <Select
-          label="Level"
-          value={level}
-          onChange={setLevel}
-          anyLabel="All levels"
-          options={levels.map((item) => ({ value: item, label: item }))}
+      <div className="grid gap-x-6 gap-y-4 border-y border-line py-6 lg:grid-cols-[minmax(18rem,1.4fr)_minmax(0,2fr)]">
+        <CourseSearch
+          onResults={(next) => {
+            setResults(next);
+            // A cleared or refused search restores the already-loaded catalogue.
+            if (next === null) setSearching(false);
+          }}
+          onQueryChange={(q) => setSearching(q.length >= MIN_QUERY_LENGTH)}
         />
 
         {/*
-         * Only when the catalogue has tags at all. An empty "Skill" select is a
-         * control that promises a way to narrow and delivers one option.
+         * `<section>` with a label rather than a bare div: filters are a
+         * navigable region, and a screen-reader user landing on the page should
+         * be able to find them without tabbing through every course.
          */}
-        {skills.length > 0 && (
+        {!searching && <section aria-label="Filter courses" className="grid min-w-0 grid-cols-2 items-start gap-3 sm:flex sm:flex-wrap">
           <Select
-            label="Skill"
-            value={skill}
-            onChange={setSkill}
-            anyLabel="All skills"
-            options={skills}
+            label="Language"
+            value={language}
+            onChange={setLanguage}
+            anyLabel="All languages"
+            /*
+             * `languageLabel`, so the filter offers "Spanish (Español)".
+             *
+             * A plain string rather than the `LanguageName` component, because an
+             * `<option>` renders text only — see that module for what is lost and why
+             * a custom listbox is not worth it.
+             */
+            options={languages.map((item) => ({
+              value: item.code,
+              label: languageLabel(item),
+            }))}
           />
-        )}
+          <Select
+            label="Level"
+            value={level}
+            onChange={setLevel}
+            anyLabel="All levels"
+            options={levels.map((item) => ({ value: item, label: item }))}
+          />
+
+          {/*
+           * Only when the catalogue has tags at all. An empty "Skill" select is a
+           * control that promises a way to narrow and delivers one option.
+           */}
+          {skills.length > 0 && (
+            <Select
+              label="Skill"
+              value={skill}
+              onChange={setSkill}
+              anyLabel="All skills"
+              options={skills}
+            />
+          )}
+
+          {/*
+           * Shown only when something is set, and last in the tab order after the
+           * controls it undoes. A permanently visible "Clear" on an unfiltered
+           * listing is a button that does nothing, which is worse than absent.
+           */}
+          {filtered && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className={`${buttonStyles({ variant: "secondary" })} self-end`}
+            >
+              Clear filters
+            </button>
+          )}
+        </section>}
+      </div>
+
+      {searching ? <SearchResults results={results} /> : <>
 
         {/*
-         * Shown only when something is set, and last in the tab order after the
-         * controls it undoes. A permanently visible "Clear" on an unfiltered
-         * listing is a button that does nothing, which is worse than absent.
+         * The count is announced politely.
+         *
+         * Changing a filter re-renders the list silently — a sighted user sees
+         * it happen, and a screen-reader user gets no signal at all that
+         * anything changed. This is the smallest honest fix: one live region
+         * saying how many results there now are.
          */}
-        {filtered && (
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="self-end rounded-(--radius-md) border border-line-strong px-3.5 py-2.5
-              text-sm text-ink-muted transition-colors hover:border-ink-subtle hover:text-ink"
-          >
-            Clear filters
-          </button>
+        <p aria-live="polite" className="text-sm text-ink-muted">
+          {visible.length === courses.length
+            ? `${courses.length} ${courses.length === 1 ? "course" : "courses"}`
+            : `${visible.length} of ${courses.length} courses`}
+        </p>
+
+        {/*
+         * Two different emptinesses, and conflating them was a real defect.
+         *
+         * This branch said "No courses match those filters yet. Try widening one of
+         * them" for *both* — so a catalogue with nothing published yet told its first
+         * visitors to widen filters they had not set, and pointed them at controls
+         * that were not the problem. That is the state on the first day after launch
+         * and the state a build against an empty database produces, and the existing
+         * test only asserted that this component "renders without crashing".
+         *
+         * `courses.length === 0` is the honest signal: it is what the *page* was given,
+         * before any filtering, so no combination of controls can produce it.
+         */}
+        {courses.length === 0 ? (
+          <p className="max-w-xl border-y border-line py-12 text-base leading-relaxed text-ink-muted">
+            No courses have been published yet. They appear here as soon as they are
+            reviewed.
+          </p>
+        ) : visible.length === 0 ? (
+          <p className="max-w-xl border-y border-line py-12 text-base leading-relaxed text-ink-muted">
+            No courses match those filters yet. Try widening one of them.
+          </p>
+        ) : (
+          <div className="grid items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((course) => (
+              <CourseCard key={course.slug} course={course} headingLevel={2} />
+            ))}
+          </div>
         )}
-      </section>
-
-      {/*
-       * The count is announced politely.
-       *
-       * Changing a filter re-renders the list silently — a sighted user sees
-       * it happen, and a screen-reader user gets no signal at all that
-       * anything changed. This is the smallest honest fix: one live region
-       * saying how many results there now are.
-       */}
-      <p aria-live="polite" className="text-sm text-ink-muted">
-        {visible.length === courses.length
-          ? `${courses.length} ${courses.length === 1 ? "course" : "courses"}`
-          : `${visible.length} of ${courses.length} courses`}
-      </p>
-
-      {/*
-       * Two different emptinesses, and conflating them was a real defect.
-       *
-       * This branch said "No courses match those filters yet. Try widening one of
-       * them" for *both* — so a catalogue with nothing published yet told its first
-       * visitors to widen filters they had not set, and pointed them at controls
-       * that were not the problem. That is the state on the first day after launch
-       * and the state a build against an empty database produces, and the existing
-       * test only asserted that this component "renders without crashing".
-       *
-       * `courses.length === 0` is the honest signal: it is what the *page* was given,
-       * before any filtering, so no combination of controls can produce it.
-       */}
-      {courses.length === 0 ? (
-        <p className="text-ink-muted">
-          No courses have been published yet. They appear here as soon as they are
-          reviewed.
-        </p>
-      ) : visible.length === 0 ? (
-        <p className="text-ink-muted">
-          No courses match those filters yet. Try widening one of them.
-        </p>
-      ) : (
-        <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visible.map((course) => (
-            <StaggerItem key={course.slug}>
-              {/* Directly under the page's <h1>, so these are <h2>. */}
-              <CourseCard course={course} headingLevel={2} />
-            </StaggerItem>
-          ))}
-        </StaggerList>
-      )}
+      </>}
     </div>
   );
 }
@@ -275,7 +268,7 @@ function SearchResults({ results }: { results: CourseSearchResults | null }) {
   if (results === null) return null;
 
   if (results.results.length === 0) {
-    return <p className="text-ink-muted">Nothing matched. Try fewer words.</p>;
+    return <p className="max-w-xl border-y border-line py-12 text-base leading-relaxed text-ink-muted">Nothing matched. Try fewer words or clear the search to browse all courses.</p>;
   }
 
   return (
@@ -290,14 +283,11 @@ function SearchResults({ results }: { results: CourseSearchResults | null }) {
         {results.truncated && ` (showing the first ${results.limit})`}
       </p>
 
-      <StaggerList className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {results.results.map((course) => (
-          <StaggerItem key={course.slug}>
-            {/* Directly under the page's <h1>, so these are <h2>. */}
-            <CourseCard course={course} headingLevel={2} />
-          </StaggerItem>
+          <CourseCard key={course.slug} course={course} headingLevel={2} />
         ))}
-      </StaggerList>
+      </div>
     </div>
   );
 }
@@ -316,13 +306,13 @@ function Select({
   anyLabel: string;
 }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
+    <label className="flex min-w-0 flex-col gap-1.5 text-sm sm:flex-1">
       <span className="font-medium text-ink">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-(--radius-md) border border-line-strong bg-surface
-          px-3.5 py-2.5 text-ink shadow-(--shadow-sm) transition-colors
+        className="min-h-11 w-full min-w-0 max-w-full rounded-(--radius-md) border border-line-strong bg-surface
+          px-3.5 py-2.5 text-ink transition-colors duration-150
           hover:border-ink-subtle"
       >
         <option value={ANY}>{anyLabel}</option>
