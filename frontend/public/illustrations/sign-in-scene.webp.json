@@ -1,0 +1,13 @@
+{
+  "generator": "built-in image_gen",
+  "created": "2026-10-13",
+  "source": "exec-be4f9c47-7007-436f-8c42-17c782d06cb8.png",
+  "role": "decorative sign-in illustration",
+  "reference": "learning-scene.webp (style reference)",
+  "prompt": "Use case: illustration-story. Asset type: original standalone sign-in page illustration for Lingua, companion to supplied homepage art. Input image: style reference only, do not duplicate its character or composition. Primary request: an expressive adult learner with short curly hair seated comfortably opening a large notebook on their lap, looking down with a small welcoming smile, a simple window frame and one leafy plant nearby. Hand-drawn black ink contours, bold black-and-white patterned trousers, stippled print texture, off-white paper #faf7f0, restrained warm orange in the sweater and small deep indigo #4541b5 flat geometric area behind the figure. Editorial illustration, thoughtful and professional. Square composition, generous quiet paper around the subject, entire figure and notebook visible, clean silhouette. Flat paper backdrop reaching all edges, no vignette, no frame, no typography, no logos, no interface, no watermark. Match the reference's illustration family and rich imperfect ink texture while making a distinct scene.",
+  "delivery": {
+    "width": 960,
+    "height": 960,
+    "format": "webp"
+  }
+}
