@@ -1,9 +1,153 @@
 # STATUS
 
-**Last updated:** 2026-10-03
-**Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
-its four ADRs, the fixes that followed, the owner's verification passes, and the
-professional-quality addendum's first two batches — both merged)
+**Last updated:** 2026-10-14
+**Updated by:** Codex (approved Illustrated Journal frontend prepared for PR review)
+
+## Latest session — 2026-10-14: catalogue discovery
+
+The owner approved the eight-file catalogue batch. Search and filters share a
+responsive toolbar, browse/search results use three wider desktop columns, and
+shared course cards use larger wrapping titles, quiet borders and no hover lift.
+Catalogue result entrances are removed. Real course content, title-only links,
+article labels and distinct publication/filter/search empty states are preserved.
+Clear search restores keyboard focus and browsing. A new integration regression
+test exposed that the prior parent hid courses after a search refusal despite
+the child's intended fallback; refusal now restores the current browse listing.
+Search debounce, request cancellation, API wording and generated types remain
+unchanged. No dependency, new asset, provider or production setting was added.
+
+The initial production build stopped because the local API was offline and Docker
+was stuck starting. Troubleshooting stopped after two unsuccessful recovery
+attempts. The owner then requested launching Docker and retesting. Desktop was
+launched, its engine finished starting, and the existing postgres/redis/storage/api
+services started successfully. `/healthz` returns ok; the local container's
+production-settings `check --deploy` reports no issues. No Docker volume, database
+or production configuration was deleted or changed.
+
+Retest: all 688 frontend tests pass again, including six new recovery/visibility/
+content checks. ESLint, production build and TypeScript, static-route, document-
+structure, CSS-token and bundle gates pass. Ruff check/format and Git whitespace
+checks pass. The existing local metadataBase build warning remains.
+
+Before/after desktop (1440px) and mobile (390px) captures, mobile search-empty and
+keyboard-focus evidence are saved in this chat's visualization directory. Browser
+checks confirm no horizontal overflow, filter selection/clearing, course navigation,
+and empty-search recovery with focus returned to the search input. The local
+catalogue has one real published course; multiple-card density and long/optional
+content have source/test-fixture evidence only. Current OS-light and fixed-light
+editorial behavior were checked; dark/reduced-motion emulation remains unavailable.
+The independent reviewer returned `ship` across the approved catalogue scope,
+with no material fixes. The review explicitly limits visual certification to the
+single-course captures and does not certify preference emulation. The documenter
+confirmed the incumbent system guide matches the source and all four captures,
+with no further documentation change needed.
+The owner requested commit, push and a pull request. The approved frontend work
+is prepared on `codex/illustrated-journal` from master; the earlier audit-policy
+commit remains on its separate branch. No merge or deployment is performed.
+
+---
+
+## Earlier session — 2026-10-13: Illustrated Journal sign-in
+
+The owner approved the seven-file sign-in-only batch. `/login/` now reuses C's
+fixed-light ivory, ink and indigo semantic tokens, with a serif wordmark/heading
+and original companion illustration. Desktop places the form left and art right;
+mobile places the complete form and catalogue link before compact art. The form
+renders immediately, without an entrance animation. Registration and recovery
+retain the prior auth shell; navigation to registration and back was checked.
+Login business logic, error messages, session authentication and API types are
+unchanged. No dependency, service, migration or production configuration changed.
+
+All 682 frontend tests pass, including eight new shell regression checks.
+The focused shell/login/contrast run passed 76 tests. Production build and its
+TypeScript check, ESLint, static-route, page-structure, CSS-token and bundle gates
+pass. Ruff check/format pass, and the local container's production-settings
+`check --deploy` reports no issues. The known local metadataBase build warning
+remains. The detector reports no findings; both illustration rasters have prompt
+provenance. No backend behavior changed or backend test suite rerun.
+
+Desktop (1440px) and mobile (390px) before/after screenshots are saved in this
+chat's visualization directory, along with the mobile API-refusal state. Browser
+checks cover visible keyboard focus, long email input, disabled loading controls,
+API error recovery, image loading, no horizontal overflow and auth-theme isolation.
+The screenshot backend initially scaled the mobile bitmap; recaptures include
+viewport-only and full-page evidence with recorded CSS viewport dimensions.
+Reduced-motion/theme emulation is unavailable; sign-in has no new animation and
+uses the same fixed-light tokens under the current dark OS preference. Login
+success and session-storage invariants are covered by existing tests, rather than
+a browser login with a real account. Work is local, uncommitted and not deployed.
+
+Independent visual review found the sign-in faithful to C and requested only
+correction of the design-system guide's blanket authentication-theme statement.
+The documenter updated the incumbent guide; the reviewer scored that fix resolved
+and returned `ship` for the scored correction. One stale CSS comment was also
+corrected; token values and rules were unchanged. No open material finding remains
+in that review list. Git whitespace checks pass. The browser-emulation limitations
+above remain outside the review's verified scope.
+
+---
+
+## Earlier session — 2026-10-12: C public palette and shell
+
+The owner requested the full colors and styling of C and approved a ten-file
+follow-up. Public routes now use fixed-light ivory #faf7f0, ink #191919 and
+indigo #4541b5, serif headings, tighter corners and a plain wordmark/top navigation.
+The public sidebar is removed; registration is linked in the footer and AuthMenu
+keeps its signed-in destinations. The homepage uses an unframed illustration,
+text pricing link and compact centered benefits with dividers. Learner/auth
+palettes and navigation are preserved. No dependency or business behavior changed.
+
+All 674 frontend tests passed with two workers. Following the visual review's
+root-paper, image-blending and sign-in-selector corrections, all 88 targeted
+palette/shell tests passed. Final production build (including TypeScript), ESLint,
+static-route, page-structure, CSS-token and bundle checks passed. The reviewer
+returned `ship` for all four scored corrections, with no remaining finding in
+that fix list. Desktop/mobile homepage, catalogue and pricing screenshots were
+confirmed. Keyboard focus, pricing navigation and search empty state were checked;
+navigating to sign-in restores the existing dark scheme under the current OS
+preference. Reduced-motion browser emulation remains unverified. Work is local,
+uncommitted and not deployed.
+The code-led review uses C as the direction reference, not a pixel-exact UI image.
+Public fixed-light behavior supersedes ADR-032 only for the marketing shell;
+ADR-037 and the existing design-system document record that approved decision.
+
+---
+
+## Earlier session — 2026-10-12: homepage direction C
+
+The owner chose C, Illustrated Journal, from the three-direction comparison.
+The scoped homepage batch adds an original ink-and-stipple illustration, an
+opt-in serif title, and four unboxed benefits before the actual course band.
+Indigo controls, global theme tokens, navigation, catalogue and learner behavior
+remain unchanged. Hero text and links render visibly before hydration; only the
+decorative art has a 280ms entrance. Hero parallax and feature entrances are gone.
+ADR-037 and the incumbent design-system document record the scope and provenance.
+No dependency, provider, API, migration or deployment changes were made.
+
+Verification: all 655 frontend tests passed with two workers after the concurrent
+build/test run hit 11 auth-test failures dominated by timeouts. Assertions and
+timeouts were not relaxed. The 14 focused homepage/title tests passed again after
+the mobile headline correction. Production build, TypeScript, ESLint, static-route,
+page-structure, CSS-token and bundle checks passed; Ruff check/format passed.
+The local container's production-settings `check --deploy` reported no issues.
+The build retains its local `metadataBase` fallback warning; production readiness
+is not implied by the local build or settings check.
+
+Dark-theme desktop/mobile screenshots and keyboard catalogue navigation were
+checked. The bounded visual review requested balanced mobile wrapping and updated
+documentation; those corrections are applied and confirmed. Final reviewer
+disposition: `fix`, with three findings resolved and one documentation convention
+unresolved: the skill requests a separate PRODUCT.md. This scoped batch retains
+the existing authoritative product documents instead of adding a duplicate.
+No visual fixes remain among the reviewer's scored findings.
+Light-theme and reduced-motion browser emulation are unavailable in the connected
+browser tool. Both-palette contrast tests pass and the shared hydration-safe
+MotionProvider is preserved, but those browser checks remain a human verification
+gap. No Figma file was supplied; no claim of Figma frame comparison is made.
+
+Before/after screenshots are in the chat's local visualization directory
+`2026/10/08/01a11ca8-351f-7c40-b740-d0c88de643fa`. The known dependency audit
+findings below remain a separate batch. No merge or deployment was performed.
 
 ---
 
