@@ -1,9 +1,35 @@
 # STATUS
 
-**Last updated:** 2026-10-14
-**Updated by:** Codex (approved Illustrated Journal frontend prepared for PR review)
+**Last updated:** 2026-10-15
+**Updated by:** Codex (approved frontend audit remediation for PR #110)
 
-## Latest session — 2026-10-14: catalogue discovery
+## Latest session — 2026-10-15: frontend audit remediation
+
+PR #110's frontend/backend tests and backend audit passed; the frontend audit
+failed on braces, proxy-addr, sharp and source-map-js. The owner approved the
+ten-file remediation plan. Wrangler is pinned at 4.151.0, with Miniflare's sharp
+0.35.5; compatible transitive updates resolve proxy-addr 2.0.8 and source-map-js
+1.2.2. No new direct dependency, auth behavior or production configuration changed.
+
+The previously approved exact-path audit filter and its tests are now integrated
+into this PR. The sole accepted path remains the development-only eslint lint
+chain to braces, with the original November 7 review deadline. Raw npm audit still
+reports that five-package chain; no zero-vulnerability claim is made. All other
+high/critical findings, alternate paths, runtime use, expiry and scanner errors
+remain failures. Both audits remain deployment prerequisites.
+
+Before patching, the live filter accepted only braces and rejected the other three
+advisories. After patching, the live gate passes with only that accepted path.
+All 16 filter tests, 30 CI configuration guards and 688 frontend tests pass.
+ESLint and Ruff check/format pass. Local API health and the production-settings
+Django deployment check pass. Production build (including TypeScript), static-route,
+document-structure, CSS-token and bundle checks pass; live CI results belong to
+[PR #110 checks](https://github.com/khafifithebork/e-platform/pull/110/checks).
+No merge or deployment is authorized or performed.
+
+---
+
+## Earlier session — 2026-10-14: catalogue discovery
 
 The owner approved the eight-file catalogue batch. Search and filters share a
 responsive toolbar, browse/search results use three wider desktop columns, and

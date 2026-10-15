@@ -607,8 +607,12 @@ jobs:
       # on this quarter is a gate that gets `|| true` appended during an
       # unrelated deadline, and the failure to design against is a disabled
       # audit nobody remembers.
+      # Exceptions are exact development-only paths with a triager and expiry.
+      # Run their regression tests in the same gating job (ADR-022 §3).
       - name: Dependency audit
-        run: npm audit --audit-level=high
+        run: |
+          node --test scripts/assert-dependency-audit.test.mjs
+          node scripts/assert-dependency-audit.mjs
 
   # ---------------------------------------------------------------------------
   # Deploy — M13 T9
