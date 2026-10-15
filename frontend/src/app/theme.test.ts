@@ -92,11 +92,28 @@ describe("color-scheme", () => {
 });
 
 describe("the dark scheme is still driven by the system", () => {
+  it("keeps dark overrides in ordinary CSS rather than hoisting a nested theme", () => {
+    // Tailwind requires @theme at top level; nesting it silently made dark
+    // variables unconditional in the production stylesheet.
+    expect(code()).toMatch(/@media\s*\(prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{/);
+  });
+
   it("redefines tokens inside a prefers-color-scheme query", () => {
     // ADR-032's decision, pinned: no manual toggle, no `data-theme` attribute,
     // no stored preference. If a toggle is ever added it supersedes that ADR
     // explicitly, and this assertion is where that change becomes visible.
     expect(code()).toMatch(/@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)/);
     expect(code()).not.toMatch(/\[data-theme/);
+  });
+});
+
+describe("native course progress", () => {
+  it("styles the native track and value explicitly in WebKit and Firefox", () => {
+    expect(code()).toMatch(/\.course-progress\s*\{[^}]*appearance:\s*none/);
+    for (const selector of ["::-webkit-progress-value", "::-moz-progress-bar"]) {
+      const rule = code().slice(code().indexOf(`.course-progress${selector}`));
+      expect(rule).toMatch(/^[^{]+\{[^}]*background(?:-color)?:\s*var\(--color-accent\)/);
+    }
+    expect(code()).toContain(".course-progress::-webkit-progress-bar");
   });
 });

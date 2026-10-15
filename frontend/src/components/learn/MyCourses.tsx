@@ -253,7 +253,7 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
           value={done}
           max={total}
           aria-label={`Progress through ${enrollment.course_title}`}
-          className="h-1.5 w-40"
+          className="course-progress h-1.5 w-40"
         />
         <span className="text-sm text-ink-muted">
           {done} of {total} lessons

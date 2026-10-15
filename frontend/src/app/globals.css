@@ -55,7 +55,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  @theme {
+  /* Keep @theme top-level; ordinary overrides retain this media condition. */
+  :root {
     --color-ink: #f1f2fc;
     --color-ink-muted: #bdc1d8;
     --color-ink-subtle: #a2a8c2;
@@ -109,6 +110,35 @@ body {
   color: var(--color-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Native semantics, explicitly painted: accent-color alone leaves Chrome's
+ * platform progress fill green. Separate vendor rules avoid selector rejection. */
+.course-progress {
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-line);
+  color: var(--color-accent);
+}
+
+.course-progress::-webkit-progress-bar {
+  border-radius: var(--radius-sm);
+  background-color: var(--color-line);
+}
+
+.course-progress::-webkit-progress-value {
+  border-radius: var(--radius-sm);
+  background-color: var(--color-accent);
+}
+
+.course-progress::-moz-progress-bar {
+  border-radius: var(--radius-sm);
+  background-color: var(--color-accent);
+}
+
+@media (forced-colors: active) {
+  .course-progress { appearance: auto; }
 }
 
 /*

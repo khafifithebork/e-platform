@@ -95,10 +95,33 @@ if (files.length === 0) {
 }
 
 const failures = [];
+const sourceCSS = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+const lightTheme = sourceCSS.match(/@theme\s*\{([^}]+)\}/)?.[1] ?? "";
+const lightColors = new Map([...lightTheme.matchAll(/(--color-[\w-]+)\s*:\s*(#[a-f\d]{6})/gi)].map(([, name, value]) => [name, value]));
+
+{
+  const css = files.map((file) => readFileSync(file, "utf8")).join("\n");
+  // Inspect the emitted rule, not just a source media query that Tailwind may
+  // hoist away. Fail closed if the expected root/media structure changes.
+  const darkRoot = /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([^}]+)\}\s*\}/g;
+  const darkBlocks = [...css.matchAll(darkRoot)];
+  if (!darkBlocks.some((match) => /--color-ink\s*:/.test(match[1]))) {
+    failures.push("Dark theme token overrides are missing from their compiled media query.");
+  }
+  const unconditional = css.replace(darkRoot, "");
+  for (const [, declarations] of unconditional.matchAll(/:root(?:\s*,\s*:host)?\s*\{([^}]+)\}/g)) {
+    for (const [, name, value] of darkBlocks.flatMap((match) =>
+      [...match[1].matchAll(/(--color-[\w-]+)\s*:\s*(#[a-f\d]{6})/gi)],
+    )) {
+      if (lightColors.get(name) !== value && declarations.includes(`${name}:${value}`)) {
+        failures.push(`Dark override ${name} leaked into an unconditional root rule.`);
+      }
+    }
+  }
+}
 
 for (const file of files) {
   const css = readFileSync(file, "utf8");
-
   for (const [, property, value] of css.matchAll(BARE_TOKEN_VALUE)) {
     // A custom property may legitimately be *assigned* another custom
     // property's name as a value — `--a:--b` is valid CSS and means the string
@@ -110,9 +133,8 @@ for (const file of files) {
 
 if (failures.length > 0) {
   console.error(
-    "CSS declarations whose value is a bare custom-property name.\n" +
-      "These are invalid and the browser drops them, so the style never applies.\n" +
-      "In Tailwind 4 this is almost always `-[--token]` where `-(--token)` was meant.\n",
+    "CSS integrity failures: invalid token references or misplaced theme overrides.\n" +
+      "Bare token values need var(--token); dark overrides must retain their media condition.\n",
   );
   for (const failure of new Set(failures)) console.error(`  ${failure}`);
   process.exit(1);
@@ -134,6 +156,8 @@ if (failures.length > 0) {
  */
 const MUST_SURVIVE = [
   { selector: "::cue", why: "caption legibility over video — nothing else can see it" },
+  { selector: ".course-progress::-webkit-progress-value", why: "native course progress uses semantic indigo" },
+  { selector: ".course-progress::-moz-progress-bar", why: "Firefox native course progress uses semantic indigo" },
 ];
 
 const missing = MUST_SURVIVE.filter(
