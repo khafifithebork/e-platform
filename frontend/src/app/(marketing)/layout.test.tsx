@@ -59,6 +59,15 @@ function publicSourceFiles(): string[] {
  * Stripping comments first is what keeps these about code.
  */
 describe("the marketing shell", () => {
+  it("keeps decorative ink outside the accessibility and keyboard navigation trees", () => {
+    const { container } = render(<MarketingLayout><p>Some content</p></MarketingLayout>);
+    const spots = container.querySelector(".ink-spots");
+    expect(spots).not.toBeNull();
+    expect(spots).toHaveAttribute("aria-hidden", "true");
+    expect(spots).not.toHaveAttribute("tabindex");
+    expect(spots?.querySelector("a, button, input, [tabindex]")).toBeNull();
+  });
+
   it("gives the page a main landmark", () => {
     render(
       <MarketingLayout>

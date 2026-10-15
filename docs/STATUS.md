@@ -1,9 +1,100 @@
 # STATUS
 
 **Last updated:** 2026-10-15
-**Updated by:** Codex (approved frontend audit remediation for PR #110)
+**Updated by:** Codex (approved My Courses refinement and shared ink detail)
 
-## Latest session — 2026-10-15: frontend audit remediation
+## Latest correction — 2026-10-15: conditional theme and native progress
+
+The owner approved the five-file corrective batch after browser review exposed
+dark-token hoisting and Chrome's green native progress fill. Dark overrides now
+use ordinary `:root` CSS inside the existing media query, leaving all palette
+values unchanged. This follows Tailwind's top-level `@theme` requirement:
+https://tailwindcss.com/docs/theme. My Courses keeps native progress semantics
+with separate WebKit/Firefox track/fill styling and a forced-colors native fallback.
+
+Two new theme/progress tests failed before the fix, then all 94 focused tests
+passed. The compiled-CSS gate also rejected the old build. It now requires dark
+tokens inside the emitted media rule, rejects unconditional dark-token leakage,
+and pins both native progress fill selectors. A negative check injected an
+unconditional dark override into an ignored build artifact, observed the gate
+reject it, and restored the original bytes. Final browser confirmation ran on
+a restarted preview after that restoration.
+
+All 695 frontend tests, lint, production build/TypeScript and four artifact gates
+pass. Ruff check/format and the local production-settings deployment check pass.
+The first build correctly refused to run without catalogue data while Docker was
+off; the existing local services were started, API health returned ok, and the
+rebuild passed with real catalogue data. No volume or production data was changed.
+The worst first-load bundle is 330.4 KB against the unchanged 350 KB limit.
+
+Seventeen clean Chrome browser cases pass across desktop/mobile, light/dark,
+reduced motion, forced colors, empty/error and long-content states. Actual learner
+ink/paper now match the requested scheme; progress fills are visibly indigo and
+public/sign-in shells retain ivory under either preference. No horizontal overflow,
+hidden rows or runtime page errors were found; resume destinations and keyboard
+focus remain correct. Forced colors hide ink decoration and use native progress.
+Before/after correction captures and JSON reports are saved in the visualization
+directory (`my-courses-theme-before-*` / `my-courses-theme-after-*`).
+
+Learner captures use clearly synthetic API fixtures, not real-account authentication
+or server authorization evidence. Firefox/Safari runtime checks remain unverified.
+No API, palette value, dependency, provider, auth behavior or new motion is changed.
+The existing local metadataBase build warning remains. No merge or deployment occurred.
+
+## Latest session — 2026-10-15: My Courses and ink stippling
+
+The owner approved the six-file My Courses proposal and requested additional
+black spots to echo the generated artwork. The resulting ten-file batch adds
+static semantic-ink stippling to the public footer band, sign-in artwork margin
+and My Courses introduction. It uses a CSS SVG mask, not a generated asset;
+decorations are non-interactive, aria-hidden and suppressed in forced colors.
+Learner light/dark behavior, public ivory and existing imagery remain intact.
+
+My Courses now uses immediately visible ruled rows, responsive native progress
+and prominent Start/Continue actions. Empty and anonymous states have distinct
+headings and actions. Finished courses include a check beside their text. List
+stagger and card hover movement are removed; shared button feedback remains.
+API calls, enrollment, resume selection, pagination and retry behavior are unchanged.
+
+Five new regressions failed against the previous implementation, then passed.
+All 64 focused course/shell tests and all 693 frontend tests pass. Frontend lint,
+production build/TypeScript and all four production-artifact gates pass. Public
+routes remain static, document structure and CSS tokens are sound; the worst
+first-load bundle is 330.2 KB against the unchanged 350 KB budget. Ruff check and
+format pass across 238 files; the local production-settings Django deployment
+check reports no issues. The mechanical design detector reports no findings.
+The existing local metadataBase build warning remains.
+
+Connected-browser desktop/mobile inspection confirmed the signed-out My Courses
+composition, sign-in artwork/spot placement and catalogue decoration. Measured
+My Courses, catalogue and sign-in layouts have no horizontal overflow, decorations
+are aria-hidden/non-interactive, and keyboard navigation retains a solid outline.
+The public fixed-light palette and OS-dark learner palette were seen.
+
+On the owner's next approval to continue verification, the installed Chrome
+binary was found at its actual path. The screenshot harness was adapted to screen
+readiness rather than network-idle (which timed out). Thirteen after captures and
+a JSON evidence report are saved in this chat's visualization directory. Learner
+empty/populated/long/error screens use intercepted, explicitly synthetic API
+fixtures; they verify rendering, not real authentication or backend authorization.
+All measured layouts have no horizontal overflow or page runtime errors. Rows are
+immediately visible, resume uses the next lesson (with Next's trailing slash), and
+keyboard outlines remain solid. Dark/reduced-motion and light media were emulated.
+No complete saved before set exists and no browser/dependency was installed.
+
+**Browser finding, corrected in the batch above:** learner pages stayed dark when
+`prefers-color-scheme: dark` is false. Compiled CSS places the dark theme variables
+unconditionally in its theme layer: nesting `@theme` inside the source media query
+did not preserve that condition. This conflicts with ADR-032/design-system.md's
+system theme contract. Existing source/contrast tests and the current artifact
+gates did not catch it. Code edits stopped pending the subsequently approved correction plan.
+The native Chrome progress bar also remains green despite a computed indigo
+`accent-color`; its platform pseudo-elements need explicit styling for the approved
+visual treatment. Real-account end-to-end checks remain separate from fixture evidence.
+
+No merge, deployment, backend change or production configuration change is included.
+
+## Earlier session — 2026-10-15: frontend audit remediation
 
 PR #110's frontend/backend tests and backend audit passed; the frontend audit
 failed on braces, proxy-addr, sharp and source-map-js. The owner approved the

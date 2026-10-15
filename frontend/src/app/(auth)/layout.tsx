@@ -43,7 +43,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               </Link>
             </footer>
           </main>
-          <aside aria-hidden="true" className="flex items-center justify-center px-6 pb-8 sm:px-12 lg:px-4 lg:py-12">
+          <aside aria-hidden="true" className="flex flex-col items-center justify-center gap-6 px-6 pb-8 sm:px-12 lg:px-4 lg:py-12">
             <Image
               src="/illustrations/sign-in-scene.webp"
               alt=""
@@ -53,6 +53,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               loading="eager"
               className="h-auto w-full max-w-64 sm:max-w-xs lg:max-w-none"
             />
+            <span aria-hidden="true" className="ink-spots w-20 self-end lg:me-12 lg:w-28" />
           </aside>
         </div>
       </div>

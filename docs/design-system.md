@@ -1,7 +1,7 @@
 # The design system
 
 **Status:** reference documentation, not a decision record
-**Last updated:** 2026-10-14
+**Last updated:** 2026-10-15
 **Governed by:** ADR-029 (visual refresh), ADR-030 (WCAG 2.2 AA),
 ADR-032 (application theme), ADR-037 (public editorial extension), CLAUDE.md §4 invariants and §13 style
 
@@ -294,6 +294,40 @@ filters. Result counts are announced politely.
 ---
 
 ## 6. Motion
+
+### My Courses — quiet learner composition
+
+The page uses a 56rem container with 24px horizontal padding, 40px vertical
+padding initially and 64px from `sm`. Its existing `PageTitle` is followed by
+a short introduction. The learner's system light/dark palette and sans display
+face are preserved; this is not the public fixed-light shell.
+
+The named course list renders immediately as native `ul`/`li` elements. Each
+named article has 32px vertical padding and a bottom rule, without card elevation
+or hover movement. Titles use 24px display text and wrap unbroken content.
+Native progress bars are bounded by the available width and accompanied by
+tabular lesson counts. Shared Start/Continue links have a minimum 44px height;
+they fill mobile rows and align beside content from `sm`. Finished courses show
+text plus a decorative check, rather than relying on success color alone.
+
+Anonymous and empty states each use a named section between rules, with a 36px
+Lucide book icon at 1.5px stroke, a 24px heading, explanatory copy and one action.
+The empty state explains the existing enrollment behavior; the anonymous state
+asks for sign-in. Error/retry and loading semantics retain the shared primitives.
+No entrance animation, hover translation or progress animation is introduced.
+
+### Shared ink stippling
+
+`.ink-spots` is a static 128:76 CSS mask of explicitly positioned circles and
+ellipses. It uses semantic ink at 85% opacity, has no pointer events, and is
+always rendered with `aria-hidden="true"`, without focusable descendants.
+It is hidden in forced-colors mode. It needs no bitmap, network asset, randomness
+or image-generation service.
+
+Public pages reserve a separate right-aligned band above the footer (96px wide,
+128px from `sm`). Sign-in reserves space beneath its existing artwork. My Courses
+places a 64px cluster beside the introduction, growing to 96px from `sm`.
+Never put this motif behind reading content, controls or the active lesson player.
 
 `MotionProvider` sits at the root and sets `reducedMotion="user"`. **Components
 must not branch on `useReducedMotion()` during render.**

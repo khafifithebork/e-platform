@@ -1,5 +1,32 @@
 # ADR-037: Illustrated Journal homepage
 
+## My Courses and shared ink detail — approved 2026-10-15
+
+The owner approved the focused My Courses composition and additionally requested
+more black spots matching the original illustrations. This extends the visual
+family without changing the learner palette or system light/dark behavior.
+
+My Courses uses a wider reading column, an introductory sentence, immediately
+visible course rows between thin rules, wrapping titles, native progress with
+visible counts, and shared Start/Continue actions. Empty and anonymous states
+have distinct headings and actions; only the empty state explains enrollment.
+Finished courses retain their existing meaning and gain a decorative check.
+The API, cursor pagination, resume resolver and failure/retry behavior are unchanged.
+
+Repeated list entrances and whole-card hover movement are removed from My Courses.
+No new animation is introduced. Shared button press feedback and the hydration-safe
+MotionProvider remain unchanged. Keyboard focus and controls remain immediate.
+
+Static ink clusters use a small authored SVG mask in shared CSS: varied circles
+and ellipses, not a generated illustration or a raster asset. The pattern inherits
+semantic ink (black on public ivory, light on dark learner surfaces), is hidden
+from assistive technology and forced-colors mode, and cannot receive pointer input.
+Clusters occupy dedicated space beside the My Courses introduction, before the
+public footer, and below sign-in artwork; none sits under text or controls.
+No dependency, service, new image generation or global palette change is required.
+
+Verification and browser limitations are recorded in STATUS.md.
+
 ## Catalogue extension — approved 2026-10-14
 
 The owner approved grouping catalogue search and filters in a compact responsive

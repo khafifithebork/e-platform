@@ -21,8 +21,14 @@ export const metadata: Metadata = {
 
 export default function MyCoursesPage() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-16">
-      <PageTitle>My courses</PageTitle>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-10 sm:py-16">
+      <div className="flex items-start justify-between gap-6">
+        <div className="flex min-w-0 flex-col gap-3">
+          <PageTitle>My courses</PageTitle>
+          <p className="max-w-lg leading-relaxed text-ink-muted">Pick up where you left off, one lesson at a time.</p>
+        </div>
+        <span aria-hidden="true" className="ink-spots w-16 shrink-0 sm:w-24" />
+      </div>
       <MyCourses />
     </div>
   );

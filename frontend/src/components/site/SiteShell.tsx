@@ -117,6 +117,9 @@ export function SiteShell({ children, variant = "learning" }: {
         </div>
       </main>
 
+      {editorial && <div className="mx-auto flex w-full max-w-7xl justify-end px-6 pb-8 pt-2" aria-hidden="true">
+        <span aria-hidden="true" className="ink-spots w-24 sm:w-32" />
+      </div>}
       <footer className="border-t border-line bg-surface">
         <div
           className={`mx-auto flex max-w-7xl flex-col gap-4 px-6 pt-8 text-sm text-ink-subtle sm:flex-row sm:items-center sm:justify-between ${editorial ? "pb-8" : "pb-24 xl:pb-8"}`}

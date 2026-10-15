@@ -66,6 +66,22 @@ afterEach(() => {
 });
 
 describe("the list", () => {
+  it("shows course rows immediately without waiting for an entrance observer", async () => {
+    render(<MyCourses />);
+
+    expect(await screen.findByRole("article", { name: "Spanish for beginners" })).toBeVisible();
+    expect(screen.getByRole("list", { name: "Your courses" })).toBeVisible();
+  });
+
+  it("keeps the complete long course title accessible and visible", async () => {
+    const title = "Learning Arabic through everyday conversations ".repeat(8);
+    vi.mocked(globalThis.fetch).mockResolvedValue(json({ results: [enrollment({ course_title: title })] }));
+    render(<MyCourses />);
+
+    expect(await screen.findByRole("link", { name: title.trim() })).toBeVisible();
+    expect(screen.getByRole("progressbar")).toHaveAccessibleName(`Progress through ${title.trim()}`);
+  });
+
   it("names each course", async () => {
     render(<MyCourses />);
 
@@ -167,6 +183,23 @@ describe("resuming", () => {
 });
 
 describe("the states nobody designs for", () => {
+  it("gives an empty library its own heading and a catalogue action", async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(json({ results: [] }));
+    render(<MyCourses />);
+
+    expect(await screen.findByRole("heading", { name: "Your next course starts here" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Browse the catalogue" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Sign in" })).toBeNull();
+  });
+
+  it("gives a signed-out visitor a distinct heading without suggesting an empty library", async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(notAuthenticated());
+    render(<MyCourses />);
+
+    expect(await screen.findByRole("heading", { name: "Your courses, in one place" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Sign in" })).toBeVisible();
+    expect(screen.queryByText(/not started a course yet/i)).toBeNull();
+  });
   it("tells a signed-out visitor to sign in", async () => {
     // A 403 here is somebody without an account reaching a page that needs
     // one — not an outage. "Something went wrong" would send them looking for
@@ -340,19 +373,9 @@ describe("more courses than fit on one page", () => {
     render(<MyCourses />);
     await user.click(await screen.findByRole("button", { name: /show more/i }));
 
-    /**
-      * Presence, not visibility. Cards sit inside `StaggerList`, which renders
-      * `opacity: 0` until an `IntersectionObserver` raises them — and
-      * `vitest.setup.ts` stubs that observer as a no-op, so it never fires here.
-      * `motion.test.tsx` records the same behaviour deliberately ("is present but
-      * NOT yet visible until the observer fires"). Asserting visibility would be
-      * asserting a motion library's runtime, not this component's logic.
-      *
-      * Both, and in order: an implementation that replaced rather than appended
-      * would pass a test that only looked for the second one.
-      */
-    expect(await screen.findByText("French, slowly")).toBeInTheDocument();
-    expect(screen.getByText("Spanish for beginners")).toBeInTheDocument();
+    // Appended courses are immediately usable, without waiting for an observer.
+    expect(await screen.findByText("French, slowly")).toBeVisible();
+    expect(screen.getByText("Spanish for beginners")).toBeVisible();
     expect(screen.getAllByRole("article")).toHaveLength(2);
 
     // And the control is gone, because that page said there is no next.
@@ -407,9 +430,9 @@ describe("more courses than fit on one page", () => {
     render(<MyCourses />);
     await user.click(await screen.findByRole("button", { name: /show more/i }));
 
-    // The notice is outside the stagger list, so it is genuinely visible.
+    // Both the failure and the previously loaded content remain visible.
     expect(await screen.findByRole("alert")).toBeVisible();
-    expect(screen.getByText("Spanish for beginners")).toBeInTheDocument();
+    expect(screen.getByText("Spanish for beginners")).toBeVisible();
     // The cursor is kept, so a retry is one click away.
     expect(screen.getByRole("button", { name: /show more/i })).toBeVisible();
   });
