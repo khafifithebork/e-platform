@@ -1,5 +1,29 @@
 # ADR-037: Illustrated Journal homepage
 
+## Shared account-flow extension — approved 2026-10-16
+
+The owner approved extending the sign-in Illustrated Journal shell to registration,
+password-reset request/redemption and email verification. This supersedes the older
+authentication-theme exclusions below. All routes in `(auth)` now share the existing
+fixed ivory palette, serif display face, indigo controls and original notebook artwork.
+Learner screens continue to follow the system light/dark preference.
+
+One Server Component layout replaces the route-selected client layout and its
+quotation panel. It needs no pathname lookup, animation library or account data.
+The existing form components still own client state and all API behavior. On phones,
+the complete form, recovery/verification actions and catalogue link precede the art.
+Long confirmation/error text can wrap without increasing the form width.
+
+No new artwork, image generation, dependency, font or palette token is introduced.
+The existing decorative image and ink stippling remain aria-hidden and non-interactive.
+Repeated form/quotation entrances are removed; shared button pending, press and focus
+feedback remain unchanged under the existing hydration-safe MotionProvider.
+
+Token paste/URL behavior, token privacy, anti-enumeration confirmation wording,
+verification-on-submit, session invalidation and API errors remain unchanged (ADR-034).
+The old shell-isolation tests are updated to this explicitly approved scope; security
+regressions are retained. Verification and limitations are recorded in STATUS.md.
+
 ## My Courses and shared ink detail — approved 2026-10-15
 
 The owner approved the focused My Courses composition and additionally requested
