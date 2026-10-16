@@ -1,7 +1,52 @@
 # STATUS
 
 **Last updated:** 2026-10-16
-**Updated by:** Codex (approved shared Illustrated Journal account shell)
+**Updated by:** Codex (approved lesson-player polish)
+
+## Latest session — 2026-10-16: lesson-player and transcript polish
+
+The owner approved the six-file learner batch. It is implemented independently
+on `codex/lesson-player-polish` from merged master `ca15e80`; course-detail PR #112
+remains open with successful frontend/backend CI and dependency audits, while
+deployment jobs were skipped. That PR's course changes are not included here.
+
+The player keeps its existing light/dark themes and section title scale. Its
+technical course slug is omitted; the existing breadcrumb still returns to the
+course. Replay/speed form a named group, the native speed selector has a measured
+44px touch target and 16px type, and status/completion stack on mobile. The
+transcript uses a quieter border, sentence-case heading, thin active-cue rule,
+44px minimum cue targets and wrapping for long unbroken text. Native video,
+caption language, seeking, follow scroll, heartbeat, access and completion rules
+are unchanged. No new motion, tokens, assets or dependencies were added.
+
+The new control-group regression failed before implementation. All 699 frontend
+tests pass, including a new delayed-confirmation test for pending completion.
+After the visual correction, all 60 focused player/transcript tests pass again.
+Final lint, production build/TypeScript and static/document/CSS/bundle gates pass;
+five public routes remain static and the largest first load is 329.8 KB against
+350 KB. The local production-settings Django deployment check has no issues.
+Impeccable's detector found no issues. Ruff remains unavailable locally (host
+Python/API container); no Python files changed. Existing metadataBase/Vite warnings
+remain, and the full suite also printed jsdom's unimplemented scrollTo notice.
+
+The first browser pass exposed transcript text extending below its panel. The
+flex chain was corrected so the list shrinks and scrolls inside the 32rem cap.
+Thirteen final Chrome cases confirm contained scrolling, no horizontal overflow
+or runtime errors, visible focus and 44px speed controls. Cases cover desktop and
+mobile, both themes, both motion preferences, keyboard seeking, missing transcript,
+retry recovery, finished/pending completion and 320px long-content stress.
+Screenshot confirmation found the observed transcript issue resolved.
+
+Before/after captures and `lesson-after-review.json` are saved in the visualization
+directory. Populated lessons/transcripts, progress and completion responses are
+explicitly synthetic and all API requests were intercepted in those cases. The
+real local lesson's anonymous view correctly requested sign-in. No real account
+or progress was mutated. Real media, Safari/Firefox, physical-device and screen
+reader verification remain outstanding. The existing floating mobile Site map
+control is unchanged and remains a shared-navigation review item.
+
+The owner authorized committing this verified batch locally. No push, merge,
+deployment, production configuration or provider change occurred.
 
 ## Latest session — 2026-10-16: registration, verification and recovery
 

@@ -132,6 +132,19 @@ describe("the panel", () => {
 });
 
 describe("seeking", () => {
+  it("preserves transcript language, current cue and seeking with long text", async () => {
+    const onSeek = vi.fn();
+    const text = "مرحبا".repeat(100);
+    render(<TranscriptPanel segments={[segment(1, 0, 2000, text)]} positionSeconds={1} onSeek={onSeek} languageCode="ar" />);
+    expect(screen.getByRole("list")).toHaveAttribute("lang", "ar");
+    const cue = screen.getByRole("button", { name: text });
+    expect(cue).toHaveAttribute("aria-current", "true");
+    await userEvent.tab();
+    expect(cue).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    expect(onSeek).toHaveBeenCalledWith(0);
+  });
+
   it("jumps to the start of a clicked line, in seconds", async () => {
     // The API stores milliseconds and the player takes seconds. Handing over
     // milliseconds would seek to 7000 seconds — just under two hours into a

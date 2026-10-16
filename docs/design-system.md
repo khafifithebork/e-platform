@@ -294,6 +294,29 @@ filters. Result counts are announced politely.
 
 ## 6. Motion
 
+### Lesson player — calm learner controls
+
+The lesson player retains the learner's system light/dark palette and existing
+`PageTitle` section variant. Its two desktop columns have zero minimum track
+widths so long lesson titles and transcript cues can wrap. The title sits above
+a thin rule; the technical course slug is omitted, with course navigation still
+provided by the existing breadcrumb.
+
+Replay and speed controls form a named playback group above a bottom rule.
+Replay uses the shared secondary button; the labelled native speed selector has
+a 44px minimum height and 16px text. Position and watched time use tabular figures.
+The status/completion row stacks on mobile and aligns horizontally from `sm`.
+Completion retains shared pending feedback and changes only on server confirmation.
+
+The transcript has a single bordered surface without elevation, a sentence-case
+display heading and a thin active-cue rule. Cue buttons have 44px minimum height
+and wrap unbroken text. The outer flex container is capped at 32rem; its section
+and scrolling list have zero minimum height so long transcripts scroll inside
+the panel. Cue language, `aria-current`, keyboard seeking and existing follow
+scroll behavior remain intact. No new entrance or loop is introduced, and no
+ink decoration is placed behind the player. Shared press feedback and call-time
+reduced-motion handling for transcript following are unchanged.
+
 ### My Courses — quiet learner composition
 
 The page uses a 56rem container with 24px horizontal padding, 40px vertical

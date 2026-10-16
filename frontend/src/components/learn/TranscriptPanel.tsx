@@ -92,8 +92,8 @@ export function TranscriptPanel({
   }, [current]);
 
   return (
-    <section aria-label="Transcript" className="flex h-full flex-col">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-ink-subtle">
+    <section aria-label="Transcript" className="flex min-h-0 flex-col">
+      <h2 className="mb-4 border-b border-line pb-3 font-display text-lg text-ink">
         Transcript
       </h2>
 
@@ -110,7 +110,7 @@ export function TranscriptPanel({
        */}
       <ol
         {...(languageCode ? { lang: languageCode } : {})}
-        className="flex-1 space-y-1 overflow-y-auto pe-1"
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pe-1 [overflow-wrap:anywhere]"
       >
         {segments.map((segment, index) => (
           <li key={segment.position}>
@@ -119,7 +119,7 @@ export function TranscriptPanel({
               type="button"
               onClick={() => onSeek(segment.start_ms / 1000)}
               aria-current={index === current ? "true" : undefined}
-              className={`w-full rounded-(--radius-sm) border-s-2 px-3 py-2 text-start text-sm
+              className={`min-h-11 w-full rounded-(--radius-sm) border-s px-3 py-3 text-start text-sm
                 leading-relaxed transition-colors hover:bg-surface-sunken
                 ${
                   index === current
