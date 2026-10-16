@@ -294,6 +294,21 @@ filters. Result counts are announced politely.
 
 ## 6. Motion
 
+### Header account controls — responsive identity
+
+The signed-in header group can wrap within its available width. My courses and
+sign-out labels stay on one line; the email remains hidden below `sm` and is
+visually truncated to at most 12rem above it. The anchor's full text and title
+retain the complete email, so visual truncation does not replace its accessible
+name. Sign-in and sign-out reuse the shared secondary control styles with a
+44px minimum target. No new motion or session behavior is introduced.
+
+Signed-in learner navigation offers both My courses and Account in the desktop
+rail and mobile drawer, with `aria-current` derived from the route. Anonymous
+and unresolved sessions do not receive the Account link. Existing full-page
+sign-out navigation, pending disable behavior and browser-storage rules remain
+unchanged.
+
 ### Learner navigation — in-flow mobile control
 
 Below `xl`, the learner shell stacks the Site map toggle above the page content.

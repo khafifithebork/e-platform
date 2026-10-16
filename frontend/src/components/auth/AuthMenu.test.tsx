@@ -11,7 +11,7 @@
  * flicker". The test for that is the one worth keeping longest.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -135,6 +135,16 @@ describe("signed in", () => {
     vi.mocked(globalThis.fetch).mockImplementation(async () => json(ME));
   });
 
+  it("preserves the full long email as the account link's accessible name and title", async () => {
+    const email = `${"learner".repeat(8)}@${"language".repeat(7)}.example.test`;
+    vi.mocked(globalThis.fetch).mockImplementation(async () => json({ ...ME, email }));
+    render(<AuthMenu />);
+    const account = await screen.findByRole("link", { name: email });
+    expect(account).toHaveAttribute("href", "/account");
+    expect(account).toHaveAttribute("title", email);
+    expect(account).toHaveTextContent(email);
+  });
+
   it("links to the learner's own courses", async () => {
     render(<AuthMenu />);
 
@@ -174,6 +184,20 @@ describe("signed in", () => {
 describe("signing out", () => {
   beforeEach(() => {
     vi.mocked(globalThis.fetch).mockImplementation(async () => json(ME));
+  });
+
+  it("blocks repeat sign-out while pending and preserves the full navigation on success", async () => {
+    let finish!: (response: Response) => void;
+    vi.mocked(globalThis.fetch).mockImplementation(async (url) => {
+      if (String(url).includes("logout")) return new Promise<Response>((resolve) => { finish = resolve; });
+      return json(ME);
+    });
+    render(<AuthMenu />);
+    await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    expect(screen.getByRole("button", { name: "Signing out…" })).toBeDisabled();
+    expect(vi.mocked(globalThis.location.assign)).not.toHaveBeenCalled();
+    await act(async () => { finish(json({ detail: "Accepted." })); });
+    expect(vi.mocked(globalThis.location.assign)).toHaveBeenCalledWith("/");
   });
 
   it("tells the server", async () => {

@@ -1,7 +1,48 @@
 # STATUS
 
 **Last updated:** 2026-10-16
-**Updated by:** Codex (approved learner-navigation correction)
+**Updated by:** Codex (approved header/account navigation polish)
+
+## Latest session — 2026-10-16: responsive header identity and Account link
+
+The account and mobile-navigation batches are committed locally as `2784f7c`
+and `39da43f`. The owner approved the next six-file batch on `codex/account-polish`.
+The signed-in header now wraps within its available width, bounds its visible
+email to 12rem above `sm`, and retains the full email text/title for accessibility.
+My courses and sign-out labels stay on one line; sign-in/sign-out reuse shared
+secondary styling with measured 44px targets. Signed-in rail/drawer navigation
+now includes the existing Account destination and active-route semantics.
+Anonymous and unresolved sessions do not gain that link. Authentication,
+session resolution, full-navigation sign-out and browser-storage behavior are
+unchanged; no new motion, dependency, asset, token or API is introduced.
+
+The missing Account-link regression failed before implementation. All 711 frontend
+tests pass, including new long-email accessibility, account-link positive/negative
+cases and delayed sign-out checks. The first production build caught unsupported
+Testing Library `exact` options accidentally copied from the browser API; removing
+those invalid options preserves string-name matching and all 32 focused tests
+and type checking pass. Final lint, production build/TypeScript and all four
+artifact gates pass. Five public routes remain static; the largest first load
+is 321.8 KB against 350 KB. The design detector and patch whitespace checks pass.
+Docker was off, so the first deployment check could not run; the existing local
+stack was restarted and the production-settings Django check reports no issues.
+No local volume or production data was changed. Ruff remains unavailable locally,
+with no Python changes. Existing metadataBase/Vite/jsdom notices remain.
+
+Eighteen Chrome cases pass across 320, 390, 640, 768, 1024 and 1440px, light/dark
+themes, anonymous and signed-in states, long email, and pending/success/failure
+sign-out. Reduced motion was enabled for these cases. No overflow, runtime page
+errors or browser storage entries were found. The full email text/title survives
+visual truncation, Account opens through the drawer with active-route feedback,
+and sign-out retains a full navigation that clears the synthetic JS-context probe
+on both success and failure. Screenshots required no visual correction.
+
+Before views (`header-before-*`), after captures and `header-after-review.json`
+are in the visualization directory. Session/logout responses are synthetic and
+intercepted; no real account session was changed. Real-account behavior,
+Safari/Firefox, physical-device and screen reader checks remain unverified.
+The owner authorized committing this verified batch locally. No push, merge or
+deployment is authorized here.
 
 ## Latest session — 2026-10-16: mobile navigation without content overlap
 

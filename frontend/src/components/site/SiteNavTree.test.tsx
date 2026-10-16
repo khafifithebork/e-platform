@@ -55,6 +55,21 @@ afterEach(() => {
 });
 
 describe("the account branch", () => {
+  it("offers account settings only to signed-in learners and marks the current route", async () => {
+    vi.mocked(fetch).mockImplementation(async () => json(ME));
+    route.pathname = "/account";
+    render(<SiteNavTree />);
+    expect(await screen.findByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
+    expect(screen.getByRole("link", { name: "Account" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("does not offer account settings to anonymous visitors", async () => {
+    vi.mocked(fetch).mockImplementation(async () => notAuthenticated());
+    render(<SiteNavTree />);
+    await screen.findByRole("link", { name: "Sign in" });
+    expect(screen.queryByRole("link", { name: "Account" })).not.toBeInTheDocument();
+  });
+
   it("offers nothing at all while the answer is in flight", () => {
     vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
 

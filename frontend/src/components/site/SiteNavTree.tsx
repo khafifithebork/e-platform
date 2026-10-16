@@ -174,6 +174,7 @@ function TreeList({ pathname, auth }: { pathname: string; auth: AuthState }) {
         (auth.status === "signed-in" ? (
           <TreeBranch label="Account">
             <TreeItem href="/my-courses" label="My courses" active={isActive(pathname, "/my-courses")} />
+            <TreeItem href="/account" label="Account" active={isActive(pathname, "/account")} />
           </TreeBranch>
         ) : (
           <TreeBranch label="Account">

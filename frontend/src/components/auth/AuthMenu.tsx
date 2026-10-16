@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ApiError, api, type Me } from "@/lib/api/client";
+import { buttonStyles } from "@/components/ui/Button";
 
 /**
  * Who you are, and a way out.
@@ -120,8 +121,7 @@ export function AuthMenu() {
     return (
       <Link
         href="/login"
-        className="rounded-(--radius-sm) border border-line-strong px-3 py-1.5
-          text-ink hover:border-ink-subtle"
+        className={buttonStyles({ variant: "secondary", lift: false })}
       >
         Sign in
       </Link>
@@ -129,8 +129,8 @@ export function AuthMenu() {
   }
 
   return (
-    <div className="flex items-center gap-4">
-      <Link href="/my-courses" className="text-ink-muted hover:text-ink">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-4 gap-y-2">
+      <Link href="/my-courses" className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap text-ink-muted hover:text-ink">
         My courses
       </Link>
 
@@ -148,7 +148,7 @@ export function AuthMenu() {
       <Link
         href="/account"
         title={state.me.email}
-        className="hidden text-ink-subtle hover:text-ink sm:inline"
+        className="hidden min-w-0 max-w-48 truncate text-ink-subtle hover:text-ink sm:block"
       >
         {state.me.email}
       </Link>
@@ -157,8 +157,7 @@ export function AuthMenu() {
         type="button"
         onClick={signOut}
         disabled={signingOut}
-        className="rounded-(--radius-sm) border border-line-strong px-3 py-1.5
-          text-ink hover:border-ink-subtle disabled:opacity-60"
+        className={buttonStyles({ variant: "secondary", lift: false, className: "shrink-0 whitespace-nowrap" })}
       >
         {signingOut ? "Signing out…" : "Sign out"}
       </button>
