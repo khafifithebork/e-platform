@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { BookOpen, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Button, buttonStyles } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Notice } from "@/components/ui/Notice";
 import { ApiError, api, cursorFrom, type Enrollment } from "@/lib/api/client";
@@ -139,7 +138,7 @@ export function MyCourses() {
 
   if (state.status === "loading") {
     return (
-      <p aria-live="polite" className="text-ink-muted">
+      <p aria-live="polite" className="border-y border-line py-12 text-ink-muted">
         Loading your courses…
       </p>
     );
@@ -147,12 +146,16 @@ export function MyCourses() {
 
   if (state.status === "anonymous") {
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-ink-muted">Sign in to see the courses you have started.</p>
-        <Link href="/login" className="text-accent hover:text-accent-hover">
+      <section className="flex flex-col items-start gap-5 border-y border-line py-12 sm:py-16" aria-labelledby="courses-sign-in">
+        <BookOpen aria-hidden="true" size={36} strokeWidth={1.5} />
+        <div className="flex max-w-lg flex-col gap-3">
+          <h2 id="courses-sign-in" className="font-display text-2xl leading-snug text-ink">Your courses, in one place</h2>
+          <p className="leading-relaxed text-ink-muted">Sign in to see the courses you have started.</p>
+        </div>
+        <Link href="/login" className={buttonStyles()}>
           Sign in
         </Link>
-      </div>
+      </section>
     );
   }
 
@@ -171,27 +174,31 @@ export function MyCourses() {
     // a lesson — there is no enrol button — so the useful thing to offer is
     // the catalogue.
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-ink-muted">
-          You have not started a course yet. Starting a lesson is what enrols
-          you — there is nothing else to sign up for.
-        </p>
-        <Link href="/courses" className="text-accent hover:text-accent-hover">
+      <section className="flex flex-col items-start gap-5 border-y border-line py-12 sm:py-16" aria-labelledby="courses-empty">
+        <BookOpen aria-hidden="true" size={36} strokeWidth={1.5} />
+        <div className="flex max-w-lg flex-col gap-3">
+          <h2 id="courses-empty" className="font-display text-2xl leading-snug text-ink">Your next course starts here</h2>
+          <p className="leading-relaxed text-ink-muted">
+            You have not started a course yet. Starting a lesson is what enrols
+            you — there is nothing else to sign up for.
+          </p>
+        </div>
+        <Link href="/courses" className={buttonStyles()}>
           Browse the catalogue
         </Link>
-      </div>
+      </section>
     );
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <StaggerList className="flex flex-col gap-4">
+      <ul aria-label="Your courses" className="flex flex-col border-t border-line">
         {state.enrollments.map((enrollment) => (
-          <StaggerItem key={enrollment.id}>
+          <li key={enrollment.id}>
             <EnrollmentCard enrollment={enrollment} />
-          </StaggerItem>
+          </li>
         ))}
-      </StaggerList>
+      </ul>
 
       {state.moreFailed && (
         <Notice tone="error">
@@ -229,54 +236,50 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
   const resume = resumePoint(enrollment);
 
   return (
-    <Card
-      as="article"
+    <article
       aria-labelledby={`enrollment-${enrollment.id}`}
-      hoverable
-      className="flex flex-col gap-3"
+      className="flex min-w-0 flex-col gap-6 border-b border-line py-8 sm:flex-row sm:items-center sm:justify-between"
     >
-      <h2 id={`enrollment-${enrollment.id}`} className="font-display text-xl text-ink">
-        <Link href={`/courses/${enrollment.course_slug}`} className="hover:text-accent">
-          {enrollment.course_title}
-        </Link>
-      </h2>
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <h2 id={`enrollment-${enrollment.id}`} className="break-words font-display text-2xl leading-snug text-ink [overflow-wrap:anywhere]">
+          <Link href={`/courses/${enrollment.course_slug}`} className="hover:text-accent">
+            {enrollment.course_title}
+          </Link>
+        </h2>
 
-      {/*
-       * A native progress element, not a styled div.
-       *
-       * It comes with the right role and value semantics, so a screen reader
-       * announces "3 of 8" without any ARIA — and the visible text says the
-       * same thing rather than leaving the bar as the only source.
-       */}
-      <div className="flex items-center gap-3">
-        <progress
-          value={done}
-          max={total}
-          aria-label={`Progress through ${enrollment.course_title}`}
-          className="h-1.5 w-40"
-        />
-        <span className="text-sm text-ink-muted">
-          {done} of {total} lessons
-        </span>
+        {/*
+         * A native progress element, not a styled div.
+         *
+         * It comes with the right role and value semantics, so a screen reader
+         * announces "3 of 8" without any ARIA — and the visible text says the
+         * same thing rather than leaving the bar as the only source.
+         */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <progress
+            value={done}
+            max={total}
+            aria-label={`Progress through ${enrollment.course_title}`}
+            className="course-progress h-2 w-full max-w-56 min-w-0"
+          />
+          <span className="text-sm tabular-nums text-ink-muted">
+            {done} of {total} lessons
+          </span>
+        </div>
       </div>
 
       {resume.status === "finished" ? (
-        <p className="text-sm text-success">Finished</p>
+        <p className="flex items-center gap-2 text-sm font-medium text-success"><Check aria-hidden="true" size={18} />Finished</p>
       ) : (
         <Link
           href={resume.href}
-          // `sm`, not `lg`: this sits inside a card in a list, not at the top of
-          // a page. It was `px-4 py-2` with no minimum height and came out 36px
-          // tall — below the 44px target the primitive has always set, which is
-          // what opting out of the primitive costs.
-          className={buttonStyles({ size: "sm", lift: true, className: "self-start" })}
+          className={buttonStyles({ className: "w-full shrink-0 self-start sm:w-auto sm:self-center" })}
         >
-          {/* Short wording, because this sits on a card in a list.
+          {/* Short wording, because this sits in a course row.
               `CourseProgress` says the same thing at length in a one-line
               strip; `resumePoint` owns the rule, each caller owns its voice. */}
           {resume.started ? "Continue" : "Start"}
         </Link>
       )}
-    </Card>
+    </article>
   );
 }

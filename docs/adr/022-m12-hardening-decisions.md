@@ -155,6 +155,68 @@ reach for `--omit=dev`, which would retroactively have hidden the `undici` chain
 and `fast-uri` as well. The advisory still shows red. It just no longer blinds
 everything else.
 
+### Path-scoped frontend exceptions — approved 2026-10-08
+
+The owner approved a repository-owned filter over `npm audit --json`, rather
+than another dependency. The scanner and high/critical threshold stay the same.
+`frontend/scripts/assert-dependency-audit.mjs` rejects command failures, malformed
+reports, missing advisory causes, inconsistent counts, and unknown report formats.
+The backend audit remains unchanged; its advisory-wide exception mechanism and
+the frontend's narrower path mechanism are deliberately asymmetric.
+
+Exceptions in `frontend/audit-allowlist.json` require an advisory ID, exact package
+path, named triager, reason, and review deadline. Expired entries fail; stale entries
+are printed for removal. Accepted exceptions are also printed, including their
+reason and owner. The first entry expires after 2026-11-07 and covers only
+`eslint-config-next>@next/eslint-plugin-next>fast-glob>micromatch>braces` for
+GHSA-vfj7-8cjw-p6xm. This records accepted risk, not a claim of non-exploitability.
+
+**An audit cause graph is insufficient to enforce a path exception.** npm groups
+findings by package and may omit unaffected parents. The filter therefore resolves
+all paths to the reported installed nodes from lockfile v3, including installed
+optional and peer dependencies. Every matching path must start at a dev-only root
+and contain only dev-marked nodes. Another path remains a failure, even when npm
+does not name its parent in the audit report. Unsupported links, unresolved paths,
+cycles, and excessive traversal fail rather than allowing an uncertain exception.
+
+The October 8 recorded fixture contains four direct advisories (eleven affected
+packages), not only the five-package braces chain seen on October 4. The live run
+accepts that chain and **still fails** on proxy-addr (critical), sharp (high), and
+source-map-js (high). Their remediation is separate work; none is excepted here.
+`npm view braces version` still returned 3.0.3 on October 8.
+
+The audit job runs the filter's regression tests before the live scan. Both audit
+jobs remain deployment prerequisites; no `--omit=dev` or error suppression was added.
+Tests use the recorded response and altered copies to exercise alternate paths,
+runtime use, expiry, stale entries, corrupted output, and inconsistent process exit
+codes. Removing the dev-only condition was verified to fail two tests.
+
+### Frontend audit remediation — approved 2026-10-15
+
+The owner approved applying the existing path policy to PR #110 and patching the
+three remaining advisories. The lockfile now resolves proxy-addr 2.0.8
+([advisory](https://github.com/advisories/GHSA-jqcg-44mw-7w3h)), source-map-js 1.2.2
+([advisory](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)) and sharp 0.35.5
+([advisory](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)). Wrangler's existing
+direct pin advances from 4.144.0 to 4.151.0; its Miniflare 5.20261012.0-beta
+dependency pins sharp 0.35.5, also compatible with Next's existing ^0.35.4 range.
+The rest are compatible transitive patches. No new direct dependency or forced
+audit-fix operation is introduced.
+
+The raw npm report still lists the five-package braces chain. On October 15 the
+registry still offered braces 3.0.3 and the
+[advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) listed no patched
+version. Only the previously approved development-only path is accepted, with
+its original November 7 review deadline. This is not a zero-vulnerability claim.
+New high/critical advisories, another path, runtime use, expired policy, malformed
+output or scanner failure still fail the gate. Deployment prerequisites and the
+backend audit are unchanged.
+
+Verification records remain in STATUS.md and the current PR #110 checks. The
+recorded October 8 fixture is retained unchanged so the tests continue proving
+that unpatched proxy-addr, sharp and source-map-js findings cannot be excepted by
+the braces policy.
+
 **Renovate and CodeQL are out of scope.** Both are repository configuration
 rather than code, and CodeQL changes what runs on every push to a repository
 this project does not yet pay for compute on. M13, with the rest of the

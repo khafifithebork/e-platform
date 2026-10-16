@@ -1,9 +1,273 @@
 # STATUS
 
-**Last updated:** 2026-10-03
-**Updated by:** Claude Opus 5 (frontend redesign stages 2 to 4; the frontend audit,
-its four ADRs, the fixes that followed, the owner's verification passes, and the
-professional-quality addendum's first two batches — both merged)
+**Last updated:** 2026-10-15
+**Updated by:** Codex (approved My Courses refinement and shared ink detail)
+
+## Latest correction — 2026-10-15: conditional theme and native progress
+
+The owner approved the five-file corrective batch after browser review exposed
+dark-token hoisting and Chrome's green native progress fill. Dark overrides now
+use ordinary `:root` CSS inside the existing media query, leaving all palette
+values unchanged. This follows Tailwind's top-level `@theme` requirement:
+https://tailwindcss.com/docs/theme. My Courses keeps native progress semantics
+with separate WebKit/Firefox track/fill styling and a forced-colors native fallback.
+
+Two new theme/progress tests failed before the fix, then all 94 focused tests
+passed. The compiled-CSS gate also rejected the old build. It now requires dark
+tokens inside the emitted media rule, rejects unconditional dark-token leakage,
+and pins both native progress fill selectors. A negative check injected an
+unconditional dark override into an ignored build artifact, observed the gate
+reject it, and restored the original bytes. Final browser confirmation ran on
+a restarted preview after that restoration.
+
+All 695 frontend tests, lint, production build/TypeScript and four artifact gates
+pass. Ruff check/format and the local production-settings deployment check pass.
+The first build correctly refused to run without catalogue data while Docker was
+off; the existing local services were started, API health returned ok, and the
+rebuild passed with real catalogue data. No volume or production data was changed.
+The worst first-load bundle is 330.4 KB against the unchanged 350 KB limit.
+
+Seventeen clean Chrome browser cases pass across desktop/mobile, light/dark,
+reduced motion, forced colors, empty/error and long-content states. Actual learner
+ink/paper now match the requested scheme; progress fills are visibly indigo and
+public/sign-in shells retain ivory under either preference. No horizontal overflow,
+hidden rows or runtime page errors were found; resume destinations and keyboard
+focus remain correct. Forced colors hide ink decoration and use native progress.
+Before/after correction captures and JSON reports are saved in the visualization
+directory (`my-courses-theme-before-*` / `my-courses-theme-after-*`).
+
+Learner captures use clearly synthetic API fixtures, not real-account authentication
+or server authorization evidence. Firefox/Safari runtime checks remain unverified.
+No API, palette value, dependency, provider, auth behavior or new motion is changed.
+The existing local metadataBase build warning remains. No merge or deployment occurred.
+
+## Latest session — 2026-10-15: My Courses and ink stippling
+
+The owner approved the six-file My Courses proposal and requested additional
+black spots to echo the generated artwork. The resulting ten-file batch adds
+static semantic-ink stippling to the public footer band, sign-in artwork margin
+and My Courses introduction. It uses a CSS SVG mask, not a generated asset;
+decorations are non-interactive, aria-hidden and suppressed in forced colors.
+Learner light/dark behavior, public ivory and existing imagery remain intact.
+
+My Courses now uses immediately visible ruled rows, responsive native progress
+and prominent Start/Continue actions. Empty and anonymous states have distinct
+headings and actions. Finished courses include a check beside their text. List
+stagger and card hover movement are removed; shared button feedback remains.
+API calls, enrollment, resume selection, pagination and retry behavior are unchanged.
+
+Five new regressions failed against the previous implementation, then passed.
+All 64 focused course/shell tests and all 693 frontend tests pass. Frontend lint,
+production build/TypeScript and all four production-artifact gates pass. Public
+routes remain static, document structure and CSS tokens are sound; the worst
+first-load bundle is 330.2 KB against the unchanged 350 KB budget. Ruff check and
+format pass across 238 files; the local production-settings Django deployment
+check reports no issues. The mechanical design detector reports no findings.
+The existing local metadataBase build warning remains.
+
+Connected-browser desktop/mobile inspection confirmed the signed-out My Courses
+composition, sign-in artwork/spot placement and catalogue decoration. Measured
+My Courses, catalogue and sign-in layouts have no horizontal overflow, decorations
+are aria-hidden/non-interactive, and keyboard navigation retains a solid outline.
+The public fixed-light palette and OS-dark learner palette were seen.
+
+On the owner's next approval to continue verification, the installed Chrome
+binary was found at its actual path. The screenshot harness was adapted to screen
+readiness rather than network-idle (which timed out). Thirteen after captures and
+a JSON evidence report are saved in this chat's visualization directory. Learner
+empty/populated/long/error screens use intercepted, explicitly synthetic API
+fixtures; they verify rendering, not real authentication or backend authorization.
+All measured layouts have no horizontal overflow or page runtime errors. Rows are
+immediately visible, resume uses the next lesson (with Next's trailing slash), and
+keyboard outlines remain solid. Dark/reduced-motion and light media were emulated.
+No complete saved before set exists and no browser/dependency was installed.
+
+**Browser finding, corrected in the batch above:** learner pages stayed dark when
+`prefers-color-scheme: dark` is false. Compiled CSS places the dark theme variables
+unconditionally in its theme layer: nesting `@theme` inside the source media query
+did not preserve that condition. This conflicts with ADR-032/design-system.md's
+system theme contract. Existing source/contrast tests and the current artifact
+gates did not catch it. Code edits stopped pending the subsequently approved correction plan.
+The native Chrome progress bar also remains green despite a computed indigo
+`accent-color`; its platform pseudo-elements need explicit styling for the approved
+visual treatment. Real-account end-to-end checks remain separate from fixture evidence.
+
+No merge, deployment, backend change or production configuration change is included.
+
+## Earlier session — 2026-10-15: frontend audit remediation
+
+PR #110's frontend/backend tests and backend audit passed; the frontend audit
+failed on braces, proxy-addr, sharp and source-map-js. The owner approved the
+ten-file remediation plan. Wrangler is pinned at 4.151.0, with Miniflare's sharp
+0.35.5; compatible transitive updates resolve proxy-addr 2.0.8 and source-map-js
+1.2.2. No new direct dependency, auth behavior or production configuration changed.
+
+The previously approved exact-path audit filter and its tests are now integrated
+into this PR. The sole accepted path remains the development-only eslint lint
+chain to braces, with the original November 7 review deadline. Raw npm audit still
+reports that five-package chain; no zero-vulnerability claim is made. All other
+high/critical findings, alternate paths, runtime use, expiry and scanner errors
+remain failures. Both audits remain deployment prerequisites.
+
+Before patching, the live filter accepted only braces and rejected the other three
+advisories. After patching, the live gate passes with only that accepted path.
+All 16 filter tests, 30 CI configuration guards and 688 frontend tests pass.
+ESLint and Ruff check/format pass. Local API health and the production-settings
+Django deployment check pass. Production build (including TypeScript), static-route,
+document-structure, CSS-token and bundle checks pass; live CI results belong to
+[PR #110 checks](https://github.com/khafifithebork/e-platform/pull/110/checks).
+No merge or deployment is authorized or performed.
+
+---
+
+## Earlier session — 2026-10-14: catalogue discovery
+
+The owner approved the eight-file catalogue batch. Search and filters share a
+responsive toolbar, browse/search results use three wider desktop columns, and
+shared course cards use larger wrapping titles, quiet borders and no hover lift.
+Catalogue result entrances are removed. Real course content, title-only links,
+article labels and distinct publication/filter/search empty states are preserved.
+Clear search restores keyboard focus and browsing. A new integration regression
+test exposed that the prior parent hid courses after a search refusal despite
+the child's intended fallback; refusal now restores the current browse listing.
+Search debounce, request cancellation, API wording and generated types remain
+unchanged. No dependency, new asset, provider or production setting was added.
+
+The initial production build stopped because the local API was offline and Docker
+was stuck starting. Troubleshooting stopped after two unsuccessful recovery
+attempts. The owner then requested launching Docker and retesting. Desktop was
+launched, its engine finished starting, and the existing postgres/redis/storage/api
+services started successfully. `/healthz` returns ok; the local container's
+production-settings `check --deploy` reports no issues. No Docker volume, database
+or production configuration was deleted or changed.
+
+Retest: all 688 frontend tests pass again, including six new recovery/visibility/
+content checks. ESLint, production build and TypeScript, static-route, document-
+structure, CSS-token and bundle gates pass. Ruff check/format and Git whitespace
+checks pass. The existing local metadataBase build warning remains.
+
+Before/after desktop (1440px) and mobile (390px) captures, mobile search-empty and
+keyboard-focus evidence are saved in this chat's visualization directory. Browser
+checks confirm no horizontal overflow, filter selection/clearing, course navigation,
+and empty-search recovery with focus returned to the search input. The local
+catalogue has one real published course; multiple-card density and long/optional
+content have source/test-fixture evidence only. Current OS-light and fixed-light
+editorial behavior were checked; dark/reduced-motion emulation remains unavailable.
+The independent reviewer returned `ship` across the approved catalogue scope,
+with no material fixes. The review explicitly limits visual certification to the
+single-course captures and does not certify preference emulation. The documenter
+confirmed the incumbent system guide matches the source and all four captures,
+with no further documentation change needed.
+The owner requested commit, push and a pull request. The approved frontend work
+is committed and pushed on `codex/illustrated-journal` from master, with
+[PR #110](https://github.com/khafifithebork/e-platform/pull/110) open for review.
+The earlier audit-policy commit remains on its separate branch and is excluded.
+No merge or deployment is performed. The PR includes six desktop/mobile captures
+and explicitly records the existing master frontend-audit failure.
+
+---
+
+## Earlier session — 2026-10-13: Illustrated Journal sign-in
+
+The owner approved the seven-file sign-in-only batch. `/login/` now reuses C's
+fixed-light ivory, ink and indigo semantic tokens, with a serif wordmark/heading
+and original companion illustration. Desktop places the form left and art right;
+mobile places the complete form and catalogue link before compact art. The form
+renders immediately, without an entrance animation. Registration and recovery
+retain the prior auth shell; navigation to registration and back was checked.
+Login business logic, error messages, session authentication and API types are
+unchanged. No dependency, service, migration or production configuration changed.
+
+All 682 frontend tests pass, including eight new shell regression checks.
+The focused shell/login/contrast run passed 76 tests. Production build and its
+TypeScript check, ESLint, static-route, page-structure, CSS-token and bundle gates
+pass. Ruff check/format pass, and the local container's production-settings
+`check --deploy` reports no issues. The known local metadataBase build warning
+remains. The detector reports no findings; both illustration rasters have prompt
+provenance. No backend behavior changed or backend test suite rerun.
+
+Desktop (1440px) and mobile (390px) before/after screenshots are saved in this
+chat's visualization directory, along with the mobile API-refusal state. Browser
+checks cover visible keyboard focus, long email input, disabled loading controls,
+API error recovery, image loading, no horizontal overflow and auth-theme isolation.
+The screenshot backend initially scaled the mobile bitmap; recaptures include
+viewport-only and full-page evidence with recorded CSS viewport dimensions.
+Reduced-motion/theme emulation is unavailable; sign-in has no new animation and
+uses the same fixed-light tokens under the current dark OS preference. Login
+success and session-storage invariants are covered by existing tests, rather than
+a browser login with a real account. Work is local, uncommitted and not deployed.
+
+Independent visual review found the sign-in faithful to C and requested only
+correction of the design-system guide's blanket authentication-theme statement.
+The documenter updated the incumbent guide; the reviewer scored that fix resolved
+and returned `ship` for the scored correction. One stale CSS comment was also
+corrected; token values and rules were unchanged. No open material finding remains
+in that review list. Git whitespace checks pass. The browser-emulation limitations
+above remain outside the review's verified scope.
+
+---
+
+## Earlier session — 2026-10-12: C public palette and shell
+
+The owner requested the full colors and styling of C and approved a ten-file
+follow-up. Public routes now use fixed-light ivory #faf7f0, ink #191919 and
+indigo #4541b5, serif headings, tighter corners and a plain wordmark/top navigation.
+The public sidebar is removed; registration is linked in the footer and AuthMenu
+keeps its signed-in destinations. The homepage uses an unframed illustration,
+text pricing link and compact centered benefits with dividers. Learner/auth
+palettes and navigation are preserved. No dependency or business behavior changed.
+
+All 674 frontend tests passed with two workers. Following the visual review's
+root-paper, image-blending and sign-in-selector corrections, all 88 targeted
+palette/shell tests passed. Final production build (including TypeScript), ESLint,
+static-route, page-structure, CSS-token and bundle checks passed. The reviewer
+returned `ship` for all four scored corrections, with no remaining finding in
+that fix list. Desktop/mobile homepage, catalogue and pricing screenshots were
+confirmed. Keyboard focus, pricing navigation and search empty state were checked;
+navigating to sign-in restores the existing dark scheme under the current OS
+preference. Reduced-motion browser emulation remains unverified. Work is local,
+uncommitted and not deployed.
+The code-led review uses C as the direction reference, not a pixel-exact UI image.
+Public fixed-light behavior supersedes ADR-032 only for the marketing shell;
+ADR-037 and the existing design-system document record that approved decision.
+
+---
+
+## Earlier session — 2026-10-12: homepage direction C
+
+The owner chose C, Illustrated Journal, from the three-direction comparison.
+The scoped homepage batch adds an original ink-and-stipple illustration, an
+opt-in serif title, and four unboxed benefits before the actual course band.
+Indigo controls, global theme tokens, navigation, catalogue and learner behavior
+remain unchanged. Hero text and links render visibly before hydration; only the
+decorative art has a 280ms entrance. Hero parallax and feature entrances are gone.
+ADR-037 and the incumbent design-system document record the scope and provenance.
+No dependency, provider, API, migration or deployment changes were made.
+
+Verification: all 655 frontend tests passed with two workers after the concurrent
+build/test run hit 11 auth-test failures dominated by timeouts. Assertions and
+timeouts were not relaxed. The 14 focused homepage/title tests passed again after
+the mobile headline correction. Production build, TypeScript, ESLint, static-route,
+page-structure, CSS-token and bundle checks passed; Ruff check/format passed.
+The local container's production-settings `check --deploy` reported no issues.
+The build retains its local `metadataBase` fallback warning; production readiness
+is not implied by the local build or settings check.
+
+Dark-theme desktop/mobile screenshots and keyboard catalogue navigation were
+checked. The bounded visual review requested balanced mobile wrapping and updated
+documentation; those corrections are applied and confirmed. Final reviewer
+disposition: `fix`, with three findings resolved and one documentation convention
+unresolved: the skill requests a separate PRODUCT.md. This scoped batch retains
+the existing authoritative product documents instead of adding a duplicate.
+No visual fixes remain among the reviewer's scored findings.
+Light-theme and reduced-motion browser emulation are unavailable in the connected
+browser tool. Both-palette contrast tests pass and the shared hydration-safe
+MotionProvider is preserved, but those browser checks remain a human verification
+gap. No Figma file was supplied; no claim of Figma frame comparison is made.
+
+Before/after screenshots are in the chat's local visualization directory
+`2026/10/08/01a11ca8-351f-7c40-b740-d0c88de643fa`. The known dependency audit
+findings below remain a separate batch. No merge or deployment was performed.
 
 ---
 

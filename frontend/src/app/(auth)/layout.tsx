@@ -1,12 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 /**
  * The auth shell.
  *
- * Two columns on wide screens: the form on the left where the eye starts, and
+ * Sign-in uses the approved Illustrated Journal treatment. Other auth steps
+ * keep two columns on wide screens: the form on the left where the eye starts, and
  * a quiet editorial panel on the right. The panel is decorative and is hidden
  * from assistive technology and from small screens entirely — a signed-out
  * user on a phone wants the form, not a mission statement.
@@ -19,6 +22,43 @@ import Link from "next/link";
  * `(marketing)` server-only — there is no equivalent constraint to protect.
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  // This layout persists across auth navigation. Select the approved sign-in
+  // treatment here so registration and recovery keep their existing shell.
+  if (pathname === "/login" || pathname === "/login/") {
+    return (
+      <div data-site-style="editorial" className="min-h-dvh bg-paper text-ink">
+        <div className="mx-auto grid min-h-dvh max-w-7xl lg:grid-cols-2">
+          <main className="flex flex-col px-6 py-8 sm:px-12 lg:px-16 lg:py-10">
+            <Link href="/" className="w-fit font-display text-3xl font-bold tracking-tight text-ink hover:text-accent">
+              Lingua
+            </Link>
+            <div className="flex flex-1 items-center py-12 lg:py-16">
+              <div className="mx-auto w-full max-w-sm">{children}</div>
+            </div>
+            <footer className="text-sm text-ink-subtle">
+              <Link href="/" className="underline decoration-line-strong underline-offset-4 hover:text-ink">
+                Back to the catalogue
+              </Link>
+            </footer>
+          </main>
+          <aside aria-hidden="true" className="flex flex-col items-center justify-center gap-6 px-6 pb-8 sm:px-12 lg:px-4 lg:py-12">
+            <Image
+              src="/illustrations/sign-in-scene.webp"
+              alt=""
+              width={960}
+              height={960}
+              unoptimized
+              loading="eager"
+              className="h-auto w-full max-w-64 sm:max-w-xs lg:max-w-none"
+            />
+            <span aria-hidden="true" className="ink-spots w-20 self-end lg:me-12 lg:w-28" />
+          </aside>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

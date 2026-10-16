@@ -54,6 +54,18 @@ function renderSearch() {
   return render(<CourseSearch onResults={onResults} onQueryChange={onQueryChange} />);
 }
 
+it("clears the query and returns keyboard focus to search", async () => {
+  renderSearch();
+  const user = userEvent.setup({ delay: null });
+  const input = screen.getByRole("searchbox");
+  await user.type(input, "spanish");
+  await user.click(screen.getByRole("button", { name: "Clear search" }));
+  expect(input).toHaveValue("");
+  expect(input).toHaveFocus();
+  expect(onResults).toHaveBeenLastCalledWith(null);
+  expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+});
+
 /** Types without the per-keystroke delay `userEvent` adds by default. */
 const type = (element: HTMLElement, text: string) =>
   userEvent.setup({ delay: null }).type(element, text);

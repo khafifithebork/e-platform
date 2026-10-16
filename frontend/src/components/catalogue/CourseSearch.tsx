@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { buttonStyles } from "@/components/ui/Button";
+
 import {
   MIN_QUERY_LENGTH,
   SearchFailed,
@@ -41,6 +43,7 @@ export function CourseSearch({
   onQueryChange: (query: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false);
   /**
    * The search's own failure, inline rather than a `LoadFailure`.
@@ -127,22 +130,29 @@ export function CourseSearch({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium text-ink">Search courses</span>
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Try a language, a level, or a skill"
-          // `aria-describedby` points at the status line below, so the result
-          // count and any error are announced as part of this field rather
-          // than as loose text somewhere on the page.
-          aria-describedby="search-status"
-          className="w-full max-w-md rounded-(--radius-md) border border-line-strong
-            bg-surface px-3.5 py-2.5 text-ink shadow-(--shadow-sm)
-            transition-colors placeholder:text-ink-subtle hover:border-ink-subtle"
-        />
-      </label>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm">
+          <span className="font-medium text-ink">Search courses</span>
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Try a language, a level, or a skill"
+            // `aria-describedby` points at the status line below, so the result
+            // count and any error are announced as part of this field rather
+            // than as loose text somewhere on the page.
+            aria-describedby="search-status"
+            className="min-h-11 w-full min-w-0 rounded-(--radius-md) border border-line-strong
+              bg-surface px-3.5 py-2.5 text-ink
+              transition-colors duration-150 placeholder:text-ink-subtle hover:border-ink-subtle"
+          />
+        </label>
+        {query && <button type="button" className={buttonStyles({ variant: "secondary" })}
+          onClick={() => { setQuery(""); inputRef.current?.focus(); }}>
+          Clear search
+        </button>}
+      </div>
 
       {/*
        * One live region for both states.

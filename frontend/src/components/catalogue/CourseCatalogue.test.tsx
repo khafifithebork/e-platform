@@ -12,12 +12,15 @@
  * screen reader can tell what the control does.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CourseCatalogue } from "@/components/catalogue/CourseCatalogue";
 import type { Language, PublicCourse } from "@/lib/catalogue/courses";
+
+afterEach(() => vi.unstubAllGlobals());
 
 const SPANISH: Language = { code: "es", name: "Spanish", native_name: "Español" };
 const FRENCH: Language = { code: "fr", name: "French", native_name: "Français" };
@@ -47,6 +50,53 @@ const LANGUAGES = [SPANISH, FRENCH];
 function renderCatalogue(courses = COURSES) {
   return render(<CourseCatalogue courses={courses} languages={LANGUAGES} />);
 }
+
+describe("calm discovery and recovery", () => {
+  it("keeps a long course title complete in its link name", () => {
+    const title = "A long course title for learners practising everyday conversations across different situations";
+    renderCatalogue([course({ slug: "long-title", title })]);
+    expect(screen.getByRole("link", { name: title })).toHaveTextContent(title);
+    expect(screen.getByRole("article", { name: title })).toBeInTheDocument();
+  });
+
+  it("renders readable course results before hydration without entrance motion", () => {
+    const html = renderToString(<CourseCatalogue courses={COURSES} languages={LANGUAGES} />);
+    expect(html).toContain("Spanish for beginners");
+    expect(html).not.toMatch(/opacity:0|transform:translate/);
+  });
+
+  it("restores browsing after a refused search and keeps the query available to edit", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 503 })));
+    renderCatalogue();
+    await userEvent.setup({ delay: null }).type(screen.getByRole("searchbox"), "spanish");
+    await waitFor(() => expect(screen.getByText(/search is unavailable/i)).toBeVisible());
+    expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(screen.getByRole("searchbox")).toHaveValue("spanish");
+  });
+
+  it("offers a clear search action after no matches and returns to browsing", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      results: [], count: 0, limit: 50, truncated: false,
+    }), { headers: { "Content-Type": "application/json" } })));
+    renderCatalogue();
+    const user = userEvent.setup({ delay: null });
+    await user.type(screen.getByRole("searchbox"), "zzmissing");
+    await waitFor(() => expect(screen.getByText(/nothing matched/i)).toBeVisible());
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(screen.getAllByRole("article")).toHaveLength(3);
+  });
+
+  it("clears a filter combination with no matches", async () => {
+    renderCatalogue();
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "fr");
+    await userEvent.selectOptions(screen.getByLabelText("Level"), "B1");
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(screen.getByLabelText("Language")).toHaveValue("any");
+    expect(screen.getByLabelText("Level")).toHaveValue("any");
+  });
+});
 
 describe("the listing", () => {
   it("shows every course before anything is filtered", () => {

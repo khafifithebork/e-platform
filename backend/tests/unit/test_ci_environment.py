@@ -224,15 +224,28 @@ class TestBothTiersAreAudited:
         )
 
     def test_the_frontend_audits_its_dependencies(self) -> None:
-        assert any("npm audit" in step for step in self._run_commands("audit-frontend"))
+        commands = self._run_commands("audit-frontend")
+        assert any("node scripts/assert-dependency-audit.mjs" in step for step in commands)
+        assert any(
+            "node --test scripts/assert-dependency-audit.test.mjs" in step for step in commands
+        )
 
     def test_the_frontend_audit_is_not_left_on_the_default_level(self) -> None:
         """`npm audit` with no level fails on `low`. That is the version that
         gets disabled."""
-        audits = [step for step in self._run_commands("audit-frontend") if "npm audit" in step]
+        script = (REPO_ROOT / "frontend/scripts/assert-dependency-audit.mjs").read_text(
+            encoding="utf-8"
+        )
+        assert '"audit", "--json", "--audit-level=high"' in script
 
+    def test_the_frontend_audit_is_not_softened(self) -> None:
+        audits = [
+            step
+            for step in self._run_commands("audit-frontend")
+            if "assert-dependency-audit" in step
+        ]
         assert audits
-        assert all("--audit-level=high" in step for step in audits)
+        assert all("|| true" not in step and "continue-on-error" not in step for step in audits)
 
     def test_the_backend_audit_is_not_softened(self) -> None:
         """pip-audit has no severity filter, so there is nothing to tune — the
@@ -265,6 +278,7 @@ class TestBothTiersAreAudited:
                 assert "pip_audit" not in command, job
                 assert "pip-audit" not in command, job
                 assert "npm audit" not in command, job
+                assert "node scripts/assert-dependency-audit.mjs" not in command, job
 
     def test_no_audit_step_is_marked_continue_on_error(self) -> None:
         """The other way to neuter a gate: leave the command alone and tell the

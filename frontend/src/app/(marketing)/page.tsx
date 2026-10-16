@@ -1,8 +1,7 @@
+import { BookOpen, Captions, RotateCcw, BadgeCheck } from "lucide-react";
 import type { Metadata } from "next";
 
 import { FeaturedCourses } from "@/components/catalogue/FeaturedCourses";
-import { Reveal } from "@/components/motion/Reveal";
-import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Hero } from "@/components/site/Hero";
 import { allPublishedCourses } from "@/lib/catalogue/courses";
 import { publicMetadata } from "@/lib/site";
@@ -35,7 +34,7 @@ import { publicMetadata } from "@/lib/site";
  *
  * **`Hero` is the only client-boundary crossing on this page**, same
  * reasoning as `AuthMenu` and `CourseProgress`: it needs mount-triggered
- * motion and scroll position, which are browser concerns, so only that
+ * motion, which is a browser concern, so only that
  * section crosses the boundary. `Home` itself stays `async` and server-only,
  * so the page is still built once and served identically to everyone.
  */
@@ -58,73 +57,63 @@ export default async function Home() {
   const courses = await allPublishedCourses();
 
   return (
-    <div className="flex flex-col gap-20">
+    <div className="flex flex-col gap-0">
       <Hero />
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-20 px-6 pb-20">
-        <FeaturedCourses courses={courses} />
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-14 sm:gap-20 px-6 pb-20">
+        <section aria-labelledby="what-you-get" className="flex flex-col gap-6 border-y border-line py-8 sm:py-10">
+          <div className="sr-only"><h2 id="what-you-get" className="font-display text-2xl text-ink">
+            What is in every course
+          </h2></div>
 
-        <section aria-labelledby="what-you-get" className="flex flex-col gap-6">
-          <Reveal>
-            <h2 id="what-you-get" className="font-display text-2xl text-ink">
-              What is in every course
-            </h2>
-          </Reveal>
-
-          {/*
-           * A description list, not a grid of divs. Each item is a term and its
-           * explanation, which is what `<dl>` is for — and it gives assistive
-           * technology the pairing without any ARIA. `StaggerList`/`StaggerItem`
-           * render `<dl>`/generic children rather than `<ul>`/`<li>` here — the
-           * primitive only prescribes the animation, not the tag, and a `<dl>`
-           * still gets the same variant-propagated stagger as a course grid.
-           */}
-          <StaggerList as="dl" className="grid gap-8 sm:grid-cols-2">
-            <StaggerItem
-              as="div"
-              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
-            >
-              <dt className="font-medium text-ink">Video, audio and written lessons</dt>
-              <dd className="text-ink-muted">
+          <dl className="grid gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex min-w-0 flex-col gap-2 px-5 text-center sm:even:border-s sm:even:border-line lg:[&+div]:border-s lg:[&+div]:border-line">
+              <dt className="flex flex-col items-center gap-4 font-medium text-ink">
+                <BookOpen aria-hidden="true" size={32} strokeWidth={1.5} className="text-ink" />
+                Video, audio and written lessons
+              </dt>
+              <dd className="text-sm leading-relaxed text-ink-muted">
                 A lesson is whichever of those suits it. Listening practice does
                 not need a video of somebody talking.
               </dd>
-            </StaggerItem>
+            </div>
 
-            <StaggerItem
-              as="div"
-              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
-            >
-              <dt className="font-medium text-ink">Transcripts and subtitles</dt>
-              <dd className="text-ink-muted">
+            <div className="flex min-w-0 flex-col gap-2 px-5 text-center sm:even:border-s sm:even:border-line lg:[&+div]:border-s lg:[&+div]:border-line">
+              <dt className="flex flex-col items-center gap-4 font-medium text-ink">
+                <Captions aria-hidden="true" size={32} strokeWidth={1.5} className="text-ink" />
+                Transcripts and subtitles
+              </dt>
+              <dd className="text-sm leading-relaxed text-ink-muted">
                 Every spoken lesson is transcribed, so you can read along, search
                 inside it, or follow without sound.
               </dd>
-            </StaggerItem>
+            </div>
 
-            <StaggerItem
-              as="div"
-              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
-            >
-              <dt className="font-medium text-ink">Progress that follows you</dt>
-              <dd className="text-ink-muted">
+            <div className="flex min-w-0 flex-col gap-2 px-5 text-center sm:even:border-s sm:even:border-line lg:[&+div]:border-s lg:[&+div]:border-line">
+              <dt className="flex flex-col items-center gap-4 font-medium text-ink">
+                <RotateCcw aria-hidden="true" size={32} strokeWidth={1.5} className="text-ink" />
+                Progress that follows you
+              </dt>
+              <dd className="text-sm leading-relaxed text-ink-muted">
                 Where you stopped is remembered per lesson, and picking up on
                 another device continues from the same place.
               </dd>
-            </StaggerItem>
+            </div>
 
-            <StaggerItem
-              as="div"
-              className="flex flex-col gap-2 rounded-(--radius-lg) border border-line bg-surface p-5"
-            >
-              <dt className="font-medium text-ink">Reviewed, not just uploaded</dt>
-              <dd className="text-ink-muted">
+            <div className="flex min-w-0 flex-col gap-2 px-5 text-center sm:even:border-s sm:even:border-line lg:[&+div]:border-s lg:[&+div]:border-line">
+              <dt className="flex flex-col items-center gap-4 font-medium text-ink">
+                <BadgeCheck aria-hidden="true" size={32} strokeWidth={1.5} className="text-ink" />
+                Reviewed, not just uploaded
+              </dt>
+              <dd className="text-sm leading-relaxed text-ink-muted">
                 An administrator reads a course before it is published, and can
                 send it back. That is the whole reason this catalogue is small.
               </dd>
-            </StaggerItem>
-          </StaggerList>
+            </div>
+          </dl>
         </section>
+
+        <FeaturedCourses courses={courses} />
       </div>
     </div>
   );

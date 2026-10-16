@@ -7,7 +7,8 @@ import type { ReactNode } from "react";
  * `<h1>` elements carried a hand-written class string, and unpicking which
  * differences were decisions took two passes:
  *
- * - `page` — `/courses`, `/pricing`, a course, `/my-courses`, the landing hero.
+ * - `page` — `/courses`, `/pricing`, a course, `/my-courses`.
+ * - `editorial` — the homepage only, accepted in ADR-037 after the original scale.
  * - `interstitial` — the nine auth form states, the three `LessonGate`
  *   refusals, the 404.
  * - `section` — one site, `LessonPlayer`. See below.
@@ -44,6 +45,8 @@ import type { ReactNode } from "react";
  * you are looking for them.
  */
 export const PAGE_TITLE = {
+  // ADR-037: editorial display is reserved for the public homepage.
+  editorial: "font-serif text-[2.5rem] leading-[1.08] tracking-tight text-balance text-ink sm:text-5xl xl:text-6xl",
   page: "font-display text-4xl leading-tight tracking-tight text-ink",
   interstitial: "font-display text-3xl leading-tight tracking-tight text-ink",
   section: "font-display text-2xl text-ink",
@@ -54,11 +57,8 @@ export type PageTitleVariant = keyof typeof PAGE_TITLE;
 /**
  * A page's `<h1>`.
  *
- * `PAGE_TITLE` is exported separately for the one caller that cannot use this
- * component: the landing hero's title is a `motion.h1` carrying stagger
- * variants, and it takes one extra step at `sm:`. Composing the constant there
- * keeps it inside the system rather than outside it with a comment promising it
- * matches.
+ * Editorial typography is opt-in: catalogue, lesson and authentication titles
+ * retain their treatments. `PAGE_TITLE` also exposes the scale to tests.
  */
 export function PageTitle({
   children,

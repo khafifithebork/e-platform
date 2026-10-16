@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
 import type { PublicCourse } from "@/lib/catalogue/courses";
 
 /**
@@ -42,8 +41,8 @@ export function CourseCard({
   const skills = Array.isArray(course.skill_areas) ? (course.skill_areas as string[]) : [];
 
   return (
-    <Card as="article" aria-labelledby={titleId} hoverable className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 text-sm text-ink-subtle">
+    <article aria-labelledby={titleId} className="flex h-full min-w-0 flex-col gap-4 rounded-(--radius-lg) border border-line bg-surface p-6 [overflow-wrap:anywhere] transition-[border-color] duration-150 hover:border-line-strong focus-within:border-accent">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
         <span>{course.language.name}</span>
         <span aria-hidden="true">·</span>
         {/*
@@ -56,8 +55,8 @@ export function CourseCard({
         </abbr>
       </div>
 
-      <Heading id={titleId} className="font-display text-xl leading-snug text-ink">
-        <Link href={`/courses/${course.slug}`} className="hover:text-accent">
+      <Heading id={titleId} className="font-display text-2xl leading-snug text-ink [overflow-wrap:anywhere]">
+        <Link href={`/courses/${course.slug}`} className="decoration-accent/40 underline-offset-4 hover:text-accent hover:underline focus-visible:text-accent">
           {course.title}
         </Link>
       </Heading>
@@ -78,15 +77,15 @@ export function CourseCard({
       )}
 
       {skills.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
+        <ul className="mt-auto flex flex-wrap gap-1.5 pt-2 [overflow-wrap:anywhere]">
           {skills.map((skill) => (
-            <li key={skill}>
-              <Badge>{skill}</Badge>
+            <li key={skill} className="min-w-0 max-w-full">
+              <Badge className="max-w-full">{skill}</Badge>
             </li>
           ))}
         </ul>
       )}
-    </Card>
+    </article>
   );
 }
 
