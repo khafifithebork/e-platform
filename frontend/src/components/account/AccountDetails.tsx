@@ -20,10 +20,8 @@ import { ApiError, api, type Me } from "@/lib/api/client";
  * - **No display-name editing.** `StudentProfileSerializer` is documented "Output
  *   only" and there is no endpoint to write it.
  * - **No email change.** No endpoint.
- * - **No data export and no account deletion.** `docs/specs/m10-admin.md` §6
- *   deferred both deliberately — "Erasure obligations are real and are their own
- *   piece of work" — and a button in front of nothing is worse than no button.
- *   ADR-036 records what each would need.
+ * - **No account deletion.** ADR-036 §5 leaves retention questions unresolved.
+ *   Data export is provided separately by `DataExport` on the same page.
  */
 
 type State =
@@ -98,13 +96,13 @@ export function AccountDetails() {
   const { me } = state;
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex min-w-0 flex-col gap-10 sm:gap-12">
       <section aria-labelledby="who" className="flex flex-col gap-4">
-        <h2 id="who" className="text-sm font-medium text-ink">
+        <h2 id="who" className="font-display text-2xl text-ink">
           Your details
         </h2>
 
-        <dl className="flex flex-col gap-4 border-t border-line pt-4">
+        <dl className="flex min-w-0 flex-col gap-5 border-t border-line pt-5">
           <Row term="Email">{me.email}</Row>
 
           <Row term="Email confirmed">
@@ -150,9 +148,9 @@ export function AccountDetails() {
 
 function Row({ term, children }: { term: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-6">
+    <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-6">
       <dt className="text-sm text-ink-muted sm:w-44 sm:shrink-0">{term}</dt>
-      <dd className="text-ink">{children}</dd>
+      <dd className="min-w-0 text-ink [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }
@@ -177,11 +175,11 @@ function Row({ term, children }: { term: string; children: React.ReactNode }) {
 function AccessSummary({ access }: { access: Me["access"] }) {
   return (
     <section aria-labelledby="access" className="flex flex-col gap-4">
-      <h2 id="access" className="text-sm font-medium text-ink">
+      <h2 id="access" className="font-display text-2xl text-ink">
         Course access
       </h2>
 
-      <div className="flex flex-col gap-4 border-t border-line pt-4">
+      <div className="flex flex-col gap-3 border-t border-line pt-5 [overflow-wrap:anywhere]">
         <p className="text-ink">
           {access.allowed
             ? "You have access to every published course."
