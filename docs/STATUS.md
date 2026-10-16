@@ -1,7 +1,49 @@
 # STATUS
 
-**Last updated:** 2026-10-15
-**Updated by:** Codex (approved My Courses refinement and shared ink detail)
+**Last updated:** 2026-10-16
+**Updated by:** Codex (approved shared Illustrated Journal account shell)
+
+## Latest session — 2026-10-16: registration, verification and recovery
+
+PR #110 is merged with green CI. The owner approved the five-file account-flow
+extension, started from merged master `c2fef38` on `codex/account-journal`.
+Registration, email verification, reset request and reset redemption now share
+sign-in's existing ivory/serif/indigo shell, original illustration and ink detail.
+The pathname-selected client layout and quotation panel are replaced by a single
+Server Component shell. All form controls precede artwork on mobile; long messages
+can wrap. No palette token, new artwork, dependency, API or account behavior changes.
+
+The five scope regressions failed against the previous layout before implementation.
+All 72 auth-flow tests and 696 full frontend tests pass. The layout assertions were
+then strengthened to require the actual child form field to be visible and present
+before hydration; all nine focused layout tests pass. Existing auth security tests
+remain intact, including non-enumerating confirmations and URL token privacy.
+
+Frontend lint, production build/TypeScript and all four artifact gates pass. All
+five public routes remain static, built document structure and CSS tokens are sound,
+and the worst first-load bundle is 329.8 KB against the unchanged 350 KB budget.
+Ruff check/format passes across 238 files; the local production-settings Django
+deployment check reports no issues. The design detector reports no findings.
+The existing local metadataBase fallback warning remains.
+
+Eight before captures and 26 after Chrome cases are saved in the visualization
+directory (`auth-extension-before-*`, `auth-extension-after-*`, and their JSON
+reports). Desktop/mobile, dark OS preference, reduced motion, long confirmation
+text, error/success/resend screens, URL-token views and sign-in regression pass.
+No horizontal overflow or runtime page errors were found. All account pages retain
+ivory under either OS preference, and form content precedes decorative artwork.
+The verification page's keyboard sequence crosses both forms in DOM order, with
+solid focus outlines on each tested control. Screenshot review found no material
+visual corrections. The first browser attempt reached the prior preview process;
+that task-owned process was replaced and all 26 checks ran against the new build.
+
+Account submissions in browser verification use synthetic intercepted responses;
+no real account, password or email was changed or sent. Real-account delivery and
+Safari/Firefox/physical-device verification remain untested. Loading behavior stays
+with the existing shared controls and auth tests. The owner authorized publishing
+this verified batch for review on `codex/account-journal`; no deployment is authorized.
+
+No merge, deployment, production configuration change or paid service is included.
 
 ## Latest correction — 2026-10-15: conditional theme and native progress
 

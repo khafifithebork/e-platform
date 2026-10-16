@@ -7,7 +7,7 @@ import AuthLayout from "./layout";
 const route = vi.hoisted(() => ({ pathname: "/login/" }));
 vi.mock("next/navigation", () => ({ usePathname: () => route.pathname }));
 
-describe("the sign-in illustration shell", () => {
+describe("the shared account illustration shell", () => {
   it.each(["/login", "/login/"])("uses the editorial theme at %s", (pathname) => {
     route.pathname = pathname;
     const { container } = render(<AuthLayout><h1>Sign in</h1></AuthLayout>);
@@ -34,12 +34,26 @@ describe("the sign-in illustration shell", () => {
   });
 
   it.each(["/register/", "/forgot-password/", "/reset-password/", "/verify-email/"])(
-    "preserves the existing auth shell at %s", (pathname) => {
+    "extends the approved editorial shell to %s", (pathname) => {
       route.pathname = pathname;
-      const { container } = render(<AuthLayout><h1>Account step</h1></AuthLayout>);
-      expect(container.querySelector('[data-site-style="editorial"]')).not.toBeInTheDocument();
-      expect(container.querySelector("img")).not.toBeInTheDocument();
+      const { container } = render(<AuthLayout><h1>Account step</h1><input aria-label="Account field" /></AuthLayout>);
+      expect(container.querySelector('[data-site-style="editorial"]')).toBeInTheDocument();
+      expect(container.querySelector("img")).toHaveAttribute("alt", "");
       expect(screen.getByRole("main")).toHaveTextContent("Account step");
+      expect(screen.getByRole("textbox", { name: "Account field" })).toBeVisible();
+      const html = renderToString(<AuthLayout><input aria-label="Account field" /></AuthLayout>);
+      expect(html).toContain('aria-label="Account field"');
+      expect(html).not.toMatch(/opacity:0|transform:|animation:/);
     },
   );
+
+  it("keeps the ink decoration non-interactive and outside form content", () => {
+    route.pathname = "/register/";
+    const { container } = render(<AuthLayout><input aria-label="Email" /></AuthLayout>);
+    const ink = container.querySelector(".ink-spots");
+    expect(ink).toHaveAttribute("aria-hidden", "true");
+    expect(ink).not.toHaveAttribute("tabindex");
+    expect(ink?.closest("main")).toBeNull();
+    expect(ink?.querySelector("a, button, input, [tabindex]")).toBeNull();
+  });
 });

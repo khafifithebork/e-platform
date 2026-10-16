@@ -1,7 +1,7 @@
 # The design system
 
 **Status:** reference documentation, not a decision record
-**Last updated:** 2026-10-15
+**Last updated:** 2026-10-16
 **Governed by:** ADR-029 (visual refresh), ADR-030 (WCAG 2.2 AA),
 ADR-032 (application theme), ADR-037 (public editorial extension), CLAUDE.md §4 invariants and §13 style
 
@@ -19,9 +19,8 @@ brief wins and this file is wrong.
 
 Defined once, in `src/app/globals.css`, inside `@theme`. The dark scheme
 redefines a subset inside `@media (prefers-color-scheme: dark)`. Tailwind 4
-generates a utility for every one. Public routes and sign-in override these
-properties under `[data-site-style="editorial"]`; learner and other
-authentication defaults remain intact.
+generates a utility for every one. Public routes and all account screens override these
+properties under `[data-site-style="editorial"]`; learner defaults remain intact.
 
 **Semantic names only.** There is no `--color-indigo-600`. A component asks for
 `accent` and gets whatever the current scheme says that is, which is what makes
@@ -44,26 +43,26 @@ values and asserts WCAG ratios for **both** schemes. Changing a hex value means
 running the suite; a palette that passes in light and fails in dark fails for
 everyone with dark mode on, which on a reading surface is a lot of people.
 
-### Editorial overrides — public routes and sign-in
+### Editorial overrides — public routes and account screens
 
-The homepage, catalogue, pricing and sign-in inherit a fixed light palette from
+The homepage, catalogue, pricing and all account steps inherit a fixed light palette from
 their editorial shell (ADR-037). Paper and surface are warm ivory (`#faf7f0`), with
 a recessed surface (`#f0ece3`); ink is near-black (`#191919`), muted text
 `#50505a`, and subtle text `#5b5963`. Indigo actions use `#4541b5`, deepen to
 `#343087` on hover, and use white on the fill; the subtle accent is `#eeebfa`.
 Rules use `#d1ccc3`, with `#817b72` for stronger borders. Selection uses the
 accent and on-accent pair. These are scoped semantic overrides, not replacement
-tokens for learner or other authentication screens. Sign-in reuses these
+tokens for learner screens. Account steps reuse these
 existing overrides without adding or changing tokens.
 
 ### Type
 
 Operating screens use `--font-display` for headings, and `body` sets a system
-stack for everything else. Public pages and sign-in override `--font-display` with
+stack for everything else. Public pages and account screens override `--font-display` with
 `ui-serif, Georgia, Cambria, "Times New Roman", serif`; the homepage also uses
 serif for its editorial title and supporting description (ADR-037). This is a
-scoped implementation constraint, not a new global display-face rule. Sign-in
-uses the serif face for its bold 30px wordmark and 30px interstitial heading;
+scoped implementation constraint, not a new global display-face rule. Account screens
+use the serif face for its bold 30px wordmark and 30px interstitial heading;
 supporting copy, field labels, inputs, buttons and links retain the body sans.
 **No web font is loaded** — `src/app/layout.tsx` explains why at
 length, and the short version is that a build which cannot reach a font service
@@ -163,7 +162,7 @@ about bad news.
 The hero uses `PageTitle` directly, producing an ordinary `<h1>` with no entrance
 animation. `PAGE_TITLE` remains exported for scale assertions in tests.
 The other variant class strings retain their sizes; on public routes and
-sign-in their `font-display` resolves to the editorial serif override. Sign-in
+account screens their `font-display` resolves to the editorial serif override. Each account step
 keeps `interstitial`; it does not adopt the homepage's `editorial` variant.
 
 > **OPEN — the `section` variant.** It reproduces `LessonPlayer`'s existing title
@@ -385,9 +384,10 @@ visually hidden. The real
 published-course band follows. This is homepage composition, not a prohibition
 on cards elsewhere.
 
-### Sign-in composition — Illustrated Journal extension
+### Account-flow composition — Illustrated Journal extension
 
-ADR-037 extends this world to sign-in only. At `lg`, an 80rem container uses
+ADR-037 extends this world to every account step, including sign-in, registration,
+email verification and password recovery. At `lg`, an 80rem container uses
 equal columns: the form on the left and decorative artwork on the right. The
 form is capped at 24rem, with a wordmark above and a catalogue link below.
 Below `lg`, the complete form, recovery link and catalogue link precede the
@@ -400,16 +400,17 @@ recorded in the adjacent `.webp.json`. Intrinsic dimensions reserve its space.
 It has empty alternative text inside an `aria-hidden` panel; the form carries
 the page's meaning. Orange remains illustration pigment, not a UI token.
 
-The sign-in form and art render immediately, with no entrance animation.
-Shared fields, buttons, loading, error and focus feedback remain in use; login
-behavior is unchanged. Registration and password recovery retain their existing
-form entrance and desktop quotation-panel motion.
+All account forms and art render immediately, with no entrance animation.
+Shared fields, buttons, loading, error and focus feedback remain in use; all account
+behavior is unchanged. The shared layout is a Server Component, with no pathname
+lookup or quotation panel. Its form wrapper uses `overflow-wrap: anywhere` for long
+confirmation/error text; fields and actions remain the existing shared primitives.
 
 ---
 
 ## 7. Theme
 
-Learner and authentication screens other than sign-in follow
+Learner screens follow
 `prefers-color-scheme`, with no toggle or persistence (ADR-032). The root
 declares `color-scheme: light dark` outside the editorial exception.
 
@@ -419,12 +420,11 @@ The marketing layout selects `SiteShell variant="editorial"` statically;
 styling needs no runtime API call or pathname lookup. Shared components inherit
 semantic tokens from whichever surface contains them.
 
-Sign-in also stays light under either OS preference, using the same editorial
-tokens and document-root scheme (ADR-037's approved sign-in extension). The
-existing client auth layout selects this local shell only when `usePathname`
-is `/login` or `/login/`; registration and recovery retain the OS scheme.
-This branch adds no request-time API call and does not change the marketing
-layout's static shell selection.
+All account screens stay light under either OS preference, using the same editorial
+tokens and document-root scheme (ADR-037's approved account-flow extension).
+The shared Server Component auth layout selects this shell statically, without
+a pathname lookup or request-time API call. The marketing shell selection and
+learner system theme are unchanged.
 
 The public header is in normal flow, with a plain bold 30px serif wordmark,
 top navigation and no sidebar or mobile rail. The sign-in link has no visible
@@ -492,10 +492,10 @@ seen failing is not known to work.**
 | Question | Authority |
 |---|---|
 | Visual direction, palette, shell | ADR-029 |
-| Public palette, shell and typography; homepage, sign-in and catalogue composition | ADR-037 |
+| Public palette, shell and typography; homepage, account-flow and catalogue composition | ADR-037 |
 | Accessibility target and verification | ADR-030, `docs/runbooks/accessibility-verification.md` |
 | Error, loading and empty states | ADR-031, `docs/specs/frontend-state-and-api.md` |
-| Theme behaviour | ADR-032; ADR-037 for fixed-light public routes and sign-in |
+| Theme behaviour | ADR-032; ADR-037 for fixed-light public routes and account screens |
 | Language, direction, captions metadata | ADR-033 |
 | Static public routes | ADR-024 |
 | Personalisation on static pages, refusal copy | ADR-026 |
