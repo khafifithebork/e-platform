@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { BookOpen, CircleUserRound, House, Menu, Wallet, X } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -9,6 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AuthState } from "@/lib/auth/useCurrentUser";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils/cn";
+import { buttonStyles } from "@/components/ui/Button";
 
 /** Shared route list for the desktop rail and mobile drawer. Account links
  * wait for the session response so subscribers never flash a sign-in prompt.
@@ -19,7 +19,6 @@ export function SiteNavTree() {
   // below has a string to call it on rather than a rendering crash.
   const pathname = usePathname() ?? "/";
   const auth = useCurrentUser();
-  const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -107,60 +106,48 @@ export function SiteNavTree() {
         onClick={() => setOpen(true)}
         aria-expanded={open}
         aria-controls="site-map-panel"
-        className="fixed bottom-5 left-5 z-40 flex items-center gap-2 rounded-full border
-          border-line-strong bg-surface px-4 py-2.5 text-sm font-medium text-ink
-          shadow-(--shadow-card-hovered) transition-colors hover:border-ink-subtle xl:hidden"
+        className={cn(buttonStyles({ variant: "secondary", lift: false }), "mx-6 mt-5 self-start xl:hidden")}
       >
         <Menu aria-hidden="true" size={18} />
         Site map
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              aria-hidden="true"
-              onClick={() => setOpen(false)}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.2 }}
-              className="fixed inset-0 z-40 bg-ink/40 xl:hidden"
-            />
+      {open && (
+        <>
+          <div
+            aria-hidden="true"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 bg-ink/40 xl:hidden"
+          />
 
-            <motion.div
-              id="site-map-panel"
-              ref={panelRef}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Site map"
-              tabIndex={-1}
-              initial={reduceMotion ? { x: 0 } : { x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={reduceMotion ? { x: 0 } : { x: "-100%" }}
-              transition={{ duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] overflow-y-auto border-r
-                border-line bg-surface p-6 shadow-(--shadow-card-hovered) focus:outline-hidden xl:hidden"
-            >
-              <div className="mb-5 flex items-center justify-between">
-                <span className="font-display text-lg font-semibold text-ink">
-                  Site map
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  aria-label="Close site map"
-                  className="rounded-(--radius-sm) p-3 text-ink-muted transition-colors hover:text-ink"
-                >
-                  <X aria-hidden="true" size={20} />
-                </button>
-              </div>
+          <div
+            id="site-map-panel"
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Site map"
+            tabIndex={-1}
+            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] overflow-y-auto border-r
+              border-line bg-surface p-6 shadow-(--shadow-card-hovered) focus:outline-hidden xl:hidden"
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <span className="font-display text-lg font-semibold text-ink">
+                Site map
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close site map"
+                className="rounded-(--radius-sm) p-3 text-ink-muted transition-colors hover:text-ink"
+              >
+                <X aria-hidden="true" size={20} />
+              </button>
+            </div>
 
-              <TreeList pathname={pathname} auth={auth} />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            <TreeList pathname={pathname} auth={auth} />
+          </div>
+        </>
+      )}
     </>
   );
 }

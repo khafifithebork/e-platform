@@ -294,6 +294,42 @@ filters. Result counts are announced politely.
 
 ## 6. Motion
 
+### Learner navigation — in-flow mobile control
+
+Below `xl`, the learner shell stacks the Site map toggle above the page content.
+The control uses shared secondary button styles with a 44px minimum height,
+24px side margin and 20px top margin. It scrolls with the document, so users return
+to the top to reach it; it does not cover forms, transcripts or footer links.
+At `xl`, the existing desktop rail remains in the shell's horizontal layout.
+Public editorial pages remain free of the learner navigation tree.
+
+The drawer and backdrop mount/unmount immediately for all input methods and
+motion preferences. Focus containment, restoration, Escape/backdrop dismissal,
+route-change closing and resize cleanup retain the existing lifecycle without
+an animated exit keeping the dialog visible after scroll lock is released.
+The render-time reduced-motion hook is removed. Mobile footer padding is now
+the same 32px as desktop/public footers. Existing root scroll padding is retained;
+no global focus safeguard is weakened as part of this change.
+
+### Account — calm learner sections
+
+The account page retains the learner's system light/dark palette and sans display
+face. Its 48rem container has 24px side padding, 40px vertical padding initially
+and 64px from `sm`. Sections are separated by 40px initially and 48px from `sm`;
+their 24px display headings sit above thin rules rather than raised cards.
+
+Detail rows stack on mobile and align label/value columns from `sm`. Values have
+zero minimum width and wrap unbroken addresses, names and server access labels.
+Password controls retain their existing labels, autocomplete, pending, validation
+and success behavior within a full-width form capped at 24rem. Success notices
+precede the form without redundant empty margins.
+
+The data-export action uses shared secondary button styles with a minimum 44px
+target, while remaining a native same-origin download link. Its scope and account
+deletion limitations remain unchanged. Supporting paragraphs retain readable
+measures and relaxed leading. No entrance animation, new illustration or decorative
+motion is added; shared press feedback stays with existing buttons.
+
 ### Lesson player — calm learner controls
 
 The lesson player retains the learner's system light/dark palette and existing

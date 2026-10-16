@@ -1,7 +1,92 @@
 # STATUS
 
 **Last updated:** 2026-10-16
-**Updated by:** Codex (approved lesson-player polish)
+**Updated by:** Codex (approved learner-navigation correction)
+
+## Latest session — 2026-10-16: mobile navigation without content overlap
+
+The owner approved the six-file navigation batch on top of the pending account
+changes on `codex/account-polish`. Below `xl`, Site map now occupies an in-flow
+row above learner content instead of floating over fields and transcripts. Its
+shared secondary styling has a measured 44px height. Users scroll to the top to
+reach it; the desktop rail and public editorial navigation remain unchanged.
+The footer no longer reserves extra space for a floating control. Existing root
+scroll padding and its focus-safety tests are retained.
+
+A new regression first reproduced the old exit animation leaving the dialog
+visible after focus and scroll lock had been restored. Drawer/backdrop mounting
+and removal are now immediate under both motion preferences. The render-time
+reduced-motion hook is removed. Existing focus containment/restoration, Escape,
+backdrop, route-change and desktop-resize cleanup behavior is preserved and
+covered, including new immediate close, route-change and backdrop tests. New
+shell tests cover navigation/content order and editorial isolation.
+
+All 707 frontend tests pass. Lint, TypeScript/production build and the four
+artifact gates pass; five public routes remain static, document structure and
+CSS tokens are sound, and the largest first load is 321.8 KB against 350 KB.
+The design detector found no issues, the patch whitespace check passes and the
+local production-settings Django deployment check reports no issues. Ruff remains
+unavailable locally; no Python files changed. Existing metadataBase/Vite and
+jsdom scrollTo notices remain.
+
+Thirteen final Chrome cases cover 320px/390px/tablet navigation in light/dark and
+both motion preferences, account and lesson views, desktop rail and public shell.
+Keyboard focus trapping/restoration, immediate Escape/backdrop close, route-change
+closing and resize scroll release pass. No account field overlap, horizontal
+overflow or runtime errors were found. Screenshot review confirmed the floating
+control is gone; final captures frame the viewport correctly for the drawer and
+reset the lesson capture to the top after existing transcript auto-follow.
+Before views are retained in the prior account/lesson captures; final screenshots
+and `navigation-after-review.json` are in the visualization directory.
+
+Learner responses are synthetic and intercepted; no account or progress was
+changed. Safari/Firefox, physical-device and screen reader checks remain
+outstanding. No dependency, asset, API, access rule, palette or production
+configuration changed. The owner authorized committing the verified account and
+navigation batches locally. No push, merge or deployment is authorized here.
+
+## Latest session — 2026-10-16: account-page composition
+
+The verified lesson-player batch is committed locally as `026424d`. The owner
+approved the nine-file account batch, implemented on `codex/account-polish` on
+top of that commit. The page keeps learner light/dark themes and existing flows.
+Its details, access, password and data sections now have 24px display headings,
+consistent rules and spacing. Values wrap long emails, names and server labels.
+The password form keeps its existing 24rem measure, and data copy has a readable
+measure and relaxed leading. The native export link uses shared secondary control
+styles with a measured 44px target. A stale comment denying the existing export
+was corrected; no export, password, access or verification behavior was changed.
+
+All 702 frontend tests passed, including three new preservation checks for long
+details/server wording, pending password changes and keyboard export access.
+The initial production build caught a server/client boundary mistake in shared
+export styling. DataExport now uses a small client boundary to call the shared
+client control helper; it still prerenders a native anchor without state, click
+handler or fetch. After that correction all 35 focused account tests, lint,
+TypeScript/production build and four artifact gates pass. Five public routes
+remain static; the largest first load is 329.8 KB against 350 KB. The local Django
+production-settings deployment check has no issues. Impeccable's detector and
+patch whitespace check are clean. Ruff remains unavailable locally; no Python
+files changed. Existing metadataBase/Vite and jsdom scrollTo notices remain.
+
+Fourteen final Chrome cases cover desktop/mobile, both themes, both motion
+preferences, anonymous/retry states, 320px long content and password pending,
+error and success. No horizontal overflow, runtime errors or browser storage
+entries were found. Password fields, submit and export follow keyboard order;
+keyboard focus rings are visible. The first checker incorrectly evaluated
+focus-visible after pointer submissions; it was corrected to use keyboard input
+and all fourteen cases passed. Screenshot inspection required no visual changes.
+
+Before/after screenshots and `account-after-review.json` are saved in the local
+visualization directory. Account and submission responses are synthetic and
+intercepted: no real password, account or export was changed or downloaded.
+Real-account/export, Safari/Firefox, physical-device and screen reader checks
+remain unverified. The known floating mobile Site map overlap remains unchanged
+for the separately proposed shared-navigation batch.
+
+No new dependency, asset, palette, API, billing/access rule or production
+configuration is introduced. This account batch remains local and uncommitted;
+no push, merge or deployment occurred.
 
 ## Latest session — 2026-10-16: lesson-player and transcript polish
 

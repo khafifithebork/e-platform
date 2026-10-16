@@ -19,8 +19,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SiteNavTree } from "@/components/site/SiteNavTree";
 
+const route = vi.hoisted(() => ({ pathname: "/courses" }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/courses",
+  usePathname: () => route.pathname,
 }));
 
 const ME = {
@@ -44,6 +45,7 @@ function notAuthenticated() {
 }
 
 beforeEach(() => {
+  route.pathname = "/courses";
   vi.stubGlobal("fetch", vi.fn());
 });
 
@@ -129,6 +131,42 @@ describe("what it always shows", () => {
 });
 
 describe("mobile navigation keyboard access", () => {
+  it("closes the drawer and releases scrolling on route changes", async () => {
+    vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+    const user = userEvent.setup();
+    const { rerender } = render(<SiteNavTree />);
+    await user.click(screen.getByRole("button", { name: "Site map" }));
+    route.pathname = "/account";
+    rerender(<SiteNavTree />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("closes immediately when the backdrop is clicked", async () => {
+    vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+    const user = userEvent.setup();
+    render(<SiteNavTree />);
+    const toggle = screen.getByRole("button", { name: "Site map" });
+    await user.click(toggle);
+    const panel = screen.getByRole("dialog", { name: "Site map" });
+    fireEvent.click(panel.previousElementSibling!);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("removes the drawer immediately on close and restores focus and scrolling", async () => {
+    vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+    const user = userEvent.setup();
+    render(<SiteNavTree />);
+    const toggle = screen.getByRole("button", { name: "Site map" });
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: "Close site map" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+    expect(document.body.style.overflow).toBe("");
+  });
+
   it("releases the drawer and scroll lock when resized to desktop", async () => {
     vi.mocked(fetch).mockResolvedValue(notAuthenticated());
     const user = userEvent.setup();

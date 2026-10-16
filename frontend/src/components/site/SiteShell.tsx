@@ -19,7 +19,7 @@ import { SiteNavTree } from "@/components/site/SiteNavTree";
  * drift — and the half that drifts is the one nobody has open when they change
  * the other.
  *
- * A Server Component. `AuthMenu` inside it is the only client boundary, which
+ * A Server Component. `AuthMenu` and the learner's `SiteNavTree` are client boundaries, which
  * is what keeps the `(marketing)` pages statically generated (invariant 15)
  * while still greeting somebody by name.
  */
@@ -107,11 +107,10 @@ export function SiteShell({ children, variant = "learning" }: {
          * a sidebar exists. No `items-start`: the default `stretch` is what
          * lets the sidebar's background and right border run the full height
          * of whatever page sits beside it, rather than stopping after its own
-         * short list of links. Below `xl`, `SiteNavTree` renders nothing here
-         * at all — its mobile form is a fixed-position toggle — so
-         * `min-w-0 flex-1` is simply the whole width down there.
+         * short list of links. Below `xl`, the row becomes a column so the
+         * mobile toggle occupies its own space before the page content.
          */}
-        <div className="flex w-full flex-1">
+        <div className="flex w-full flex-1 flex-col xl:flex-row">
           {!editorial && <SiteNavTree />}
           <div className="min-w-0 flex-1">{children}</div>
         </div>
@@ -122,7 +121,7 @@ export function SiteShell({ children, variant = "learning" }: {
       </div>}
       <footer className="border-t border-line bg-surface">
         <div
-          className={`mx-auto flex max-w-7xl flex-col gap-4 px-6 pt-8 text-sm text-ink-subtle sm:flex-row sm:items-center sm:justify-between ${editorial ? "pb-8" : "pb-24 xl:pb-8"}`}
+          className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-8 text-sm text-ink-subtle sm:flex-row sm:items-center sm:justify-between"
         >
           <p>Every course here is reviewed before it is published.</p>
 
