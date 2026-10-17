@@ -17,6 +17,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, PROBLEM_NOT_AUTHENTICATED, api } from "@/lib/api/client";
+import { sessionStatus } from "@/lib/auth/session-status";
 
 /** The last request `fetch` was called with. */
 function lastCall(): { url: string; init: RequestInit } {
@@ -33,6 +34,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 beforeEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ok: true })));
   // A CSRF cookie, so unsafe requests do not trigger the bootstrap fetch and
   // make every assertion about "the last call" ambiguous.
@@ -40,8 +42,104 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   vi.unstubAllGlobals();
   document.cookie = "csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+});
+
+describe("session observation at the real request boundary", () => {
+  function signedOut(type = PROBLEM_NOT_AUTHENTICATED, reason?: string) {
+    return jsonResponse({ type, title: "Authentication required", status: 403,
+      detail: "The server's exact sign-in message.", errors: null, ...(reason ? { reason } : {}) }, 403);
+  }
+
+  it("leaves an initial anonymous visit neutral", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(signedOut());
+    await expect(api.me()).rejects.toBeInstanceOf(ApiError);
+    expect(sessionStatus.getSnapshot().status).toBe("unknown");
+  });
+
+  it("publishes confirmed session loss while retaining the original ApiError", async () => {
+    await api.me();
+    vi.mocked(fetch).mockResolvedValueOnce(signedOut());
+    await expect(api.myCourses()).rejects.toMatchObject({ isNotAuthenticated: true });
+    expect(sessionStatus.getSnapshot()).toEqual({ status: "ended", detail: "The server's exact sign-in message." });
+  });
+
+  it("recognizes LOGIN_REQUIRED only when supplied by the entitlement problem type", async () => {
+    await api.me();
+    vi.mocked(fetch).mockResolvedValueOnce(signedOut("about:blank", "LOGIN_REQUIRED"));
+    await expect(api.myCourses()).rejects.toBeInstanceOf(ApiError);
+    expect(sessionStatus.getSnapshot().status).toBe("confirmed");
+    vi.mocked(fetch).mockResolvedValueOnce(signedOut("/problems/entitlement-denied", "LOGIN_REQUIRED"));
+    await expect(api.lesson("lesson-1")).rejects.toBeInstanceOf(ApiError);
+    expect(sessionStatus.getSnapshot().status).toBe("ended");
+  });
+
+  it("ignores permission, CSRF, network and server errors", async () => {
+    await api.me();
+    for (const response of [signedOut("about:blank"),
+      signedOut("/problems/entitlement-denied", "SUBSCRIPTION_EXPIRED"),
+      jsonResponse({ type: "about:blank", status: 403, detail: "CSRF Failed", errors: null }, 403),
+      new Response("Gateway failed", { status: 502 })]) {
+      vi.mocked(fetch).mockResolvedValueOnce(response);
+      await expect(api.myCourses()).rejects.toBeInstanceOf(ApiError);
+      expect(sessionStatus.getSnapshot().status).toBe("confirmed");
+    }
+    vi.mocked(fetch).mockRejectedValueOnce(new TypeError("offline"));
+    await expect(api.myCourses()).rejects.toThrow("offline");
+    expect(sessionStatus.getSnapshot().status).toBe("confirmed");
+  });
+
+  it("does not describe an intentional logout refusal as session expiry", async () => {
+    await api.me();
+    vi.mocked(fetch).mockResolvedValueOnce(signedOut());
+    await expect(api.logout()).rejects.toBeInstanceOf(ApiError);
+    expect(sessionStatus.getSnapshot().status).toBe("unknown");
+  });
+
+  it("requires a fresh successful me response to confirm recovery", async () => {
+    await api.me();
+    vi.mocked(fetch).mockResolvedValueOnce(signedOut());
+    await expect(api.myCourses()).rejects.toBeInstanceOf(ApiError);
+    await api.myCourses();
+    expect(sessionStatus.getSnapshot().status).toBe("ended");
+    await api.me();
+    expect(sessionStatus.getSnapshot().status).toBe("confirmed");
+  });
+
+  it("does not let an older successful me request clear a newer refusal", async () => {
+    await api.me();
+    let complete!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { complete = resolve; }));
+    const oldMe = api.me();
+    vi.mocked(fetch).mockResolvedValueOnce(signedOut());
+    await expect(api.myCourses()).rejects.toBeInstanceOf(ApiError);
+    complete(jsonResponse({ id: "fixture-user" }));
+    await oldMe;
+    expect(sessionStatus.getSnapshot().status).toBe("ended");
+  });
+
+  it("does not let an older refusal invalidate a newer successful me request", async () => {
+    await api.me();
+    let complete!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { complete = resolve; }));
+    const oldRead = api.myCourses();
+    await api.me();
+    complete(signedOut());
+    await expect(oldRead).rejects.toBeInstanceOf(ApiError);
+    expect(sessionStatus.getSnapshot().status).toBe("confirmed");
+  });
+
+  it.each(["login", "logout"] as const)("releases observation suppression after a failed %s request", async (intent) => {
+    await api.me();
+    vi.mocked(fetch).mockRejectedValueOnce(new TypeError("offline"));
+    const operation = intent === "login" ? api.login("fixture@example.test", "synthetic-password") : api.logout();
+    await expect(operation).rejects.toThrow("offline");
+    expect(sessionStatus.getSnapshot().status).toBe("unknown");
+    await api.me();
+    expect(sessionStatus.getSnapshot().status).toBe("confirmed");
+  });
 });
 
 describe("the request id header", () => {

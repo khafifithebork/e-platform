@@ -8,6 +8,7 @@
  */
 
 import type { components } from "@/types/api";
+import { sessionStatus } from "@/lib/auth/session-status";
 
 /**
  * RFC 9457 Problem Details — the one error shape the API returns
@@ -140,25 +141,39 @@ async function request<T>(
     headers.set(REQUEST_ID_HEADER, newRequestId());
   }
 
-  if (json !== undefined) headers.set("Content-Type", "application/json");
-  if (method !== "GET" && method !== "HEAD") {
-    headers.set("X-CSRFToken", await ensureCsrfToken());
+  const intent = path === "/auth/login/" ? "login" : path === "/auth/logout/" ? "logout" : undefined;
+  const ticket = sessionStatus.begin(intent);
+  try {
+    if (json !== undefined) headers.set("Content-Type", "application/json");
+    if (method !== "GET" && method !== "HEAD") {
+      headers.set("X-CSRFToken", await ensureCsrfToken());
+    }
+
+    const response = await fetch(`/api/v1${path}`, {
+      ...rest,
+      method,
+      headers,
+      // The whole point of same-origin: the session cookie rides along and
+      // never touches JavaScript.
+      credentials: "same-origin",
+      body: json === undefined ? rest.body : JSON.stringify(json),
+    });
+
+    if (!response.ok) {
+      const error = new ApiError(await toProblem(response));
+      if (error.isNotAuthenticated || error.entitlementReason === "LOGIN_REQUIRED") {
+        sessionStatus.authenticationRequired(ticket, error.problem.detail);
+      }
+      throw error;
+    }
+    if (response.status === 204) return undefined as T;
+
+    const result = (await response.json()) as T;
+    if (path === "/auth/me/") sessionStatus.confirm(ticket);
+    return result;
+  } finally {
+    sessionStatus.finish(ticket);
   }
-
-  const response = await fetch(`/api/v1${path}`, {
-    ...rest,
-    method,
-    headers,
-    // The whole point of same-origin: the session cookie rides along and
-    // never touches JavaScript.
-    credentials: "same-origin",
-    body: json === undefined ? rest.body : JSON.stringify(json),
-  });
-
-  if (!response.ok) throw new ApiError(await toProblem(response));
-  if (response.status === 204) return undefined as T;
-
-  return (await response.json()) as T;
 }
 
 /** The signed-in user, generated from the OpenAPI schema (invariant 16). */
