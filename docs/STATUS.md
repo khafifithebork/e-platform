@@ -3,6 +3,28 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (approved query-consistent catalogue search)
 
+## Latest verification — 2026-10-17: public-page reflow and enlarged text
+
+Homepage, catalogue, published course detail and pricing passed 16 Chrome
+scenarios: 320px reflow, 720px zoom-equivalent layout and simulated doubled
+font/line sizes at 1440px light and 390px dark-system preference. Public surfaces
+retain their fixed-light theme. The final pass waited for header hydration before
+text enlargement. All 180 keyboard stops stayed visible; no overflow, tested
+heading/control clipping or runtime errors occurred. Desktop/mobile captures were
+reviewed together and confirmed. Evidence: `public-reflow-review.json` and
+`public-reflow-*.jpg` in the task visualization directory. No product code changed.
+Actual browser/native text-only zoom, screen readers and other browsers remain
+unverified. This log/runbook update and the drawer-focus regression are uncommitted.
+
+## Latest verification — 2026-10-17: drawer focus during session loss
+
+Search correction is committed locally as `49daff6`. Synthetic 390px Chrome
+confirmed that focus stays inside an open drawer when session loss replaces its
+account links; Tab still wraps to Close. No product correction was needed.
+The matching regression, all 15 SiteNavTree tests, lint and type checking pass. Browser evidence:
+`drawer-session-focus-before-review.json` / `drawer-session-focus-before.jpg`
+in the task visualization directory. Only this log and the test changed.
+
 ## Latest session — 2026-10-17: search results follow the current query
 
 The owner approved the six-file correction on `codex/account-polish`.

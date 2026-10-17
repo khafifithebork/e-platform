@@ -246,6 +246,13 @@ the task visualization directory (`reflow-review.json`); STATUS records limits.
 Actual browser zoom and native text-only zoom still need a person. Historical
 notes below do not supersede this narrower automated evidence.
 
+**Public-page supplement, 2026-10-17:** the same four modes passed on homepage,
+catalogue, published course detail and pricing: 16 cases, 180 keyboard stops,
+no overflow, tested-control clipping or hidden focus. Header hydration completed
+before enlargement; public fixed-light theming was preserved. Evidence:
+`public-reflow-review.json` and `public-reflow-*.jpg` in the task visualization
+directory. This is simulated enlargement/reflow, not actual browser zoom.
+
 **§3.1 only.** Nothing else in §3 has been walked, and until a row appears for a
 section, nothing in this file may be cited as evidence about it.
 

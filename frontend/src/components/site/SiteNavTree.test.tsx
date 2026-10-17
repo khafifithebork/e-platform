@@ -13,7 +13,7 @@
  * consumer of it, and until now the untested one.
  */
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -57,6 +57,19 @@ afterEach(() => {
 });
 
 describe("the account branch", () => {
+  it("keeps focus inside the open drawer when a confirmed session ends", async () => {
+    vi.mocked(fetch).mockResolvedValue(json(ME));
+    render(<SiteNavTree />);
+    await screen.findByRole("link", { name: "Account" });
+    await userEvent.click(screen.getByRole("button", { name: "Site map" }));
+    const panel = screen.getByRole("dialog", { name: "Site map" });
+    within(panel).getByRole("link", { name: "Account" }).focus();
+    act(() => sessionStatus.authenticationRequired(sessionStatus.begin(), "Sign in again."));
+    expect(within(panel).queryByRole("link", { name: "Account" })).not.toBeInTheDocument();
+    expect(panel.contains(document.activeElement)).toBe(true);
+    await userEvent.tab();
+    expect(within(panel).getByRole("button", { name: "Close site map" })).toHaveFocus();
+  });
   it("offers account settings only to signed-in learners and marks the current route", async () => {
     vi.mocked(fetch).mockImplementation(async () => json(ME));
     route.pathname = "/account";
