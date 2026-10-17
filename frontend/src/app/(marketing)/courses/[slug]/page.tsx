@@ -6,7 +6,6 @@ import { CourseCard } from "@/components/catalogue/CourseCard";
 import { LanguageName } from "@/components/catalogue/LanguageName";
 import { CourseProgress } from "@/components/catalogue/CourseProgress";
 import { Curriculum } from "@/components/catalogue/Curriculum";
-import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Badge } from "@/components/ui/Badge";
 import { PageTitle } from "@/components/ui/PageTitle";
 import {
@@ -103,9 +102,10 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
   const { slug } = await params;
   const course = await loadCourse(slug);
   const skills = Array.isArray(course.skill_areas) ? (course.skill_areas as string[]) : [];
+  const lessonCount = course.sections.reduce((total, section) => total + section.lessons.length, 0);
 
   return (
-    <article className="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-16">
+    <article className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-10 sm:gap-12 sm:py-16 [overflow-wrap:anywhere]">
       {/*
        * `schema.org/Course`, from stored facts only.
        *
@@ -123,9 +123,9 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
        */}
       <script type="application/ld+json">{JSON.stringify(courseStructuredData(course))}</script>
 
-      <header className="flex flex-col gap-4">
+      <header className="flex min-w-0 flex-col gap-5 border-b border-line pb-8 sm:pb-10">
         <p className="flex items-center gap-2 text-sm text-ink-subtle">
-          <Link href="/courses" className="hover:text-ink">
+          <Link href="/courses" className="underline-offset-4 hover:text-ink hover:underline">
             Courses
           </Link>
           <span aria-hidden="true">/</span>
@@ -158,8 +158,14 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
           )}
         </p>
 
+        <p className="text-sm text-ink-muted tabular-nums">
+          {course.sections.length} {course.sections.length === 1 ? "section" : "sections"}
+          <span aria-hidden="true"> · </span>
+          {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"}
+        </p>
+
         {course.description && (
-          <p className="text-lg leading-relaxed text-ink-muted">{course.description}</p>
+          <p className="max-w-prose whitespace-pre-line text-lg leading-relaxed text-ink-muted">{course.description}</p>
         )}
 
         {skills.length > 0 && (
@@ -194,13 +200,13 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
           <h2 id="related" className="font-display text-2xl text-ink">
             Related courses
           </h2>
-          <StaggerList className="grid gap-5 sm:grid-cols-2">
+          <ul aria-labelledby="related" className="grid gap-5 sm:grid-cols-2">
             {course.related.map((related) => (
-              <StaggerItem key={related.slug}>
+              <li key={related.slug} className="min-w-0">
                 <CourseCard course={related} />
-              </StaggerItem>
+              </li>
             ))}
-          </StaggerList>
+          </ul>
         </section>
       )}
     </article>

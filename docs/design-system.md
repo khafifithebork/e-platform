@@ -345,9 +345,30 @@ primitives; prefer them over hand-rolled variants.
 
 Catalogue browse and ranked-search results render immediately, without
 `StaggerList` or per-result entrance wrappers. Shared course-card border feedback
-uses CSS as described in §5. Homepage featured-course and related-course list
-wrappers retain their existing entrances; removing catalogue entrances does not
-establish a global ban on list motion.
+uses CSS as described in §5. Homepage featured-course wrappers retain their
+existing entrances; course-detail related courses render immediately. This does
+not establish a global ban on list motion.
+
+### Course detail — Illustrated Journal
+
+The public course article is capped at 64rem with 24px side padding. Its serif
+page title, language, level, instructor when supplied, and published section/lesson
+counts form the introduction above a thin rule. Descriptions retain line breaks
+and a readable prose measure; missing content is not replaced with invented copy.
+Curriculum sections use numbered, ruled rows rather than cards. Lesson links have
+44px minimum height, and preview badges retain the API's preview flag.
+
+All sections begin expanded. Activating a disclosure changes its panel's native
+`hidden` attribute and chevron orientation immediately, with no animation under
+either motion preference. Hidden lessons leave keyboard navigation and the
+accessibility tree; reopening restores them. No render-time reduced-motion hook
+is needed. Related course cards have no entrance stagger.
+
+The browser-resolved learner strip reuses `.course-progress` native styling and
+shared button styles for Start/Continue. Progress precedes its action on mobile;
+the finished state and neutral anonymous/loading/error behavior are unchanged.
+The existing public footer stippling supplies the ink detail; no new art or token
+is introduced.
 
 ### Homepage illustration entrance
 

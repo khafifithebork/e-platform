@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -41,7 +41,6 @@ export function Curriculum({
   /** Needed to build lesson links — a lesson URL is course-scoped. */
   courseSlug: string;
 }) {
-  const reduceMotion = useReducedMotion();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
 
   function toggle(sectionId: string) {
@@ -63,7 +62,7 @@ export function Curriculum({
   const ordered = [...sections].sort((a, b) => a.position - b.position);
 
   return (
-    <ol className="flex flex-col gap-3">
+    <ol className="divide-y divide-line border-y border-line">
       {ordered.map((section, index) => {
         const open = !collapsed.has(section.id);
         const panelId = `curriculum-section-${section.id}`;
@@ -71,7 +70,7 @@ export function Curriculum({
         return (
           <li
             key={section.id}
-            className="flex flex-col gap-1 rounded-(--radius-lg) border border-line bg-surface p-4"
+            className="min-w-0 py-2 [overflow-wrap:anywhere]"
           >
             <h3>
               <button
@@ -79,7 +78,7 @@ export function Curriculum({
                 onClick={() => toggle(section.id)}
                 aria-expanded={open}
                 aria-controls={panelId}
-                className="flex w-full items-center gap-2 rounded-(--radius-sm) py-1
+                className="flex min-h-12 w-full items-center gap-3 rounded-(--radius-sm) py-3
                   text-start font-display text-lg text-ink transition-colors
                   hover:text-accent"
               >
@@ -92,32 +91,23 @@ export function Curriculum({
                   {index + 1}.
                 </span>
                 <span className="flex-1">{section.title}</span>
-                <motion.span
+                <ChevronDown
                   aria-hidden="true"
-                  animate={{ rotate: open ? 0 : -90 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.2 }}
-                  className="text-ink-subtle"
-                >
-                  ▾
-                </motion.span>
+                  size={18}
+                  className={`shrink-0 text-ink-subtle ${open ? "" : "-rotate-90"}`}
+                />
               </button>
             </h3>
 
-            <motion.div
+            <div
               id={panelId}
-              initial={false}
-              animate={{
-                height: open ? "auto" : 0,
-                opacity: open ? 1 : 0,
-              }}
-              transition={{ duration: reduceMotion ? 0 : 0.25, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: "hidden" }}
+              hidden={!open}
             >
-              <ul className="flex flex-col gap-1.5 border-s border-line py-1 ps-4">
+              <ul className="mb-3 flex flex-col border-s border-line ps-4 sm:ms-6">
                 {[...section.lessons]
                   .sort((a, b) => a.position - b.position)
                   .map((lesson) => (
-                    <li key={lesson.id} className="flex items-baseline gap-2 text-sm">
+                    <li key={lesson.id} className="flex flex-wrap items-center gap-x-3 text-sm">
                       {/*
                        * Lessons are links as of M16 T3, and they were
                        * deliberately not links before.
@@ -135,7 +125,7 @@ export function Curriculum({
                        */}
                       <Link
                         href={`/courses/${courseSlug}/lessons/${lesson.slug}`}
-                        className="text-ink-muted hover:text-ink"
+                        className="flex min-h-11 min-w-0 items-center py-2 text-ink-muted underline-offset-4 hover:text-accent hover:underline"
                       >
                         {lesson.title}
                       </Link>
@@ -144,7 +134,7 @@ export function Curriculum({
                     </li>
                   ))}
               </ul>
-            </motion.div>
+            </div>
           </li>
         );
       })}
