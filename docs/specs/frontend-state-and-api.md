@@ -499,7 +499,7 @@ and it writes one number under a namespaced key.
 | Item | Section | Status |
 |---|---|---|
 | ~~Pagination on `/me/courses/`~~ | §8 | **Fixed 2026-09-27** |
-| No app-wide session-expiry response | §10 | Gap, needs a decision on what the app should do |
-| No performance budget | §11 | Needs per-route figures first |
+| App-wide session-expiry response | §10 | Implemented 2026-10-17; ADR-038, commits `6c5099e` / `d105061` |
+| Performance budget | §11 | Enforced at 350 KB per static route; dynamic lesson measured separately in STATUS |
 | No preferences mechanism | §9 | Not needed yet |
 | Filtered catalogue URLs are not shareable | §2 | Consequence of ADR-024, not a bug |

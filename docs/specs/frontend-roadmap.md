@@ -1,6 +1,14 @@
 # Frontend roadmap — the remaining gaps, in dependency order
 
 **Status:** written 2026-09-27 and **substantially overtaken the same day.**
+
+**Current supplement — 2026-10-17:** STATUS and ADR-038 supersede the historical
+open-work statements below. Session feedback is implemented. Chrome keyboard,
+forced-color and simulated reflow/text passes are recorded in STATUS/runbook;
+actual zoom, native text-only zoom and screen-reader passes remain open. The
+dynamic lesson's initial HTML scripts/CSS measured 323.6 KB gzip; the static CI
+budget still excludes it. Caption language shipped in D4; E7 concerns real media.
+Owner/content/provider blockers in E remain, and F ideas remain unapproved.
 **Depends on:** nothing outstanding — **all four ADRs were accepted by the owner on
 2026-09-27**, and two of the four defects were fixed in the process.
 

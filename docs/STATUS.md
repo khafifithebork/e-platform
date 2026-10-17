@@ -3,6 +3,20 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (approved query-consistent catalogue search)
 
+## Latest checkpoint — 2026-10-17: committed verification and checklist reconciliation
+
+Drawer/public verification is committed as `f067cf2`. The owner now requests
+committing each verified step and proceeding without approval wherever permitted;
+AGENTS approval gates and the prohibition on unrequested merge/deploy still apply.
+Roadmap/state notes now point to implemented session feedback, measured lesson
+assets and the enforced bundle gate, preserving manual/content/provider limits.
+GitHub inspection found PR #112 open, mergeable and CI-green; those checks cover
+its course-detail branch, not unpublished local commits. All 752 frontend tests
+across 59 files pass including the added drawer-focus regression. Its lint/type
+checks were already clean; the last product build/artifact checks are unchanged.
+Referenced documentation exists and patch whitespace is clean. This checkpoint
+is committed with this snapshot. Nothing was pushed, merged or deployed.
+
 ## Latest verification — 2026-10-17: public-page reflow and enlarged text
 
 Homepage, catalogue, published course detail and pricing passed 16 Chrome
