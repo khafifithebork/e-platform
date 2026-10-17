@@ -3,6 +3,25 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (authorized course-detail merge and local integration)
 
+## Latest correction — 2026-10-17: independent transcript reading direction
+
+Synthetic Arabic cues inherited LTR despite `lang="ar"`. Each cue now uses the
+existing automatic-direction pattern; English-leading mixed cues and interface
+headings remain LTR. The computed-direction/alignment browser assertion failed
+before the fix and passes at 320/390/1440px, including dark/reduced-motion modes
+and keyboard seeking/focus. All 64 transcript/player tests, lint, types, build
+and four artifact gates pass (five static public routes; largest first load 322.9 KB).
+Before/after captures and `arabic-transcript-direction-*-review.json` are in the
+task visualization directory. No API, auth, locale, dependency or palette changed.
+
+## Latest checkpoint — 2026-10-17: PR #113 merged with green CI
+
+The owner authorized PR #113's merge. Head `315ae99` passed backend, frontend,
+release-image and both audit checks, and merged as `27242742e6baa87f7d295d1180e83d586ef1dd29`.
+Local master was fast-forwarded; its product tree matches the verified revision.
+All individual frontend commits remain in history. Deployment jobs were skipped.
+Further work starts on `codex/frontend-followup`; no production action was taken.
+
 ## Latest publication — 2026-10-17: remaining approved frontend batches in draft PR #113
 
 PR #112 is merged at `cc39a2f`; integration commit `649daa6` preserves all newer

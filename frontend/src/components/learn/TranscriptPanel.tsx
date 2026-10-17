@@ -123,6 +123,7 @@ export function TranscriptPanel({
             <button
               ref={index === current ? currentRef : undefined}
               type="button"
+              dir="auto"
               onClick={() => onSeek(segment.start_ms / 1000)}
               aria-current={index === current ? "true" : undefined}
               className={`min-h-11 w-full rounded-(--radius-sm) border-s px-3 py-3 text-start text-sm

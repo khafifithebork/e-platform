@@ -371,6 +371,8 @@ display heading and a thin active-cue rule. Cue buttons have 44px minimum height
 and wrap unbroken text. The outer flex container is capped at 32rem; its section
 and scrolling list have zero minimum height so long transcripts scroll inside
 the panel. Cue language, `aria-current` and keyboard seeking remain intact.
+Each cue uses automatic content direction, so Arabic/Hebrew and English-leading
+mixed cues align independently without changing the interface's direction.
 Following changes only the list's scroll offset, never document/ancestor scroll.
 On cue changes, move only enough to reveal a clipped cue; leave visible cues and
 partially visible oversized cues still. Wholly offscreen oversized cues align at
