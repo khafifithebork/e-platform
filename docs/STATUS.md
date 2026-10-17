@@ -1,7 +1,105 @@
 # STATUS
 
-**Last updated:** 2026-10-16
-**Updated by:** Codex (approved header/account navigation polish)
+**Last updated:** 2026-10-17
+**Updated by:** Codex (approved inline session-ended feedback)
+
+## Latest session — 2026-10-17: inline session-ended notice and navigation recovery
+
+The separately approved UI batch is implemented locally on `codex/account-polish`.
+`SessionExpiryNotice` mounts inside the shared main landmark and uses the existing
+themed Notice plus a 44px Sign in link. The heading is "Sign in to continue";
+the server detail is rendered verbatim as plain text. The action stacks on narrow
+screens, long unbroken messages wrap, and server HTML remains neutral. No focus
+transfer, animation, redirect, timer, retry or polling is introduced.
+
+Header and rail/drawer now share the identity hook. Confirmed session loss removes
+their signed-in links and invalidates pending identity results. Fresh confirmation
+resolves identity again, showing a neutral placeholder while waiting rather than
+revealing the previous account. Existing pending sign-out and full-page navigation
+are preserved. Already-loaded page content and form values remain in place;
+existing page refusals and Django access enforcement are unchanged.
+
+The new identity/notice regressions failed before implementation. All **739 tests
+across 59 files** now pass, including eight added cases for notice silence, exact
+wording/text escaping, focus preservation, neutral SSR, identity invalidation,
+recovery to a different account, late responses and pending logout. Existing
+assertions were retained. Session reset was added to navigation and identity test
+fixtures to isolate simulated browser visits. The actual existing hook test file
+was extended instead of retaining a second test file. To keep this UI batch at ten
+files, ADR-038 records its presentation guidance; design-system.md was not changed.
+
+Frontend lint, type checking, production build, patch whitespace and all four
+artifact gates pass. Five public routes remain static, 13 pages pass the structure
+gate, all CSS token references resolve, and the largest first load is **322.8 KB**
+against 350 KB. Local production-settings Django deployment check reports zero
+issues. Ruff remains unavailable; no Python files changed. Existing metadataBase,
+Vite and jsdom scrollTo notices remain.
+
+Eight synthetic Chrome scenarios pass at 320–1440px in light/dark, with reduced
+motion, anonymous visits, permission/network failures and long server text. The
+notice appears only for confirmed loss, header/drawer identity updates together,
+the keyboard focus target is retained and recovery targets measure at least 44px.
+No overflow, runtime errors or browser-storage entries were found. The final axe
+WCAG A/AA scan found no violations in those eight scenarios. A separate 18-case
+header/navigation/logout regression also passes, including full JavaScript-context
+teardown on both successful and failed logout. Impeccable detector returned no
+findings. Desktop/mobile/light/dark/long-message captures were inspected together;
+no material visual correction was needed, then the bounded confirmation completed.
+
+Before/after captures, `session-notice-before-review.json`,
+`session-notice-after-review.json` and `session-notice-regression-review.json`
+are in the task visualization directory. Real-account expiry, Safari/Firefox,
+physical devices and screen-reader announcements remain human verification items.
+Detection still waits for an existing observed API request; native downloads and
+unload beacons do not detect expiry. No dependency, service, API contract, auth
+strategy, access rule or production configuration changed. The observation
+foundation is committed locally as `6c5099e`; the approved UI batch is committed
+with this status snapshot. No push, merge or deployment occurred.
+
+## Latest session — 2026-10-17: session-loss detection foundation
+
+Header/account navigation is committed locally as `9f08829`. The owner chose an
+inline sign-in notice and approved the first six-file detection batch. It is
+implemented on `codex/account-polish`: a browser-only presentation store and
+tests, API integration and tests, ADR-038 and this status update. No notice or
+header/navigation synchronization is wired yet; those remain the next batch.
+
+Successful parsed `/auth/me/` establishes a confirmed observation. Only a request
+begun in that state can report session loss for a specific not-authenticated
+problem or entitlement `LOGIN_REQUIRED`. Original errors still reach callers,
+and the server detail is retained verbatim. Anonymous visits, permission/CSRF,
+subscription, network and server errors do not produce an ended observation.
+Requests carry ordering and epoch information so stale successes/refusals cannot
+overwrite newer observations. Login/logout resets and temporarily suppresses
+observation, including late responses from requests begun during those operations.
+Fresh `/me` confirmation establishes recovery. There are no timers, polling,
+identity/credential retention, browser-storage writes or server-side user state.
+Django remains authoritative for authentication and access.
+
+The store was tested before API wiring. A late-response regression reproduced
+an in-flight login/logout race and passed after eligibility was captured at
+request start. Four request-boundary regressions failed before integration and
+then passed. All 731 frontend tests, lint, type checking/production build and
+four artifact gates pass. Five public routes remain static; largest first load
+is 322.2 KB against 350 KB. Local production-settings Django deployment check and
+patch whitespace check pass. The server-isolation assertion was additionally
+strengthened to check neutrality after the simulated server environment ends.
+Ruff remains unavailable locally; no Python files changed. Existing metadataBase,
+Vite and jsdom scrollTo notices remain.
+
+Eighteen Chrome regression cases pass using synthetic intercepted sessions:
+320–1440px, light/dark, anonymous/signed-in, account navigation and pending,
+successful and failed logout. No overflow, runtime errors or storage entries
+were found; full-page logout still clears the synthetic JavaScript-context probe.
+Captures and `session-foundation-after-review.json` are in the visualization
+directory. They verify unchanged existing UI flows, not a notice that is not yet
+implemented. Real-account/session expiry, Safari/Firefox, physical devices and
+screen readers remain unverified.
+
+Detection waits for an existing API request; native downloads and unload beacons
+are not observation sources. No dependency, API contract, auth strategy, access
+rule or production configuration changed. This foundation is local and
+uncommitted; no push, merge or deployment occurred.
 
 ## Latest session — 2026-10-16: responsive header identity and Account link
 

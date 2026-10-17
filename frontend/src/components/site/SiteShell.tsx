@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AuthMenu } from "@/components/auth/AuthMenu";
+import { SessionExpiryNotice } from "@/components/auth/SessionExpiryNotice";
 import { NavLinks } from "@/components/site/NavLinks";
 import { SiteNavTree } from "@/components/site/SiteNavTree";
 
@@ -100,6 +101,7 @@ export function SiteShell({ children, variant = "learning" }: {
        * next Tab goes straight back into the navigation the user just skipped.
        */}
       <main id="main" tabIndex={-1} className="flex flex-1 flex-col focus:outline-hidden">
+        <SessionExpiryNotice />
         {/*
          * The sidebar and the page content share this row so `SiteNavTree`'s
          * column sits in the margin a fixed content width otherwise leaves

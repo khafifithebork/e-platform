@@ -16,6 +16,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthMenu } from "@/components/auth/AuthMenu";
+import { api } from "@/lib/api/client";
+import { sessionStatus } from "@/lib/auth/session-status";
 
 const ME = {
   id: "u1",
@@ -53,6 +55,7 @@ function pending() {
 }
 
 beforeEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   // Storage is process-global and `cleanup()` does not touch it, so a test
   // that wrote would leak into the next one's count. Noticed while provoking
   // the abuse-case-8 checks: caching the user broke not only the assertion
@@ -65,7 +68,19 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   vi.unstubAllGlobals();
+});
+
+it("replaces signed-in links when a real API refusal confirms session loss", async () => {
+  vi.mocked(fetch).mockResolvedValue(json(ME));
+  render(<AuthMenu />);
+  await screen.findByRole("link", { name: ME.email });
+  vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+  await act(async () => { await expect(api.myCourses()).rejects.toThrow(); });
+  expect(screen.getByRole("link", { name: "Sign in" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: ME.email })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "My courses" })).not.toBeInTheDocument();
 });
 
 describe("before the answer arrives", () => {

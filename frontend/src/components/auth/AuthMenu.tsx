@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { ApiError, api, type Me } from "@/lib/api/client";
+import { api } from "@/lib/api/client";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { buttonStyles } from "@/components/ui/Button";
 
 /**
@@ -23,45 +24,9 @@ import { buttonStyles } from "@/components/ui/Button";
  * The space is reserved while unknown so the header does not shift when the
  * answer arrives. A layout jump in a fixed header is felt on every navigation.
  */
-type AuthState = { status: "unknown" } | { status: "anonymous" } | { status: "signed-in"; me: Me };
-
 export function AuthMenu() {
-  const [state, setState] = useState<AuthState>({ status: "unknown" });
+  const state = useCurrentUser();
   const [signingOut, setSigningOut] = useState(false);
-
-  useEffect(() => {
-    let current = true;
-
-    api
-      .me()
-      .then((me) => {
-        if (current) setState({ status: "signed-in", me });
-      })
-      .catch((error: unknown) => {
-        if (!current) return;
-
-        // **A 403 here is the answer, not a failure.** `/auth/me/` refuses an
-        // anonymous request, which is exactly how this component learns nobody
-        // is signed in. Treating it as an error would leave the header stuck
-        // in its unknown state for every signed-out visitor — which is most of
-        // them, on a public catalogue.
-        //
-        // Anything else — the API being down, a network failure — also lands
-        // here, and also resolves to anonymous. That is deliberate: a header
-        // that cannot tell you who you are should offer you the way in, not an
-        // error message about a request you did not make.
-        setState({ status: "anonymous" });
-        if (!(error instanceof ApiError)) {
-          // Logged rather than shown. Worth finding in a console; not worth a
-          // banner on a page the visitor came to read.
-          console.debug("Could not resolve the session", error);
-        }
-      });
-
-    return () => {
-      current = false;
-    };
-  }, []);
 
   async function signOut() {
     setSigningOut(true);

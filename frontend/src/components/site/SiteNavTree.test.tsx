@@ -18,6 +18,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SiteNavTree } from "@/components/site/SiteNavTree";
+import { sessionStatus } from "@/lib/auth/session-status";
 
 const route = vi.hoisted(() => ({ pathname: "/courses" }));
 vi.mock("next/navigation", () => ({
@@ -45,6 +46,7 @@ function notAuthenticated() {
 }
 
 beforeEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   route.pathname = "/courses";
   vi.stubGlobal("fetch", vi.fn());
 });
