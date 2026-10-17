@@ -3,6 +3,21 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (approved inline session-ended feedback)
 
+## Latest verification — 2026-10-17: reflow and enlarged-text stress pass
+
+Chrome 155.0.8059.80 passed 32 synthetic scenarios across five authentication
+routes, Account, My courses and the lesson. Modes: 320px reflow, 720px layout
+(the CSS viewport equivalent of 1440px at 200% zoom), and synthetic doubled
+font/line sizes at 1440px light and 390px dark. Long refusals, lesson titles and
+transcript cues, plus course empty/error states, were exercised. Across 342
+keyboard stops: zero overflow, clipped tested controls/headings/alerts, hidden
+focus targets or runtime errors after native scrolling painted. Initial premature
+focus samples are retained separately. Screenshots were inspected together.
+`reflow-review.json`, `reflow-initial-review.json` and `reflow-*.jpg` are in the
+task visualization directory. Actual browser zoom, native text-only zoom, other
+browsers and screen readers remain unverified; this does not close all WCAG checks.
+No product code changed; only this log and the accessibility runbook were updated.
+
 ## Latest verification — 2026-10-17: dynamic lesson first-load assets
 
 Session feedback is committed locally as `6c5099e` and `d105061`; working tree

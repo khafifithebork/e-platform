@@ -236,6 +236,16 @@ is quietly dropped and leaves the runbook claiming a cadence nobody keeps.
 
 ## 6. What has actually been verified
 
+**2026-10-17 supplement:** Chrome 155.0.8059.80 passed 32 synthetic reflow/text
+scenarios across login, registration, forgot/reset password, verification,
+Account, My courses and lessons; 342 keyboard stops had no obscured focus after
+native scrolling painted. Tested 320px, 720px zoom-equivalent layout and doubled
+font/line sizes at 1440px light/390px dark, including long text and error/empty
+states. No overflow or tested-control clipping. Screenshots/raw results are in
+the task visualization directory (`reflow-review.json`); STATUS records limits.
+Actual browser zoom and native text-only zoom still need a person. Historical
+notes below do not supersede this narrower automated evidence.
+
 **§3.1 only.** Nothing else in §3 has been walked, and until a row appears for a
 section, nothing in this file may be cited as evidence about it.
 
