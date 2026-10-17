@@ -3,6 +3,17 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (authorized course-detail merge and local integration)
 
+## Latest checkpoint — 2026-10-17: PR #114 merged; approved frontend batches integrated
+
+The owner authorized merging PR #114. Reviewed head `9f8d79b` passed all backend,
+frontend and audit CI checks and merged as `c7daf847ce485f8f71ab2db6e62afaad1cb3f212`.
+Local master was fast-forwarded; frontend/backend/infra/workflow trees match the
+tested head exactly. No additional implementation was needed during integration.
+The remaining checklist still requires actual browser zoom, native text-only zoom,
+screen readers, physical devices/other browsers, and real lesson-media assessment.
+Content, provider, spend and unapproved product ideas retain their existing gates.
+This checkpoint does not claim those passes or authorize a deployment.
+
 ## Latest correction — 2026-10-17: independent transcript reading direction
 
 Synthetic Arabic cues inherited LTR despite `lang="ar"`. Each cue now uses the
