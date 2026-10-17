@@ -268,6 +268,13 @@ A refused search also restores that filtered listing while retaining the query
 and inline error. The existing 400ms debounce, cancellation and API messages
 remain the search contract.
 
+On a changed trimmed query, clear the previous cards/count/error immediately
+and cancel its active request before waiting for the next debounce. Ignore late
+successes and failures from cancelled requests, including after unmount. Editing
+only surrounding whitespace preserves the current request/results. Keep the
+search input focused; Clear search restores browsing and existing filter choices.
+No animation, automatic retry or extra request is added to this feedback.
+
 Browse and ranked results use the same stretching grid: one column initially,
 two from `sm` and three from `lg`, with 24px gaps. Each shared `CourseCard` is a
 named article with 24px padding, 16px internal gaps, the inherited large radius

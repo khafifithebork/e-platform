@@ -68,9 +68,20 @@ export function CourseSearch({
   // itself cause a render, and the value is never read during one.
   const inFlight = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    onQueryChange(trimmed);
+  function changeQuery(next: string) {
+    const nextTrimmed = next.trim();
+    if (nextTrimmed !== trimmed) {
+      // Invalidate at the input event, not 400ms later: an old response can
+      // otherwise publish results while the field already names another query.
+      inFlight.current?.abort();
+      setPending(false);
+      setError("");
+      onQueryChange(nextTrimmed);
+    }
+    setQuery(next);
+  }
 
+  useEffect(() => {
     if (tooShort) {
       // Clearing the box returns the visitor to the full catalogue rather than
       // leaving the last results stranded on screen with an empty search box
@@ -83,25 +94,26 @@ export function CourseSearch({
       return;
     }
 
+    let controller: AbortController | undefined;
     const timer = setTimeout(() => {
-      // The previous request is cancelled before a new one starts. Without
-      // this, a slow response to "spa" can land after a fast one to "spanish"
-      // and overwrite the newer results — a bug that only appears on a slow
-      // connection, which is where nobody develops.
-      inFlight.current?.abort();
-      const controller = new AbortController();
-      inFlight.current = controller;
+      const request = new AbortController();
+      controller = request;
+      inFlight.current = request;
 
       // Inside the timer callback rather than the effect body, so this is
       // not a synchronous setState during an effect.
       setPending(true);
-      searchCourses(trimmed, controller.signal)
+      searchCourses(trimmed, request.signal)
         .then((results) => {
+          // Cancellation may arrive after fetch resolves or while its body
+          // settles. Never publish an obsolete success or failure either way.
+          if (request.signal.aborted) return;
           onResults(results);
           setPending(false);
           setError("");
         })
         .catch((cause: unknown) => {
+          if (request.signal.aborted) return;
           // An abort is this component working, not failing. Showing an error
           // for a request we cancelled ourselves would make every keystroke
           // flash a message.
@@ -117,16 +129,12 @@ export function CourseSearch({
         });
     }, DEBOUNCE_MS);
 
-    return () => clearTimeout(timer);
-    // `onResults` and `onQueryChange` are excluded deliberately: a parent that
+    return () => { clearTimeout(timer); controller?.abort(); };
+    // `onResults` is excluded deliberately: a parent that
     // passes an inline arrow would otherwise re-run this effect — and fire a
     // fresh search — on every one of its own renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimmed, tooShort]);
-
-  // Abort whatever is in flight when the component goes away, so a response
-  // cannot call `onResults` on an unmounted parent.
-  useEffect(() => () => inFlight.current?.abort(), []);
 
   return (
     <div className="flex flex-col gap-2">
@@ -137,7 +145,7 @@ export function CourseSearch({
             ref={inputRef}
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => changeQuery(event.target.value)}
             placeholder="Try a language, a level, or a skill"
             // `aria-describedby` points at the status line below, so the result
             // count and any error are announced as part of this field rather
@@ -149,7 +157,7 @@ export function CourseSearch({
           />
         </label>
         {query && <button type="button" className={buttonStyles({ variant: "secondary" })}
-          onClick={() => { setQuery(""); inputRef.current?.focus(); }}>
+          onClick={() => { changeQuery(""); inputRef.current?.focus(); }}>
           Clear search
         </button>}
       </div>

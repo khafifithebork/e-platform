@@ -1,7 +1,61 @@
 # STATUS
 
 **Last updated:** 2026-10-17
-**Updated by:** Codex (approved panel-only transcript following)
+**Updated by:** Codex (approved query-consistent catalogue search)
+
+## Latest session — 2026-10-17: search results follow the current query
+
+The owner approved the six-file correction on `codex/account-polish`.
+Changing a trimmed search query now cancels its active request immediately,
+clears the previous error/cards/count and keeps ranked-search mode while waiting
+for the unchanged 400ms debounce. Both success and failure handlers ignore
+cancelled requests even if their body settles late. Effect cleanup cancels the
+timer/request on query changes or unmount. Whitespace-only edits preserve the
+current request/results. Clear search still focuses the input and restores the
+existing filtered browse list; refused searches still restore browsing and show
+the existing inline message. No automatic retry, motion, dependency, API type,
+server ranking/throttle or public-route rendering change was introduced.
+
+Six added regressions failed against the original implementation before the fix.
+All **751 tests across 59 files** now pass, including 56 focused search/catalogue
+tests. Eight added cases cover immediate edit/clear cancellation, late successes,
+failures and post-unmount completion, old-error removal, whitespace preservation
+and immediate outdated-card removal. Existing debounce, out-of-order, filtering,
+failure recovery, clear-focus and escaped-content assertions remain intact.
+
+Frontend lint, type checking, production build and all four artifact gates pass.
+Five public routes stay static, 13 built pages pass structure checks, CSS token
+references resolve, and largest first load is 322.8 KB against 350 KB. The local
+production-settings Django deployment check reports zero issues. Patch whitespace
+is clean and the Impeccable detector returned no findings. Ruff is unavailable;
+no Python changed. Existing metadataBase, Vite and jsdom scrollTo notices remain.
+
+Nine synthetic Chrome scenarios pass at 320/390/1440px, including dark-system
+preference with the deliberately fixed-light public theme and reduced motion.
+Mutation observation found no Spanish card appearing after the input became
+French. Late success/failure, previously completed results, clear search, 429,
+empty results, network errors and whitespace were exercised. Input focus stayed
+in place; no overflow, runtime errors or axe WCAG A/AA violations were found.
+Before/after, pending/ready, desktop/mobile and refusal captures were inspected
+together with no material visual correction needed. Evidence is in the task
+visualization directory: `search-race-before-review.json`,
+`search-race-before-mobile.jpg`, `search-after-review.json`, `search-after-*.jpg`.
+API responses were intercepted synthetic fixtures, not evidence of real backend
+ranking or throttle enforcement. Safari/Firefox, physical devices and screen
+readers remain unverified. Design guidance now records the corrected behavior.
+This batch is uncommitted; no push, merge, deployment or production changes occurred.
+
+## Latest inspection — 2026-10-17: catalogue query/result mismatch
+
+Transcript following is committed locally as `8a8d8ab`; the working tree was
+clean before this inspection log. Synthetic Chrome search reproduced a race:
+after Spanish began loading, changing the input to French and releasing the
+Spanish response during the next 400ms debounce displayed a Spanish card while
+the box said French. French results eventually replaced it. Evidence:
+`search-race-before-review.json` and `search-race-before-mobile.jpg` in the task
+visualization directory. The current request is aborted only when the next
+debounce fires. A six-file search-feedback correction is proposed; no product
+code has changed pending §7 approval. No push, merge or deployment occurred.
 
 ## Latest session — 2026-10-17: transcript following stays inside its panel
 
