@@ -3,6 +3,16 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (authorized course-detail merge and local integration)
 
+## Latest verification — 2026-10-17: native Chrome 200% page zoom
+
+Chrome 155.0.8059.80 on Windows, using an isolated profile and its native page-zoom
+setting, passed 24 cases across 12 routes in light/dark preferences, with 258
+keyboard stops and no measured overflow, clipped headings/controls, obscured focus
+or runtime errors. Learner data and form refusals were synthetic; real media was
+not assessed. `native-zoom-review.json` and `native-zoom-metrics.json` record the
+pass; `native-zoom-confirm-*.png` are direct Chrome captures (helper JPGs crop at
+zoom and are not visual evidence). No product code changed; remaining manual gates persist.
+
 ## Latest checkpoint — 2026-10-17: PR #114 merged; approved frontend batches integrated
 
 The owner authorized merging PR #114. Reviewed head `9f8d79b` passed all backend,

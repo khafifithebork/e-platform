@@ -169,6 +169,16 @@ matter, not something to fix in code. Record it under §4 and stop.
 
 ### 3.4 Zoom, reflow, and text expansion
 
+**2026-10-17 native page-zoom check:** isolated Chrome 155.0.8059.80 on Windows;
+native Appearance → Page zoom set to 200%. Viewport width changed 1422→711 CSS px
+and DPR 1→2; direct Chrome metrics also reported `zoom: 2`. Twelve routes passed
+in both light/dark preferences (24 cases, 258 keyboard stops), including synthetic
+form refusals, empty My Courses and long lesson/transcript content. No measured
+overflow, clipped headings/controls, obscured focus or runtime errors. Evidence:
+`native-zoom-review.json`, `native-zoom-metrics.json`, `native-zoom-confirm-*.png`
+in the task visualization directory. This is a bounded automated Chrome check;
+native text-only zoom, other engines and human assistive-technology checks remain open.
+
 - **200% zoom** (1.4.4) on every route: no loss of content or function.
 - **320 CSS px wide** (1.4.10): no horizontal scrolling, no two-dimensional
   scroll. The lesson layout is two columns at `lg` and must collapse.
