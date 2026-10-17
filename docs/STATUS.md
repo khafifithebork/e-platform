@@ -3,6 +3,14 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (authorized course-detail merge and local integration)
 
+## Latest checkpoint — 2026-10-17: PR #113 merged with green CI
+
+The owner authorized PR #113's merge. Head `315ae99` passed backend, frontend,
+release-image and both audit checks, and merged as `27242742e6baa87f7d295d1180e83d586ef1dd29`.
+Local master was fast-forwarded; its product tree matches the verified revision.
+All individual frontend commits remain in history. Deployment jobs were skipped.
+Further work starts on `codex/frontend-followup`; no production action was taken.
+
 ## Latest publication — 2026-10-17: remaining approved frontend batches in draft PR #113
 
 PR #112 is merged at `cc39a2f`; integration commit `649daa6` preserves all newer
