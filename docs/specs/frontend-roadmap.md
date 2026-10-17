@@ -305,7 +305,12 @@ scroll padding and its `xl` reset, both provoked.
   provocation that initially passed because `perl -0` without `/g` edited a docstring
   instead of the code.
 
-### D5 · Application-wide session-expiry response
+### D5 · Application-wide session-expiry response — **done locally 2026-10-17**
+
+**Superseding update:** the owner chose inline feedback; ADR-038 records the
+implemented detection, notice and navigation recovery, committed as `6c5099e`
+and `d105061`. The decision notes below are historical. Detection waits for a
+qualifying existing API response; there is no proactive expiry timer.
 
 - **Benefit:** a learner whose session expires is told, instead of finding out at
   their next action.

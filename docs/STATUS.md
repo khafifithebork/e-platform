@@ -3,6 +3,21 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (approved inline session-ended feedback)
 
+## Latest verification — 2026-10-17: dynamic lesson first-load assets
+
+Session feedback is committed locally as `6c5099e` and `d105061`; working tree
+was clean before this documentation update. Cold isolated Chrome contexts at
+390px and 1440px measured the production dynamic lesson with synthetic API data.
+Initial HTML references total **323,632 bytes gzip** of scripts/CSS at both widths,
+using the existing gate's gzip-level-9 method. At controls/transcript readiness,
+rendered scripts/CSS total **338,917 / 341,567 bytes**, respectively, below 350,000.
+The ready-state total varies with hydration/prefetch timing; it is not a stable CI
+assertion. HTML, API responses, fonts, media and later interactions are excluded.
+No runtime errors occurred. Raw asset lists are in `lesson-first-load-review.json`
+in the task visualization directory. No real video/provider delivery was measured;
+the static bundle gate still does not enforce the dynamic route. Roadmap D5 now
+points to ADR-038 and the implemented commits. No product code changed here.
+
 ## Latest session — 2026-10-17: inline session-ended notice and navigation recovery
 
 The separately approved UI batch is implemented locally on `codex/account-polish`.
