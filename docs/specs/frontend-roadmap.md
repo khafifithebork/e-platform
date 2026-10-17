@@ -5,7 +5,7 @@
 **Current supplement — 2026-10-17:** STATUS and ADR-038 supersede the historical
 open-work statements below. Session feedback is implemented. Chrome keyboard,
 forced-color and simulated reflow/text passes are recorded in STATUS/runbook;
-actual zoom, native text-only zoom and screen-reader passes remain open. The
+native Chrome 200% page zoom passed 2026-10-17; native text-only zoom and screen-reader passes remain open. The
 dynamic lesson's initial HTML scripts/CSS measured 323.6 KB gzip; the static CI
 budget still excludes it. Caption language shipped in D4; E7 concerns real media.
 Owner/content/provider blockers in E remain, and F ideas remain unapproved.

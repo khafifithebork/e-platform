@@ -3,6 +3,15 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (authorized course-detail merge and local integration)
 
+## Latest verification — 2026-10-17: native scrollbar and email autofill
+
+Isolated Chrome 155 showed a visible native transcript scrollbar in both schemes;
+two fixture cases passed with 66 keyboard stops. Genuine email autofill emitted
+an event and matched `:autofill` under both system preferences; the fixed-light
+auth page retained readable black text on RGB(232,240,254), 18.33:1 contrast.
+Evidence: `native-scrollbar-*.png`, `native-autofill-*.png` and their review JSON
+in the task visualization directory. No form was submitted or product code changed.
+
 ## Latest verification — 2026-10-17: native Chrome 200% page zoom
 
 Chrome 155.0.8059.80 on Windows, using an isolated profile and its native page-zoom

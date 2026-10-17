@@ -190,6 +190,11 @@ native text-only zoom, other engines and human assistive-technology checks remai
 
 ### 3.5 Forced colours — **all three checks passed 2026-09-28**
 
+**2026-10-17 browser-furniture evidence:** isolated Chrome 155 native transcript
+scrollbars were captured in light/dark; genuine email autofill was captured in
+both preferences, with 18.33:1 contrast. See STATUS and ADR-032. Password-manager
+autofill, other engines and human confirmation remain open; no conformance claim.
+
 Windows High Contrast, or Chrome DevTools → Rendering → `forced-colors: active`.
 
 - ~~Focus is still visible.~~ **Confirmed by the owner 2026-09-28.** This is the one
