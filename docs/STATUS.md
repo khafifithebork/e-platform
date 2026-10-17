@@ -1,7 +1,29 @@
 # STATUS
 
 **Last updated:** 2026-10-17
-**Updated by:** Codex (approved query-consistent catalogue search)
+**Updated by:** Codex (authorized course-detail merge and local integration)
+
+## Latest integration — 2026-10-17: PR #112 merged and retained local improvements
+
+The owner authorized merging PR #112. Its reviewed head `6e62a4b` was CI-green
+and merged into master as `cc39a2f4c5aecd817af32016c7517c21746b783c`.
+Updated master is integrated into `codex/account-polish`, preserving the
+newer account/navigation/session/transcript/search work. Only STATUS conflicted;
+both chronological histories were retained and design guidance merged cleanly.
+All 757 frontend tests across 60 files, lint, type checking, production build and
+four artifact gates pass on the combined tree. Five public routes stay static;
+largest first load is 322.9 KB against 350 KB. The local production-settings
+Django check reports zero issues; Ruff remains unavailable with no Python changes.
+Nine course-detail and nine search scenarios pass, with no overflow/runtime
+errors and no search axe violations. A premature disclosure sample was diagnosed
+by inspecting expanded/hidden/display state; waiting for hydration and the native
+hidden update confirmed collapse/reopen and keyboard order without a code fix.
+Desktop/mobile course captures were inspected with no material issue. Evidence:
+`integration-course-detail-review.json`, `integration-search-review.json` and JPGs
+in the task visualization directory. Real media/other browsers/screen readers
+retain their earlier limits. Master CI on `cc39a2f` also completed successfully.
+The integration is committed with this snapshot. Remaining approved local batches
+are being prepared for a draft PR; no explicit deployment was performed.
 
 ## Latest checkpoint — 2026-10-17: committed verification and checklist reconciliation
 
@@ -446,6 +468,49 @@ control is unchanged and remains a shared-navigation review item.
 
 The owner authorized committing this verified batch locally. No push, merge,
 deployment, production configuration or provider change occurred.
+
+## Latest session — 2026-10-16: course-detail composition and disclosures
+
+PR #111 is merged into master at `ca15e80`. The owner approved the eight-file
+course-detail batch, implemented on `codex/course-detail-journal` from that merge.
+The public course introduction now has a ruled hierarchy, real section/lesson
+counts and readable multiline descriptions. Numbered curriculum rows replace
+boxes, and lesson links have 44px minimum touch targets. Related courses retain
+named list/article semantics and render without entrance staggering.
+
+Collapsed curriculum panels previously remained keyboard-focusable at zero
+height. A regression test reproduced that bug; native `hidden` now removes
+collapsed lessons from navigation and restores them on reopening. Disclosures
+change instantly with either motion preference, eliminating the old render-time
+reduced-motion hook. The personal strip reuses native indigo progress styling and
+shared Start/Continue action styles; fetching, resume selection, finished and
+neutral anonymous/loading/error behavior are unchanged.
+
+The initial keyboard/progress regressions failed before the fixes. The full
+frontend suite passed 700 tests. After the bounded review's border correction
+and related-list assertion, all 28 focused tests passed. Final lint, production
+build/TypeScript and static/document/CSS/bundle artifact gates pass. All five
+public routes remain prerendered; the largest first load is 330.0 KB against the
+unchanged 350 KB ceiling. The design detector reported no findings. The local
+production-settings Django deployment check reports no issues. Ruff could not
+run: it is absent from host Python and the API container. No Python files changed.
+The existing metadataBase and Vite configuration warnings remain.
+
+Desktop/mobile Chrome captures cover anonymous, started, finished and failed
+progress requests, light/dark OS preferences, reduced motion, keyboard collapse
+and reopening, and synthetic long content. Nine final cases have no overflow or
+runtime page errors; tested focus outlines are visible. A redundant progress rule
+observed in the first visual pass was removed, then the final build was confirmed.
+Before/after captures and `course-detail-after-review.json` are saved in the
+visualization directory. Enrollment responses and long stress text are synthetic;
+this is not real-account or backend authorization evidence. Empty-outline behavior
+is covered by component/page tests. Safari/Firefox, physical devices and screen
+reader verification remain untested.
+
+No new asset, dependency, global token, API, auth/access behavior or production
+configuration is changed. The owner authorized committing and publishing this
+verified batch for pull-request review on `codex/course-detail-journal`. No merge
+of this batch or explicit deployment is authorized.
 
 ## Latest session — 2026-10-16: registration, verification and recovery
 

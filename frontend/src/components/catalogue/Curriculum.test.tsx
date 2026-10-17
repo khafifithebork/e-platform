@@ -10,6 +10,7 @@
  */
 
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { Curriculum } from "@/components/catalogue/Curriculum";
@@ -50,6 +51,29 @@ const SECTIONS: PublicSection[] = [
 ];
 
 describe("the outline", () => {
+  it("keeps all sections expanded initially", () => {
+    render(<Curriculum sections={SECTIONS} courseSlug={COURSE} />);
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveAttribute("aria-expanded", "true");
+    }
+    expect(screen.getByRole("link", { name: "The alphabet" })).toBeVisible();
+  });
+
+  it("excludes collapsed lessons from keyboard navigation and restores them on reopen", async () => {
+    const user = userEvent.setup();
+    render(<Curriculum sections={SECTIONS} courseSlug={COURSE} />);
+    const button = screen.getByRole("button", { name: /Greetings/ });
+    await user.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "The alphabet" })).not.toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByText("The alphabet")).not.toHaveFocus();
+    await user.click(button);
+    expect(screen.getByRole("link", { name: "The alphabet" })).toBeVisible();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "The alphabet" })).toHaveFocus();
+  });
+
   it("orders sections by position, not by array order", () => {
     // The API maintains `position` for exactly this. Relying on array order
     // means the outline silently reshuffles the day the endpoint changes its

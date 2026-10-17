@@ -78,6 +78,7 @@ describe("an enrolled learner", () => {
 
     expect(bar).toHaveAttribute("value", "3");
     expect(bar).toHaveAttribute("max", "8");
+    expect(bar).toHaveClass("course-progress");
   });
 
   it("can continue from where they left off", async () => {

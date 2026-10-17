@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { api, type Enrollment } from "@/lib/api/client";
 import { resumePoint } from "@/lib/learn/resume";
+import { buttonStyles } from "@/components/ui/Button";
 
 /**
  * Where this learner got to in this course, on a page that cannot know.
@@ -56,23 +57,24 @@ export function CourseProgress({ courseSlug }: { courseSlug: string }) {
   return (
     <aside
       aria-label="Your progress"
-      className="flex flex-wrap items-center gap-4 rounded-(--radius-md)
-        border border-line bg-surface-sunken px-4 py-3.5 shadow-(--shadow-sm)"
+      className="flex flex-wrap items-center gap-4 border-b border-line pb-5"
     >
-      <progress
-        value={enrollment.completed_lesson_count}
-        max={enrollment.lesson_count}
-        aria-label="Lessons completed"
-        className="h-1.5 w-32"
-      />
-      <span className="text-sm text-ink-muted">
-        {enrollment.completed_lesson_count} of {enrollment.lesson_count} lessons
-      </span>
+      <div className="flex min-w-0 basis-full flex-col gap-2 sm:flex-1 sm:basis-0">
+        <span className="text-sm text-ink-muted tabular-nums">
+          {enrollment.completed_lesson_count} of {enrollment.lesson_count} lessons
+        </span>
+        <progress
+          value={enrollment.completed_lesson_count}
+          max={enrollment.lesson_count}
+          aria-label="Lessons completed"
+          className="course-progress h-1.5 w-full max-w-64"
+        />
+      </div>
 
       {resume.status === "finished" ? (
         <span className="text-sm font-medium text-success">Finished</span>
       ) : (
-        <Link href={resume.href} className="text-sm text-accent hover:text-accent-hover">
+        <Link href={resume.href} className={buttonStyles({ lift: false })}>
           {/* Long wording, because this strip has room for it and a visitor
               here has not necessarily been in the course before. `resumePoint`
               owns the rule; the phrasing is this component's. */}
