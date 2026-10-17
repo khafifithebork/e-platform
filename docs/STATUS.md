@@ -3,6 +3,15 @@
 **Last updated:** 2026-10-17
 **Updated by:** Codex (authorized course-detail merge and local integration)
 
+## Latest publication — 2026-10-17: remaining approved frontend batches in draft PR #113
+
+PR #112 is merged at `cc39a2f`; integration commit `649daa6` preserves all newer
+approved local work. `codex/account-polish` is pushed and draft PR #113 is open:
+https://github.com/khafifithebork/e-platform/pull/113 . It is mergeable and CI began
+on publication; live results belong to the PR checks. The combined local tree
+passed 757 tests and all frontend gates. PR #113 remains unmerged for review;
+no explicit deployment was triggered. Master post-merge CI completed successfully.
+
 ## Latest integration — 2026-10-17: PR #112 merged and retained local improvements
 
 The owner authorized merging PR #112. Its reviewed head `6e62a4b` was CI-green
