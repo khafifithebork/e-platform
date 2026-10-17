@@ -12,7 +12,7 @@
  * screen reader can tell what the control does.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -52,6 +52,20 @@ function renderCatalogue(courses = COURSES) {
 }
 
 describe("calm discovery and recovery", () => {
+  it("clears outdated cards immediately when a different search query is entered", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      results: [COURSES[0]], count: 1, limit: 50, truncated: false,
+    }), { headers: { "Content-Type": "application/json" } })));
+    renderCatalogue();
+    const input = screen.getByRole("searchbox");
+    fireEvent.change(input, { target: { value: "spanish" } });
+    await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(1));
+    fireEvent.change(input, { target: { value: "french" } });
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
+    expect(screen.queryByText("1 result")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Filter courses" })).not.toBeInTheDocument();
+    expect(input).toHaveValue("french");
+  });
   it("keeps a long course title complete in its link name", () => {
     const title = "A long course title for learners practising everyday conversations across different situations";
     renderCatalogue([course({ slug: "long-title", title })]);

@@ -15,9 +15,10 @@
  * current user is exactly where somebody caches one "to stop the flicker".
  */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { sessionStatus } from "./session-status";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 
 const ME = {
@@ -51,6 +52,7 @@ function notAuthenticated() {
 }
 
 beforeEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   vi.stubGlobal("fetch", vi.fn());
 });
 
@@ -153,4 +155,49 @@ describe("it asks the server once, with credentials", () => {
     expect(source).toContain("current = false");
     expect(source).toMatch(/if \(current\)/);
   });
+});
+
+function endSession() {
+  sessionStatus.authenticationRequired(sessionStatus.begin(), "Your session has ended.");
+}
+it("removes confirmed identity on session loss and resolves a fresh account on recovery", async () => {
+  vi.mocked(fetch).mockResolvedValue(json(ME));
+  const { result } = renderHook(useCurrentUser);
+  await waitFor(() => expect(result.current).toEqual({ status: "signed-in", me: ME }));
+  act(endSession);
+  expect(result.current).toEqual({ status: "anonymous" });
+  let recover!: (response: Response) => void;
+  vi.mocked(fetch).mockImplementation(() => new Promise(resolve => { recover = resolve; }));
+  act(() => sessionStatus.confirm(sessionStatus.begin()));
+  expect(result.current).toEqual({ status: "unknown" });
+  await act(async () => recover(json({ ...ME, email: "second@example.test" })));
+  expect(result.current).toEqual({ status: "signed-in", me: { ...ME, email: "second@example.test" } });
+});
+
+it("ignores a late identity response from before session loss", async () => {
+  sessionStatus.confirm(sessionStatus.begin());
+  let resolve!: (response: Response) => void;
+  vi.mocked(fetch).mockImplementation(() => new Promise(done => { resolve = done; }));
+  const { result } = renderHook(useCurrentUser);
+  act(endSession);
+  await act(async () => resolve(json(ME)));
+  expect(result.current).toEqual({ status: "anonymous" });
+});
+
+it("retains the current identity during intentional sign-out feedback", async () => {
+  vi.mocked(fetch).mockResolvedValue(json(ME));
+  const { result } = renderHook(useCurrentUser);
+  await waitFor(() => expect(result.current.status).toBe("signed-in"));
+  act(() => sessionStatus.begin("logout"));
+  expect(result.current).toEqual({ status: "signed-in", me: ME });
+});
+
+it("does not fetch while already ended or resurrect identity after failed recovery", async () => {
+  sessionStatus.confirm(sessionStatus.begin()); endSession();
+  const { result } = renderHook(useCurrentUser);
+  expect(result.current).toEqual({ status: "anonymous" });
+  expect(fetch).not.toHaveBeenCalled();
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ type: "/problems/not-authenticated", detail: "Sign in again", status: 403 }), { status: 403 }));
+  act(() => sessionStatus.confirm(sessionStatus.begin()));
+  await waitFor(() => expect(result.current.status).toBe("anonymous"));
 });

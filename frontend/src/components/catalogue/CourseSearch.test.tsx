@@ -14,7 +14,7 @@
  * tested as such.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
@@ -53,6 +53,53 @@ afterEach(() => {
 function renderSearch() {
   return render(<CourseSearch onResults={onResults} onQueryChange={onQueryChange} />);
 }
+
+describe("query changes during the debounce window", () => {
+  it.each(["edit", "clear"])("cancels an active request immediately on %s", async (change) => {
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
+    renderSearch();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "spanish" } });
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const signal = vi.mocked(fetch).mock.calls[0][1]?.signal;
+    if (change === "edit") fireEvent.change(screen.getByRole("searchbox"), { target: { value: "french" } });
+    else fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(signal?.aborted).toBe(true);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it.each(["success", "failure", "unmount"])("ignores obsolete %s even if cancellation settles late", async (outcome) => {
+    let resolve!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementation(() => new Promise(done => { resolve = done; }));
+    const { unmount } = renderSearch();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "spanish" } });
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    onResults.mockClear();
+    if (outcome === "unmount") unmount();
+    else fireEvent.change(screen.getByRole("searchbox"), { target: { value: "french" } });
+    await act(async () => resolve(outcome === "failure" ? new Response(null, { status: 503 }) : payload([{ slug: "STALE" }])));
+    expect(onResults).not.toHaveBeenCalled();
+    expect(screen.queryByText(/search is unavailable/i)).not.toBeInTheDocument();
+  });
+
+  it("clears the previous query's error as soon as typing resumes", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 503 }));
+    renderSearch();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "spanish" } });
+    await screen.findByText(/search is unavailable/i);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "french" } });
+    expect(screen.queryByText(/search is unavailable/i)).not.toBeInTheDocument();
+  });
+
+  it("does not cancel a request for an unchanged trimmed query", async () => {
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
+    renderSearch();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "spanish" } });
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const signal = vi.mocked(fetch).mock.calls[0][1]?.signal;
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "spanish " } });
+    expect(signal?.aborted).toBe(false);
+  });
+});
 
 it("clears the query and returns keyboard focus to search", async () => {
   renderSearch();

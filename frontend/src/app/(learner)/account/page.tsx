@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function AccountPage() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-12 px-6 py-16">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 py-10 sm:gap-12 sm:py-16 [overflow-wrap:anywhere]">
       <PageTitle>Account</PageTitle>
       <AccountDetails />
       <ChangePassword />

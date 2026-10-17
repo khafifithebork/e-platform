@@ -1,7 +1,482 @@
 # STATUS
 
-**Last updated:** 2026-10-16
-**Updated by:** Codex (approved Illustrated Journal course detail)
+**Last updated:** 2026-10-17
+**Updated by:** Codex (authorized course-detail merge and local integration)
+
+## Latest publication — 2026-10-17: remaining approved frontend batches in draft PR #113
+
+PR #112 is merged at `cc39a2f`; integration commit `649daa6` preserves all newer
+approved local work. `codex/account-polish` is pushed and draft PR #113 is open:
+https://github.com/khafifithebork/e-platform/pull/113 . It is mergeable and CI began
+on publication; live results belong to the PR checks. The combined local tree
+passed 757 tests and all frontend gates. PR #113 remains unmerged for review;
+no explicit deployment was triggered. Master post-merge CI completed successfully.
+
+## Latest integration — 2026-10-17: PR #112 merged and retained local improvements
+
+The owner authorized merging PR #112. Its reviewed head `6e62a4b` was CI-green
+and merged into master as `cc39a2f4c5aecd817af32016c7517c21746b783c`.
+Updated master is integrated into `codex/account-polish`, preserving the
+newer account/navigation/session/transcript/search work. Only STATUS conflicted;
+both chronological histories were retained and design guidance merged cleanly.
+All 757 frontend tests across 60 files, lint, type checking, production build and
+four artifact gates pass on the combined tree. Five public routes stay static;
+largest first load is 322.9 KB against 350 KB. The local production-settings
+Django check reports zero issues; Ruff remains unavailable with no Python changes.
+Nine course-detail and nine search scenarios pass, with no overflow/runtime
+errors and no search axe violations. A premature disclosure sample was diagnosed
+by inspecting expanded/hidden/display state; waiting for hydration and the native
+hidden update confirmed collapse/reopen and keyboard order without a code fix.
+Desktop/mobile course captures were inspected with no material issue. Evidence:
+`integration-course-detail-review.json`, `integration-search-review.json` and JPGs
+in the task visualization directory. Real media/other browsers/screen readers
+retain their earlier limits. Master CI on `cc39a2f` also completed successfully.
+The integration is committed with this snapshot. Remaining approved local batches
+are being prepared for a draft PR; no explicit deployment was performed.
+
+## Latest checkpoint — 2026-10-17: committed verification and checklist reconciliation
+
+Drawer/public verification is committed as `f067cf2`. The owner now requests
+committing each verified step and proceeding without approval wherever permitted;
+AGENTS approval gates and the prohibition on unrequested merge/deploy still apply.
+Roadmap/state notes now point to implemented session feedback, measured lesson
+assets and the enforced bundle gate, preserving manual/content/provider limits.
+GitHub inspection found PR #112 open, mergeable and CI-green; those checks cover
+its course-detail branch, not unpublished local commits. All 752 frontend tests
+across 59 files pass including the added drawer-focus regression. Its lint/type
+checks were already clean; the last product build/artifact checks are unchanged.
+Referenced documentation exists and patch whitespace is clean. This checkpoint
+is committed with this snapshot. Nothing was pushed, merged or deployed.
+
+## Latest verification — 2026-10-17: public-page reflow and enlarged text
+
+Homepage, catalogue, published course detail and pricing passed 16 Chrome
+scenarios: 320px reflow, 720px zoom-equivalent layout and simulated doubled
+font/line sizes at 1440px light and 390px dark-system preference. Public surfaces
+retain their fixed-light theme. The final pass waited for header hydration before
+text enlargement. All 180 keyboard stops stayed visible; no overflow, tested
+heading/control clipping or runtime errors occurred. Desktop/mobile captures were
+reviewed together and confirmed. Evidence: `public-reflow-review.json` and
+`public-reflow-*.jpg` in the task visualization directory. No product code changed.
+Actual browser/native text-only zoom, screen readers and other browsers remain
+unverified. This log/runbook update and the drawer-focus regression are uncommitted.
+
+## Latest verification — 2026-10-17: drawer focus during session loss
+
+Search correction is committed locally as `49daff6`. Synthetic 390px Chrome
+confirmed that focus stays inside an open drawer when session loss replaces its
+account links; Tab still wraps to Close. No product correction was needed.
+The matching regression, all 15 SiteNavTree tests, lint and type checking pass. Browser evidence:
+`drawer-session-focus-before-review.json` / `drawer-session-focus-before.jpg`
+in the task visualization directory. Only this log and the test changed.
+
+## Latest session — 2026-10-17: search results follow the current query
+
+The owner approved the six-file correction on `codex/account-polish`.
+Changing a trimmed search query now cancels its active request immediately,
+clears the previous error/cards/count and keeps ranked-search mode while waiting
+for the unchanged 400ms debounce. Both success and failure handlers ignore
+cancelled requests even if their body settles late. Effect cleanup cancels the
+timer/request on query changes or unmount. Whitespace-only edits preserve the
+current request/results. Clear search still focuses the input and restores the
+existing filtered browse list; refused searches still restore browsing and show
+the existing inline message. No automatic retry, motion, dependency, API type,
+server ranking/throttle or public-route rendering change was introduced.
+
+Six added regressions failed against the original implementation before the fix.
+All **751 tests across 59 files** now pass, including 56 focused search/catalogue
+tests. Eight added cases cover immediate edit/clear cancellation, late successes,
+failures and post-unmount completion, old-error removal, whitespace preservation
+and immediate outdated-card removal. Existing debounce, out-of-order, filtering,
+failure recovery, clear-focus and escaped-content assertions remain intact.
+
+Frontend lint, type checking, production build and all four artifact gates pass.
+Five public routes stay static, 13 built pages pass structure checks, CSS token
+references resolve, and largest first load is 322.8 KB against 350 KB. The local
+production-settings Django deployment check reports zero issues. Patch whitespace
+is clean and the Impeccable detector returned no findings. Ruff is unavailable;
+no Python changed. Existing metadataBase, Vite and jsdom scrollTo notices remain.
+
+Nine synthetic Chrome scenarios pass at 320/390/1440px, including dark-system
+preference with the deliberately fixed-light public theme and reduced motion.
+Mutation observation found no Spanish card appearing after the input became
+French. Late success/failure, previously completed results, clear search, 429,
+empty results, network errors and whitespace were exercised. Input focus stayed
+in place; no overflow, runtime errors or axe WCAG A/AA violations were found.
+Before/after, pending/ready, desktop/mobile and refusal captures were inspected
+together with no material visual correction needed. Evidence is in the task
+visualization directory: `search-race-before-review.json`,
+`search-race-before-mobile.jpg`, `search-after-review.json`, `search-after-*.jpg`.
+API responses were intercepted synthetic fixtures, not evidence of real backend
+ranking or throttle enforcement. Safari/Firefox, physical devices and screen
+readers remain unverified. Design guidance now records the corrected behavior.
+This batch is uncommitted; no push, merge, deployment or production changes occurred.
+
+## Latest inspection — 2026-10-17: catalogue query/result mismatch
+
+Transcript following is committed locally as `8a8d8ab`; the working tree was
+clean before this inspection log. Synthetic Chrome search reproduced a race:
+after Spanish began loading, changing the input to French and releasing the
+Spanish response during the next 400ms debounce displayed a Spanish card while
+the box said French. French results eventually replaced it. Evidence:
+`search-race-before-review.json` and `search-race-before-mobile.jpg` in the task
+visualization directory. The current request is aborted only when the next
+debounce fires. A six-file search-feedback correction is proposed; no product
+code has changed pending §7 approval. No push, merge or deployment occurred.
+
+## Latest session — 2026-10-17: transcript following stays inside its panel
+
+The owner approved the four-file correction on `codex/account-polish`.
+`TranscriptPanel` now adjusts only its own list's scroll offset by the minimum
+needed on a cue change. Visible cues stay still; wholly offscreen oversized cues
+align at the top, while partially visible oversized cues remain where the learner
+put them. Following is immediate for all motion preferences (0ms, no easing).
+No timer, animation, preference branch, dependency or API change was introduced.
+Seeking, cue language, `aria-current`, existing styles and server-owned progress
+remain intact. Design guidance now records the corrected behavior.
+
+Eight follow assertions reproduced the old ancestor-scrolling implementation.
+Geometry fixtures now test the actual required list offset, stillness, gaps,
+same-cue updates and both motion preferences instead of requiring the old API.
+All existing seeking/language/text-safety assertions remain. Browser inspection
+also reproduced a focused cue being clipped during playback. Its additional
+regression failed before the safeguard: following now pauses while the list
+contains focus and resumes on the next cue change after focus leaves.
+
+All **743 frontend tests across 59 files** pass on the final implementation,
+including 64 focused transcript/player tests. Frontend lint, type checking,
+production build and all four artifact gates pass: five public routes remain
+static, 13 built pages pass structure checks, CSS token references resolve and
+largest first load is 322.8 KB against 350 KB. The local production-settings
+Django deployment check reports zero issues. Patch whitespace is clean and the
+Impeccable detector returned no findings. Ruff is unavailable; no Python changed.
+Existing metadataBase, Vite and jsdom scrollTo notices remain.
+
+Final synthetic Chrome playback at 390px keeps document y=0 instead of the
+reproduced y=460 while the list follows cues; 1440px remains at y=0 too. The
+focused-cue probe keeps the cue visible/list offset unchanged through cue nine,
+then follows cue ten after focus leaves, with document position still zero.
+Thirteen lesson-state scenarios pass across desktop/mobile, light/dark, both
+motion preferences, empty/error/retry, completed/pending and 320px long text.
+No overflow/runtime errors were found, focus remains visible and speed targets
+measure 44px. Before/after, desktop/mobile/dark/long captures were reviewed
+together; the observed focus issue was corrected once and confirmed.
+
+Evidence in the task visualization directory: `transcript-scroll-review.json`,
+`transcript-follow-after-review.json`, `transcript-focus-final-review.json`,
+`transcript-final-review.json` and their JPG captures. Real provider/video playback,
+Safari/Firefox, physical devices and screen readers remain unverified. This batch
+is uncommitted; no push, merge, deployment or production configuration changed.
+
+## Latest inspection — 2026-10-17: transcript following moves the mobile page
+
+Reflow notes are committed as `192b04d`. During synthetic playback at 390px,
+`TranscriptPanel`'s cue `scrollIntoView` moved the page from y=0 to y=460 while
+the transcript list moved from 0 to 24px. At 1440px the page stayed at zero while
+the list moved 40px. Reduced motion was enabled, so this is not a smooth-scroll
+timing artifact. Captures and `transcript-scroll-review.json` are in the task
+visualization directory. Current tests assert the scrolling API call and miss
+ancestor scrolling. A bounded panel-only follow correction is proposed; product
+code is unchanged pending the owner's §7 approval.
+
+## Latest verification — 2026-10-17: reflow and enlarged-text stress pass
+
+Chrome 155.0.8059.80 passed 32 synthetic scenarios across five authentication
+routes, Account, My courses and the lesson. Modes: 320px reflow, 720px layout
+(the CSS viewport equivalent of 1440px at 200% zoom), and synthetic doubled
+font/line sizes at 1440px light and 390px dark. Long refusals, lesson titles and
+transcript cues, plus course empty/error states, were exercised. Across 342
+keyboard stops: zero overflow, clipped tested controls/headings/alerts, hidden
+focus targets or runtime errors after native scrolling painted. Initial premature
+focus samples are retained separately. Screenshots were inspected together.
+`reflow-review.json`, `reflow-initial-review.json` and `reflow-*.jpg` are in the
+task visualization directory. Actual browser zoom, native text-only zoom, other
+browsers and screen readers remain unverified; this does not close all WCAG checks.
+No product code changed; only this log and the accessibility runbook were updated.
+
+## Latest verification — 2026-10-17: dynamic lesson first-load assets
+
+Session feedback is committed locally as `6c5099e` and `d105061`; working tree
+was clean before this documentation update. Cold isolated Chrome contexts at
+390px and 1440px measured the production dynamic lesson with synthetic API data.
+Initial HTML references total **323,632 bytes gzip** of scripts/CSS at both widths,
+using the existing gate's gzip-level-9 method. At controls/transcript readiness,
+rendered scripts/CSS total **338,917 / 341,567 bytes**, respectively, below 350,000.
+The ready-state total varies with hydration/prefetch timing; it is not a stable CI
+assertion. HTML, API responses, fonts, media and later interactions are excluded.
+No runtime errors occurred. Raw asset lists are in `lesson-first-load-review.json`
+in the task visualization directory. No real video/provider delivery was measured;
+the static bundle gate still does not enforce the dynamic route. Roadmap D5 now
+points to ADR-038 and the implemented commits. No product code changed here.
+
+## Latest session — 2026-10-17: inline session-ended notice and navigation recovery
+
+The separately approved UI batch is implemented locally on `codex/account-polish`.
+`SessionExpiryNotice` mounts inside the shared main landmark and uses the existing
+themed Notice plus a 44px Sign in link. The heading is "Sign in to continue";
+the server detail is rendered verbatim as plain text. The action stacks on narrow
+screens, long unbroken messages wrap, and server HTML remains neutral. No focus
+transfer, animation, redirect, timer, retry or polling is introduced.
+
+Header and rail/drawer now share the identity hook. Confirmed session loss removes
+their signed-in links and invalidates pending identity results. Fresh confirmation
+resolves identity again, showing a neutral placeholder while waiting rather than
+revealing the previous account. Existing pending sign-out and full-page navigation
+are preserved. Already-loaded page content and form values remain in place;
+existing page refusals and Django access enforcement are unchanged.
+
+The new identity/notice regressions failed before implementation. All **739 tests
+across 59 files** now pass, including eight added cases for notice silence, exact
+wording/text escaping, focus preservation, neutral SSR, identity invalidation,
+recovery to a different account, late responses and pending logout. Existing
+assertions were retained. Session reset was added to navigation and identity test
+fixtures to isolate simulated browser visits. The actual existing hook test file
+was extended instead of retaining a second test file. To keep this UI batch at ten
+files, ADR-038 records its presentation guidance; design-system.md was not changed.
+
+Frontend lint, type checking, production build, patch whitespace and all four
+artifact gates pass. Five public routes remain static, 13 pages pass the structure
+gate, all CSS token references resolve, and the largest first load is **322.8 KB**
+against 350 KB. Local production-settings Django deployment check reports zero
+issues. Ruff remains unavailable; no Python files changed. Existing metadataBase,
+Vite and jsdom scrollTo notices remain.
+
+Eight synthetic Chrome scenarios pass at 320–1440px in light/dark, with reduced
+motion, anonymous visits, permission/network failures and long server text. The
+notice appears only for confirmed loss, header/drawer identity updates together,
+the keyboard focus target is retained and recovery targets measure at least 44px.
+No overflow, runtime errors or browser-storage entries were found. The final axe
+WCAG A/AA scan found no violations in those eight scenarios. A separate 18-case
+header/navigation/logout regression also passes, including full JavaScript-context
+teardown on both successful and failed logout. Impeccable detector returned no
+findings. Desktop/mobile/light/dark/long-message captures were inspected together;
+no material visual correction was needed, then the bounded confirmation completed.
+
+Before/after captures, `session-notice-before-review.json`,
+`session-notice-after-review.json` and `session-notice-regression-review.json`
+are in the task visualization directory. Real-account expiry, Safari/Firefox,
+physical devices and screen-reader announcements remain human verification items.
+Detection still waits for an existing observed API request; native downloads and
+unload beacons do not detect expiry. No dependency, service, API contract, auth
+strategy, access rule or production configuration changed. The observation
+foundation is committed locally as `6c5099e`; the approved UI batch is committed
+with this status snapshot. No push, merge or deployment occurred.
+
+## Latest session — 2026-10-17: session-loss detection foundation
+
+Header/account navigation is committed locally as `9f08829`. The owner chose an
+inline sign-in notice and approved the first six-file detection batch. It is
+implemented on `codex/account-polish`: a browser-only presentation store and
+tests, API integration and tests, ADR-038 and this status update. No notice or
+header/navigation synchronization is wired yet; those remain the next batch.
+
+Successful parsed `/auth/me/` establishes a confirmed observation. Only a request
+begun in that state can report session loss for a specific not-authenticated
+problem or entitlement `LOGIN_REQUIRED`. Original errors still reach callers,
+and the server detail is retained verbatim. Anonymous visits, permission/CSRF,
+subscription, network and server errors do not produce an ended observation.
+Requests carry ordering and epoch information so stale successes/refusals cannot
+overwrite newer observations. Login/logout resets and temporarily suppresses
+observation, including late responses from requests begun during those operations.
+Fresh `/me` confirmation establishes recovery. There are no timers, polling,
+identity/credential retention, browser-storage writes or server-side user state.
+Django remains authoritative for authentication and access.
+
+The store was tested before API wiring. A late-response regression reproduced
+an in-flight login/logout race and passed after eligibility was captured at
+request start. Four request-boundary regressions failed before integration and
+then passed. All 731 frontend tests, lint, type checking/production build and
+four artifact gates pass. Five public routes remain static; largest first load
+is 322.2 KB against 350 KB. Local production-settings Django deployment check and
+patch whitespace check pass. The server-isolation assertion was additionally
+strengthened to check neutrality after the simulated server environment ends.
+Ruff remains unavailable locally; no Python files changed. Existing metadataBase,
+Vite and jsdom scrollTo notices remain.
+
+Eighteen Chrome regression cases pass using synthetic intercepted sessions:
+320–1440px, light/dark, anonymous/signed-in, account navigation and pending,
+successful and failed logout. No overflow, runtime errors or storage entries
+were found; full-page logout still clears the synthetic JavaScript-context probe.
+Captures and `session-foundation-after-review.json` are in the visualization
+directory. They verify unchanged existing UI flows, not a notice that is not yet
+implemented. Real-account/session expiry, Safari/Firefox, physical devices and
+screen readers remain unverified.
+
+Detection waits for an existing API request; native downloads and unload beacons
+are not observation sources. No dependency, API contract, auth strategy, access
+rule or production configuration changed. This foundation is local and
+uncommitted; no push, merge or deployment occurred.
+
+## Latest session — 2026-10-16: responsive header identity and Account link
+
+The account and mobile-navigation batches are committed locally as `2784f7c`
+and `39da43f`. The owner approved the next six-file batch on `codex/account-polish`.
+The signed-in header now wraps within its available width, bounds its visible
+email to 12rem above `sm`, and retains the full email text/title for accessibility.
+My courses and sign-out labels stay on one line; sign-in/sign-out reuse shared
+secondary styling with measured 44px targets. Signed-in rail/drawer navigation
+now includes the existing Account destination and active-route semantics.
+Anonymous and unresolved sessions do not gain that link. Authentication,
+session resolution, full-navigation sign-out and browser-storage behavior are
+unchanged; no new motion, dependency, asset, token or API is introduced.
+
+The missing Account-link regression failed before implementation. All 711 frontend
+tests pass, including new long-email accessibility, account-link positive/negative
+cases and delayed sign-out checks. The first production build caught unsupported
+Testing Library `exact` options accidentally copied from the browser API; removing
+those invalid options preserves string-name matching and all 32 focused tests
+and type checking pass. Final lint, production build/TypeScript and all four
+artifact gates pass. Five public routes remain static; the largest first load
+is 321.8 KB against 350 KB. The design detector and patch whitespace checks pass.
+Docker was off, so the first deployment check could not run; the existing local
+stack was restarted and the production-settings Django check reports no issues.
+No local volume or production data was changed. Ruff remains unavailable locally,
+with no Python changes. Existing metadataBase/Vite/jsdom notices remain.
+
+Eighteen Chrome cases pass across 320, 390, 640, 768, 1024 and 1440px, light/dark
+themes, anonymous and signed-in states, long email, and pending/success/failure
+sign-out. Reduced motion was enabled for these cases. No overflow, runtime page
+errors or browser storage entries were found. The full email text/title survives
+visual truncation, Account opens through the drawer with active-route feedback,
+and sign-out retains a full navigation that clears the synthetic JS-context probe
+on both success and failure. Screenshots required no visual correction.
+
+Before views (`header-before-*`), after captures and `header-after-review.json`
+are in the visualization directory. Session/logout responses are synthetic and
+intercepted; no real account session was changed. Real-account behavior,
+Safari/Firefox, physical-device and screen reader checks remain unverified.
+The owner authorized committing this verified batch locally. No push, merge or
+deployment is authorized here.
+
+## Latest session — 2026-10-16: mobile navigation without content overlap
+
+The owner approved the six-file navigation batch on top of the pending account
+changes on `codex/account-polish`. Below `xl`, Site map now occupies an in-flow
+row above learner content instead of floating over fields and transcripts. Its
+shared secondary styling has a measured 44px height. Users scroll to the top to
+reach it; the desktop rail and public editorial navigation remain unchanged.
+The footer no longer reserves extra space for a floating control. Existing root
+scroll padding and its focus-safety tests are retained.
+
+A new regression first reproduced the old exit animation leaving the dialog
+visible after focus and scroll lock had been restored. Drawer/backdrop mounting
+and removal are now immediate under both motion preferences. The render-time
+reduced-motion hook is removed. Existing focus containment/restoration, Escape,
+backdrop, route-change and desktop-resize cleanup behavior is preserved and
+covered, including new immediate close, route-change and backdrop tests. New
+shell tests cover navigation/content order and editorial isolation.
+
+All 707 frontend tests pass. Lint, TypeScript/production build and the four
+artifact gates pass; five public routes remain static, document structure and
+CSS tokens are sound, and the largest first load is 321.8 KB against 350 KB.
+The design detector found no issues, the patch whitespace check passes and the
+local production-settings Django deployment check reports no issues. Ruff remains
+unavailable locally; no Python files changed. Existing metadataBase/Vite and
+jsdom scrollTo notices remain.
+
+Thirteen final Chrome cases cover 320px/390px/tablet navigation in light/dark and
+both motion preferences, account and lesson views, desktop rail and public shell.
+Keyboard focus trapping/restoration, immediate Escape/backdrop close, route-change
+closing and resize scroll release pass. No account field overlap, horizontal
+overflow or runtime errors were found. Screenshot review confirmed the floating
+control is gone; final captures frame the viewport correctly for the drawer and
+reset the lesson capture to the top after existing transcript auto-follow.
+Before views are retained in the prior account/lesson captures; final screenshots
+and `navigation-after-review.json` are in the visualization directory.
+
+Learner responses are synthetic and intercepted; no account or progress was
+changed. Safari/Firefox, physical-device and screen reader checks remain
+outstanding. No dependency, asset, API, access rule, palette or production
+configuration changed. The owner authorized committing the verified account and
+navigation batches locally. No push, merge or deployment is authorized here.
+
+## Latest session — 2026-10-16: account-page composition
+
+The verified lesson-player batch is committed locally as `026424d`. The owner
+approved the nine-file account batch, implemented on `codex/account-polish` on
+top of that commit. The page keeps learner light/dark themes and existing flows.
+Its details, access, password and data sections now have 24px display headings,
+consistent rules and spacing. Values wrap long emails, names and server labels.
+The password form keeps its existing 24rem measure, and data copy has a readable
+measure and relaxed leading. The native export link uses shared secondary control
+styles with a measured 44px target. A stale comment denying the existing export
+was corrected; no export, password, access or verification behavior was changed.
+
+All 702 frontend tests passed, including three new preservation checks for long
+details/server wording, pending password changes and keyboard export access.
+The initial production build caught a server/client boundary mistake in shared
+export styling. DataExport now uses a small client boundary to call the shared
+client control helper; it still prerenders a native anchor without state, click
+handler or fetch. After that correction all 35 focused account tests, lint,
+TypeScript/production build and four artifact gates pass. Five public routes
+remain static; the largest first load is 329.8 KB against 350 KB. The local Django
+production-settings deployment check has no issues. Impeccable's detector and
+patch whitespace check are clean. Ruff remains unavailable locally; no Python
+files changed. Existing metadataBase/Vite and jsdom scrollTo notices remain.
+
+Fourteen final Chrome cases cover desktop/mobile, both themes, both motion
+preferences, anonymous/retry states, 320px long content and password pending,
+error and success. No horizontal overflow, runtime errors or browser storage
+entries were found. Password fields, submit and export follow keyboard order;
+keyboard focus rings are visible. The first checker incorrectly evaluated
+focus-visible after pointer submissions; it was corrected to use keyboard input
+and all fourteen cases passed. Screenshot inspection required no visual changes.
+
+Before/after screenshots and `account-after-review.json` are saved in the local
+visualization directory. Account and submission responses are synthetic and
+intercepted: no real password, account or export was changed or downloaded.
+Real-account/export, Safari/Firefox, physical-device and screen reader checks
+remain unverified. The known floating mobile Site map overlap remains unchanged
+for the separately proposed shared-navigation batch.
+
+No new dependency, asset, palette, API, billing/access rule or production
+configuration is introduced. This account batch remains local and uncommitted;
+no push, merge or deployment occurred.
+
+## Latest session — 2026-10-16: lesson-player and transcript polish
+
+The owner approved the six-file learner batch. It is implemented independently
+on `codex/lesson-player-polish` from merged master `ca15e80`; course-detail PR #112
+remains open with successful frontend/backend CI and dependency audits, while
+deployment jobs were skipped. That PR's course changes are not included here.
+
+The player keeps its existing light/dark themes and section title scale. Its
+technical course slug is omitted; the existing breadcrumb still returns to the
+course. Replay/speed form a named group, the native speed selector has a measured
+44px touch target and 16px type, and status/completion stack on mobile. The
+transcript uses a quieter border, sentence-case heading, thin active-cue rule,
+44px minimum cue targets and wrapping for long unbroken text. Native video,
+caption language, seeking, follow scroll, heartbeat, access and completion rules
+are unchanged. No new motion, tokens, assets or dependencies were added.
+
+The new control-group regression failed before implementation. All 699 frontend
+tests pass, including a new delayed-confirmation test for pending completion.
+After the visual correction, all 60 focused player/transcript tests pass again.
+Final lint, production build/TypeScript and static/document/CSS/bundle gates pass;
+five public routes remain static and the largest first load is 329.8 KB against
+350 KB. The local production-settings Django deployment check has no issues.
+Impeccable's detector found no issues. Ruff remains unavailable locally (host
+Python/API container); no Python files changed. Existing metadataBase/Vite warnings
+remain, and the full suite also printed jsdom's unimplemented scrollTo notice.
+
+The first browser pass exposed transcript text extending below its panel. The
+flex chain was corrected so the list shrinks and scrolls inside the 32rem cap.
+Thirteen final Chrome cases confirm contained scrolling, no horizontal overflow
+or runtime errors, visible focus and 44px speed controls. Cases cover desktop and
+mobile, both themes, both motion preferences, keyboard seeking, missing transcript,
+retry recovery, finished/pending completion and 320px long-content stress.
+Screenshot confirmation found the observed transcript issue resolved.
+
+Before/after captures and `lesson-after-review.json` are saved in the visualization
+directory. Populated lessons/transcripts, progress and completion responses are
+explicitly synthetic and all API requests were intercepted in those cases. The
+real local lesson's anonymous view correctly requested sign-in. No real account
+or progress was mutated. Real media, Safari/Firefox, physical-device and screen
+reader verification remain outstanding. The existing floating mobile Site map
+control is unchanged and remains a shared-navigation review item.
+
+The owner authorized committing this verified batch locally. No push, merge,
+deployment, production configuration or provider change occurred.
 
 ## Latest session — 2026-10-16: course-detail composition and disclosures
 

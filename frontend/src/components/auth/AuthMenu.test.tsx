@@ -11,11 +11,13 @@
  * flicker". The test for that is the one worth keeping longest.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthMenu } from "@/components/auth/AuthMenu";
+import { api } from "@/lib/api/client";
+import { sessionStatus } from "@/lib/auth/session-status";
 
 const ME = {
   id: "u1",
@@ -53,6 +55,7 @@ function pending() {
 }
 
 beforeEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   // Storage is process-global and `cleanup()` does not touch it, so a test
   // that wrote would leak into the next one's count. Noticed while provoking
   // the abuse-case-8 checks: caching the user broke not only the assertion
@@ -65,7 +68,19 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  sessionStatus.finish(sessionStatus.begin("logout"));
   vi.unstubAllGlobals();
+});
+
+it("replaces signed-in links when a real API refusal confirms session loss", async () => {
+  vi.mocked(fetch).mockResolvedValue(json(ME));
+  render(<AuthMenu />);
+  await screen.findByRole("link", { name: ME.email });
+  vi.mocked(fetch).mockResolvedValue(notAuthenticated());
+  await act(async () => { await expect(api.myCourses()).rejects.toThrow(); });
+  expect(screen.getByRole("link", { name: "Sign in" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: ME.email })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "My courses" })).not.toBeInTheDocument();
 });
 
 describe("before the answer arrives", () => {
@@ -135,6 +150,16 @@ describe("signed in", () => {
     vi.mocked(globalThis.fetch).mockImplementation(async () => json(ME));
   });
 
+  it("preserves the full long email as the account link's accessible name and title", async () => {
+    const email = `${"learner".repeat(8)}@${"language".repeat(7)}.example.test`;
+    vi.mocked(globalThis.fetch).mockImplementation(async () => json({ ...ME, email }));
+    render(<AuthMenu />);
+    const account = await screen.findByRole("link", { name: email });
+    expect(account).toHaveAttribute("href", "/account");
+    expect(account).toHaveAttribute("title", email);
+    expect(account).toHaveTextContent(email);
+  });
+
   it("links to the learner's own courses", async () => {
     render(<AuthMenu />);
 
@@ -174,6 +199,20 @@ describe("signed in", () => {
 describe("signing out", () => {
   beforeEach(() => {
     vi.mocked(globalThis.fetch).mockImplementation(async () => json(ME));
+  });
+
+  it("blocks repeat sign-out while pending and preserves the full navigation on success", async () => {
+    let finish!: (response: Response) => void;
+    vi.mocked(globalThis.fetch).mockImplementation(async (url) => {
+      if (String(url).includes("logout")) return new Promise<Response>((resolve) => { finish = resolve; });
+      return json(ME);
+    });
+    render(<AuthMenu />);
+    await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    expect(screen.getByRole("button", { name: "Signing out…" })).toBeDisabled();
+    expect(vi.mocked(globalThis.location.assign)).not.toHaveBeenCalled();
+    await act(async () => { finish(json({ detail: "Accepted." })); });
+    expect(vi.mocked(globalThis.location.assign)).toHaveBeenCalledWith("/");
   });
 
   it("tells the server", async () => {

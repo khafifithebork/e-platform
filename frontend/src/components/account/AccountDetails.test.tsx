@@ -41,6 +41,16 @@ function me(overrides: Record<string, unknown> = {}) {
 }
 
 describe("your details", () => {
+  it("preserves long account details and the server access label verbatim", async () => {
+    const email = `${"long-address".repeat(15)}@example.test`;
+    const label = "Server-supplied access label ".repeat(12);
+    stubApi(() => json(me({ email, profile: { display_name: "متعلم".repeat(50) }, access: { allowed: false, reason: "SUBSCRIPTION_EXPIRED", cta: "subscribe", label } })));
+    render(<AccountDetails />);
+    expect(await screen.findByText(email)).toBeVisible();
+    expect(screen.getByText(label.trim())).toBeVisible();
+    expect(screen.getByRole("link", { name: "See what a subscription covers" })).toHaveAttribute("href", "/pricing");
+  });
+
   it("shows the address the session belongs to", async () => {
     stubApi(() => json(me()));
     render(<AccountDetails />);

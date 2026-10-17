@@ -268,6 +268,13 @@ A refused search also restores that filtered listing while retaining the query
 and inline error. The existing 400ms debounce, cancellation and API messages
 remain the search contract.
 
+On a changed trimmed query, clear the previous cards/count/error immediately
+and cancel its active request before waiting for the next debounce. Ignore late
+successes and failures from cancelled requests, including after unmount. Editing
+only surrounding whitespace preserves the current request/results. Keep the
+search input focused; Clear search restores browsing and existing filter choices.
+No animation, automatic retry or extra request is added to this feedback.
+
 Browse and ranked results use the same stretching grid: one column initially,
 two from `sm` and three from `lg`, with 24px gaps. Each shared `CourseCard` is a
 named article with 24px padding, 16px internal gaps, the inherited large radius
@@ -293,6 +300,84 @@ filters. Result counts are announced politely.
 ---
 
 ## 6. Motion
+
+### Header account controls — responsive identity
+
+The signed-in header group can wrap within its available width. My courses and
+sign-out labels stay on one line; the email remains hidden below `sm` and is
+visually truncated to at most 12rem above it. The anchor's full text and title
+retain the complete email, so visual truncation does not replace its accessible
+name. Sign-in and sign-out reuse the shared secondary control styles with a
+44px minimum target. No new motion or session behavior is introduced.
+
+Signed-in learner navigation offers both My courses and Account in the desktop
+rail and mobile drawer, with `aria-current` derived from the route. Anonymous
+and unresolved sessions do not receive the Account link. Existing full-page
+sign-out navigation, pending disable behavior and browser-storage rules remain
+unchanged.
+
+### Learner navigation — in-flow mobile control
+
+Below `xl`, the learner shell stacks the Site map toggle above the page content.
+The control uses shared secondary button styles with a 44px minimum height,
+24px side margin and 20px top margin. It scrolls with the document, so users return
+to the top to reach it; it does not cover forms, transcripts or footer links.
+At `xl`, the existing desktop rail remains in the shell's horizontal layout.
+Public editorial pages remain free of the learner navigation tree.
+
+The drawer and backdrop mount/unmount immediately for all input methods and
+motion preferences. Focus containment, restoration, Escape/backdrop dismissal,
+route-change closing and resize cleanup retain the existing lifecycle without
+an animated exit keeping the dialog visible after scroll lock is released.
+The render-time reduced-motion hook is removed. Mobile footer padding is now
+the same 32px as desktop/public footers. Existing root scroll padding is retained;
+no global focus safeguard is weakened as part of this change.
+
+### Account — calm learner sections
+
+The account page retains the learner's system light/dark palette and sans display
+face. Its 48rem container has 24px side padding, 40px vertical padding initially
+and 64px from `sm`. Sections are separated by 40px initially and 48px from `sm`;
+their 24px display headings sit above thin rules rather than raised cards.
+
+Detail rows stack on mobile and align label/value columns from `sm`. Values have
+zero minimum width and wrap unbroken addresses, names and server access labels.
+Password controls retain their existing labels, autocomplete, pending, validation
+and success behavior within a full-width form capped at 24rem. Success notices
+precede the form without redundant empty margins.
+
+The data-export action uses shared secondary button styles with a minimum 44px
+target, while remaining a native same-origin download link. Its scope and account
+deletion limitations remain unchanged. Supporting paragraphs retain readable
+measures and relaxed leading. No entrance animation, new illustration or decorative
+motion is added; shared press feedback stays with existing buttons.
+
+### Lesson player — calm learner controls
+
+The lesson player retains the learner's system light/dark palette and existing
+`PageTitle` section variant. Its two desktop columns have zero minimum track
+widths so long lesson titles and transcript cues can wrap. The title sits above
+a thin rule; the technical course slug is omitted, with course navigation still
+provided by the existing breadcrumb.
+
+Replay and speed controls form a named playback group above a bottom rule.
+Replay uses the shared secondary button; the labelled native speed selector has
+a 44px minimum height and 16px text. Position and watched time use tabular figures.
+The status/completion row stacks on mobile and aligns horizontally from `sm`.
+Completion retains shared pending feedback and changes only on server confirmation.
+
+The transcript has a single bordered surface without elevation, a sentence-case
+display heading and a thin active-cue rule. Cue buttons have 44px minimum height
+and wrap unbroken text. The outer flex container is capped at 32rem; its section
+and scrolling list have zero minimum height so long transcripts scroll inside
+the panel. Cue language, `aria-current` and keyboard seeking remain intact.
+Following changes only the list's scroll offset, never document/ancestor scroll.
+On cue changes, move only enough to reveal a clipped cue; leave visible cues and
+partially visible oversized cues still. Wholly offscreen oversized cues align at
+the list's top. Pause following while a cue has keyboard focus; resume on the next
+cue change after focus leaves. Following is immediate (0ms, no easing) for all
+motion preferences, with no timers or render-time preference branch. No entrance
+or loop is introduced, and no ink decoration is placed behind the player.
 
 ### My Courses — quiet learner composition
 

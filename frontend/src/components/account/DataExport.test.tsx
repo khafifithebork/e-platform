@@ -13,12 +13,22 @@
  */
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { DataExport } from "@/components/account/DataExport";
 import { axeViolations } from "@/test/axe";
 
 describe("the download", () => {
+  it("is keyboard reachable as a native download link", async () => {
+    render(<DataExport />);
+    await userEvent.tab();
+    const link = screen.getByRole("link", { name: "Download my data" });
+    expect(link).toHaveFocus();
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveAttribute("download");
+  });
+
   it("links to the export endpoint on this origin", () => {
     /**
      * Relative, so it goes through the Next rewrite to Django and the session cookie

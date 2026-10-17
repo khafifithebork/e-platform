@@ -60,18 +60,18 @@ export function ChangePassword() {
 
   return (
     <section aria-labelledby="password" className="flex flex-col gap-4">
-      <h2 id="password" className="text-sm font-medium text-ink">
+      <h2 id="password" className="font-display text-2xl text-ink">
         Password
       </h2>
 
-      <div className="border-t border-line pt-4">
+      <div className="flex min-w-0 flex-col gap-5 border-t border-line pt-5 [overflow-wrap:anywhere]">
         {changed ? (
           <Notice tone="success" title="Password changed">
             Your other devices have been signed out. This one stays signed in.
           </Notice>
         ) : null}
 
-        <form onSubmit={handleSubmit} noValidate className="mt-4 flex max-w-sm flex-col gap-5">
+        <form onSubmit={handleSubmit} noValidate className="flex w-full max-w-sm flex-col gap-5">
           {problem && <Notice tone="error">{problem}</Notice>}
 
           <Field

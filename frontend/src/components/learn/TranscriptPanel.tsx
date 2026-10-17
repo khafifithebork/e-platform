@@ -65,35 +65,40 @@ export function TranscriptPanel({
 }: TranscriptPanelProps) {
   const current = currentSegmentIndex(segments, positionSeconds);
   const currentRef = useRef<HTMLButtonElement | null>(null);
+  const listRef = useRef<HTMLOListElement | null>(null);
 
   useEffect(() => {
     if (current < 0) return;
 
-    /**
-     * `block: "nearest"` rather than `"center"`, and the difference is the
-     * whole reason this is bearable.
-     *
-     * "nearest" does nothing when the line is already visible, so a learner
-     * who scrolled up to re-read a sentence is only pulled back when the
-     * playhead leaves the part of the transcript they are looking at — rather
-     * than every few seconds. Following a transcript is a trade-off between
-     * keeping up and staying put, and this is the cheapest version that does
-     * not fight the reader.
-     */
-    currentRef.current?.scrollIntoView({
-      block: "nearest",
-      // A transcript advancing every few seconds is exactly the repeated
-      // motion `prefers-reduced-motion` exists for, and smooth scrolling it
-      // can trigger nausea rather than merely annoy.
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-    });
+    const list = listRef.current;
+    const cue = currentRef.current;
+    if (!list || !cue || list.clientHeight === 0) return;
+    // Following must not scroll a keyboard user's focused cue out of view.
+    if (list.contains(list.ownerDocument.activeElement)) return;
+
+    const viewportTop = list.getBoundingClientRect().top + list.clientTop;
+    const viewportBottom = viewportTop + list.clientHeight;
+    const rect = cue.getBoundingClientRect();
+    let delta = 0;
+    if (rect.height > list.clientHeight) {
+      // Keep a partially visible long cue still so following does not undo
+      // manual reading. Bring only wholly offscreen oversized cues to the top.
+      if (rect.bottom <= viewportTop || rect.top >= viewportBottom) delta = rect.top - viewportTop;
+    } else if (rect.top < viewportTop) {
+      delta = rect.top - viewportTop;
+    } else if (rect.bottom > viewportBottom) {
+      delta = rect.bottom - viewportBottom;
+    }
+    // scrollIntoView also scrolls ancestors, pulling the mobile page away
+    // from playback controls. Frequent following is immediate for everyone.
+    if (delta !== 0) list.scrollTo({ top: list.scrollTop + delta, behavior: "instant" });
     // Deliberately only on the index. Running on every position change would
     // call this once a second while nothing moved.
   }, [current]);
 
   return (
-    <section aria-label="Transcript" className="flex h-full flex-col">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-ink-subtle">
+    <section aria-label="Transcript" className="flex min-h-0 flex-col">
+      <h2 className="mb-4 border-b border-line pb-3 font-display text-lg text-ink">
         Transcript
       </h2>
 
@@ -109,8 +114,9 @@ export function TranscriptPanel({
        * it makes a screen reader confident about the wrong pronunciation.
        */}
       <ol
+        ref={listRef}
         {...(languageCode ? { lang: languageCode } : {})}
-        className="flex-1 space-y-1 overflow-y-auto pe-1"
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pe-1 [overflow-wrap:anywhere]"
       >
         {segments.map((segment, index) => (
           <li key={segment.position}>
@@ -119,7 +125,7 @@ export function TranscriptPanel({
               type="button"
               onClick={() => onSeek(segment.start_ms / 1000)}
               aria-current={index === current ? "true" : undefined}
-              className={`w-full rounded-(--radius-sm) border-s-2 px-3 py-2 text-start text-sm
+              className={`min-h-11 w-full rounded-(--radius-sm) border-s px-3 py-3 text-start text-sm
                 leading-relaxed transition-colors hover:bg-surface-sunken
                 ${
                   index === current
@@ -133,21 +139,5 @@ export function TranscriptPanel({
         ))}
       </ol>
     </section>
-  );
-}
-
-/**
- * Whether the visitor asked for less motion.
- *
- * Read at call time rather than cached: somebody can change the setting while
- * a lesson is open, and a value captured on mount would keep animating for the
- * rest of the session. `matchMedia` is guarded because jsdom does not
- * implement it, and a test environment is not a reason to crash a player.
- */
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 }

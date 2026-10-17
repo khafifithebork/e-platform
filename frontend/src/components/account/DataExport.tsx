@@ -1,3 +1,7 @@
+"use client";
+
+import { buttonStyles } from "@/components/ui/Button";
+
 /**
  * Downloading your own data.
  *
@@ -12,8 +16,9 @@
  * somewhere. A link gets progress, resumption, the download shelf and the browser's
  * own error handling for free, and this component needs no client JavaScript at all.
  *
- * **Which is why this is a Server Component**, unlike everything else on the account
- * page. There is no state and no event handler.
+ * The client boundary permits reuse of `buttonStyles` from the shared client
+ * control module. The link still prerenders and has no state or event handler;
+ * the browser handles the download without a JavaScript fetch.
  *
  * `prefetch={false}` would be the concern with `next/link` — prefetching a data
  * export would download it on hover — so this is a plain `<a>`. Next's own lint rule
@@ -23,12 +28,12 @@
 export function DataExport() {
   return (
     <section aria-labelledby="your-data" className="flex flex-col gap-4">
-      <h2 id="your-data" className="text-sm font-medium text-ink">
+      <h2 id="your-data" className="font-display text-2xl text-ink">
         Your data
       </h2>
 
-      <div className="flex flex-col items-start gap-4 border-t border-line pt-4">
-        <p className="text-sm text-ink-muted">
+      <div className="flex min-w-0 flex-col items-start gap-5 border-t border-line pt-5 [overflow-wrap:anywhere]">
+        <p className="max-w-prose text-sm leading-relaxed text-ink-muted">
           A copy of everything this service holds about your account, as a JSON
           file: your details, the courses you have started, how far you have got,
           and your subscription history. Course content is not included.
@@ -41,8 +46,7 @@ export function DataExport() {
           // page full of JSON. Both, because the attribute also names the file when
           // a browser does honour it.
           download
-          className="rounded-(--radius-sm) border border-line-strong px-3.5 py-2
-            text-sm text-ink hover:border-ink-subtle"
+          className={buttonStyles({ variant: "secondary", lift: false })}
         >
           Download my data
         </a>
@@ -63,7 +67,7 @@ export function DataExport() {
          * address nobody reads is worse than an admitted gap. It stays this way until
          * a real contact route exists.
          */}
-        <p className="text-sm text-ink-muted">
+        <p className="max-w-prose text-sm leading-relaxed text-ink-muted">
           Deleting an account is not yet something this site can do, and there is
           no contact route set up for asking. Both are being worked on.
         </p>

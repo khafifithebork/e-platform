@@ -416,11 +416,10 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
   const finished = progress?.completed_at != null;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[3fr_2fr]">
-      <div className="space-y-4">
-        <header>
+    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="min-w-0 space-y-6 [overflow-wrap:anywhere]">
+        <header className="border-b border-line pb-5">
           <PageTitle variant="section">{lesson.title}</PageTitle>
-          <p className="text-sm text-ink-subtle">{lesson.course_slug}</p>
         </header>
 
         {denial ? (
@@ -482,8 +481,8 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
             ) : null}
           </video>
         ) : (
-          <div className="rounded-(--radius-md) border border-line bg-surface-sunken p-6 shadow-(--shadow-sm)">
-            <p className="mb-3 text-sm text-ink-muted">
+          <div className="rounded-(--radius-md) border border-line bg-surface-sunken p-5 sm:p-6">
+            <p className="mb-4 max-w-prose text-sm leading-relaxed text-ink-muted">
               No video provider is configured, so this is a stand-in clock. It reports
               progress exactly as a real player would.
             </p>
@@ -510,10 +509,9 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
          * focus. This row is for the two actions its own controls do not offer
          * prominently, and for the stand-in, which has no controls at all.
          */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div role="group" aria-label="Playback controls" className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-line pb-5">
           <Button
-            variant="ghost"
-            size="sm"
+            variant="secondary"
             onClick={() => seek(replayFrom(positionRef.current))}
             disabled={denial != null}
           >
@@ -531,8 +529,8 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
               value={rate}
               onChange={(event) => changeRate(Number(event.target.value) as PlaybackRate)}
               disabled={denial != null}
-              className="rounded-(--radius-sm) border border-line-strong bg-surface px-2 py-1
-                text-sm text-ink disabled:opacity-60"
+              className="min-h-11 rounded-(--radius-sm) border border-line-strong bg-surface px-3 py-2
+                text-base text-ink disabled:opacity-60"
             >
               {PLAYBACK_RATES.map((option) => (
                 <option key={option} value={option}>
@@ -543,8 +541,8 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-sm text-ink-muted">
-          <span>
+        <div className="flex flex-col items-start gap-4 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between">
+          <span className="min-w-0 tabular-nums">
             At {timestamp(position)}
             {progress ? ` · ${timestamp(progress.watched_seconds)} watched` : null}
           </span>
@@ -565,7 +563,7 @@ export function LessonPlayer({ lesson }: LessonPlayerProps) {
       </div>
 
       {segments.length > 0 ? (
-        <div className="max-h-[32rem] rounded-(--radius-md) border border-line bg-surface p-4 shadow-(--shadow-sm)">
+        <div className="flex min-w-0 max-h-[32rem] flex-col rounded-(--radius-md) border border-line bg-surface p-5">
           {/* `captions?.code` is the same value the `<track srclang>` carries, so the
               spoken and written transcript cannot disagree about their language. */}
           <TranscriptPanel

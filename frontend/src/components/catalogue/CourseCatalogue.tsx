@@ -141,7 +141,10 @@ export function CourseCatalogue({
             // A cleared or refused search restores the already-loaded catalogue.
             if (next === null) setSearching(false);
           }}
-          onQueryChange={(q) => setSearching(q.length >= MIN_QUERY_LENGTH)}
+          onQueryChange={(q) => {
+            setResults(null);
+            setSearching(q.length >= MIN_QUERY_LENGTH);
+          }}
         />
 
         {/*

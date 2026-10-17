@@ -13,7 +13,7 @@
  * 3. The API's refusal is echoed verbatim, not replaced with a friendlier sentence.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -36,6 +36,19 @@ async function submit(current = "the-old-passphrase", next = "a-much-better-pass
 }
 
 describe("what it sends", () => {
+  it("keeps password changes pending until the server confirms success", async () => {
+    let confirm!: (response: Response) => void;
+    stubApi(() => new Promise<Response>((resolve) => { confirm = resolve; }));
+    render(<ChangePassword />);
+    await submit();
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(screen.getByLabelText(/current password/i)).toBeDisabled();
+    expect(screen.getByLabelText(/new password/i)).toBeDisabled();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await act(async () => { confirm(accepted()); });
+    expect(await screen.findByRole("status")).toHaveTextContent("Password changed");
+  });
+
   it("posts both passwords under the names the API expects", async () => {
     // `current_password` and `new_password`, snake_case. Getting these wrong is a
     // 400 that reads like a rejected password rather than a wrong field name.

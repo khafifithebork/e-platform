@@ -31,9 +31,18 @@ const SEGMENTS: TranscriptSegment[] = [
   segment(3, 7000, 9000, "Muy bien, gracias."),
 ];
 
+let cueTop = 250;
+let cueHeight = 44;
+
 beforeEach(() => {
-  // jsdom implements neither, and both are called on every index change.
+  // Geometry is explicit: jsdom does not lay out the scrolling list.
   Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.scrollTo = vi.fn();
+  cueTop = 250; cueHeight = 44;
+  vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(100);
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    return this.tagName === "OL" ? new DOMRect(0, 100, 200, 100) : new DOMRect(0, cueTop, 200, cueHeight);
+  });
   vi.stubGlobal("matchMedia", undefined);
 });
 
@@ -132,6 +141,19 @@ describe("the panel", () => {
 });
 
 describe("seeking", () => {
+  it("preserves transcript language, current cue and seeking with long text", async () => {
+    const onSeek = vi.fn();
+    const text = "مرحبا".repeat(100);
+    render(<TranscriptPanel segments={[segment(1, 0, 2000, text)]} positionSeconds={1} onSeek={onSeek} languageCode="ar" />);
+    expect(screen.getByRole("list")).toHaveAttribute("lang", "ar");
+    const cue = screen.getByRole("button", { name: text });
+    expect(cue).toHaveAttribute("aria-current", "true");
+    await userEvent.tab();
+    expect(cue).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    expect(onSeek).toHaveBeenCalledWith(0);
+  });
+
   it("jumps to the start of a clicked line, in seconds", async () => {
     // The API stores milliseconds and the player takes seconds. Handing over
     // milliseconds would seek to 7000 seconds — just under two hours into a
@@ -158,79 +180,80 @@ describe("seeking", () => {
 });
 
 describe("following along", () => {
-  it("scrolls the current line into view", () => {
-    // Marking line 87 of 200 is worth nothing if line 87 is off-screen. This
-    // is what makes it a transcript you can follow rather than one you can
-    // search — added at T7.
-    render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  it("follows cues without scrolling ancestors", () => {
+    const { container } = render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith({ top: 94, behavior: "instant" });
+    expect(vi.mocked(Element.prototype.scrollTo).mock.instances[0]).toBe(container.querySelector("ol"));
   });
 
   it("scrolls no further than it must", () => {
-    // `block: "nearest"` does nothing when the line is already visible, so a
-    // learner who scrolled up to re-read is only pulled back when the playhead
-    // leaves what they are looking at — rather than every few seconds.
+    cueTop = 180;
     render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith({ top: 24, behavior: "instant" });
+  });
 
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(
-      expect.objectContaining({ block: "nearest" }),
-    );
+  it("leaves visible cues still", () => {
+    cueTop = 120;
+    render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("keeps keyboard-focused cues visible and resumes following after focus leaves", () => {
+    const { rerender } = render(<TranscriptPanel segments={SEGMENTS} positionSeconds={6} onSeek={vi.fn()} />);
+    const focused = screen.getByRole("button", { name: "Hola, buenos días." });
+    focused.focus();
+    rerender(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
+    expect(focused).toHaveFocus();
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+    focused.blur();
+    rerender(<TranscriptPanel segments={SEGMENTS} positionSeconds={7} onSeek={vi.fn()} />);
+    expect(Element.prototype.scrollTo).toHaveBeenCalledOnce();
+  });
+
+  it("follows a cue above the list using its existing scroll offset", () => {
+    cueTop = 70;
+    const { container, rerender } = render(<TranscriptPanel segments={SEGMENTS} positionSeconds={6} onSeek={vi.fn()} />);
+    container.querySelector("ol")!.scrollTop = 80;
+    rerender(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith({ top: 50, behavior: "instant" });
+  });
+
+  it("handles oversized cues without oscillation", () => {
+    cueTop = 70; cueHeight = 200;
+    const { rerender } = render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+    cueTop = 250;
+    rerender(<TranscriptPanel segments={SEGMENTS} positionSeconds={7} onSeek={vi.fn()} />);
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith({ top: 150, behavior: "instant" });
   });
 
   it("does not scroll during a gap", () => {
-    // Nothing is current, so there is nothing to follow. Scrolling anyway
-    // would jump to whichever line happened to hold the ref last.
     render(<TranscriptPanel segments={SEGMENTS} positionSeconds={6} onSeek={vi.fn()} />);
-
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("does not scroll again while the same line is current", () => {
-    // The effect depends on the index, not the position. Running on every
-    // position change would call this once a second while nothing moved.
-    const { rerender } = render(
-      <TranscriptPanel segments={SEGMENTS} positionSeconds={2.1} onSeek={vi.fn()} />,
-    );
+    const { rerender } = render(<TranscriptPanel segments={SEGMENTS} positionSeconds={2.1} onSeek={vi.fn()} />);
     rerender(<TranscriptPanel segments={SEGMENTS} positionSeconds={2.9} onSeek={vi.fn()} />);
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(Element.prototype.scrollTo).toHaveBeenCalledTimes(1);
   });
 
-  it("animates by default", () => {
-    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
-
+  // The approved correction replaces repeated smooth movement with immediate
+  // panel-only following for both preferences; existing seeking tests stay intact.
+  it.each([false, true])("follows immediately with reduced motion set to %s", (matches) => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches })));
     render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(
-      expect.objectContaining({ behavior: "smooth" }),
-    );
-  });
-
-  it("does not animate when the visitor asked for less motion", () => {
-    // A transcript advancing every few seconds is exactly the repeated motion
-    // this setting exists for, and smooth scrolling it can cause nausea rather
-    // than merely annoy.
-    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
-
-    render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />);
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(
-      expect.objectContaining({ behavior: "auto" }),
-    );
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "instant" }));
   });
 
   it("survives an environment with no matchMedia", () => {
-    // jsdom has none, and neither does a server render. Reading it
-    // unguardedly would crash the player in both.
     vi.stubGlobal("matchMedia", undefined);
-
-    expect(() =>
-      render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />),
-    ).not.toThrow();
+    expect(() => render(<TranscriptPanel segments={SEGMENTS} positionSeconds={3} onSeek={vi.fn()} />)).not.toThrow();
   });
 });
-
 describe("the transcript is text, never markup", () => {
   it("renders a script tag as characters", () => {
     // Written by a transcription provider, then edited by an instructor — user

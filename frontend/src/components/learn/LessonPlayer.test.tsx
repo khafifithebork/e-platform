@@ -21,7 +21,7 @@
  * flake.
  */
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -112,6 +112,15 @@ function bodyOf(call: [input: string | URL | Request, init?: RequestInit]) {
 }
 
 describe("what it renders", () => {
+  it("groups reachable playback controls without showing a technical course slug", async () => {
+    render(<LessonPlayer lesson={{ ...LESSON, title: "A long lesson title ".repeat(10) }} />);
+    const controls = await screen.findByRole("group", { name: "Playback controls" });
+    expect(within(controls).getByRole("button", { name: "Back 5 seconds" })).toBeEnabled();
+    expect(within(controls).getByRole("combobox", { name: "Speed" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark complete" })).toBeEnabled();
+    expect(screen.queryByText(LESSON.course_slug, { exact: true })).not.toBeInTheDocument();
+  });
+
   it("shows the lesson it was handed, without fetching it", async () => {
     render(<LessonPlayer lesson={LESSON} />);
 
@@ -299,6 +308,26 @@ describe("a subscription that lapses mid-lesson", () => {
 });
 
 describe("completion", () => {
+  it("waits for server confirmation and blocks repeat completion submits", async () => {
+    let confirm!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).includes("/complete/")) {
+        return new Promise<Response>((resolve) => { confirm = resolve; });
+      }
+      if (String(url).includes("/progress/")) return json(progress());
+      return new Response("", { status: 404 });
+    }));
+    render(<LessonPlayer lesson={LESSON} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Mark complete" }));
+    const pending = screen.getByRole("button", { name: "Working…" });
+    expect(pending).toBeDisabled();
+    expect(pending).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+    await act(async () => { confirm(json(progress({ completed_at: "2026-02-01T00:00:00Z" }))); });
+    expect(await screen.findByText("Completed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark complete" })).not.toBeInTheDocument();
+  });
+
   /**
    * **Displayed, never decided.** ADR-016 §2 puts the rule on the server, and
    * every progress response carries `completed_at`. A client that decided for
