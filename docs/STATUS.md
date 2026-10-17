@@ -1,7 +1,62 @@
 # STATUS
 
 **Last updated:** 2026-10-17
-**Updated by:** Codex (approved inline session-ended feedback)
+**Updated by:** Codex (approved panel-only transcript following)
+
+## Latest session — 2026-10-17: transcript following stays inside its panel
+
+The owner approved the four-file correction on `codex/account-polish`.
+`TranscriptPanel` now adjusts only its own list's scroll offset by the minimum
+needed on a cue change. Visible cues stay still; wholly offscreen oversized cues
+align at the top, while partially visible oversized cues remain where the learner
+put them. Following is immediate for all motion preferences (0ms, no easing).
+No timer, animation, preference branch, dependency or API change was introduced.
+Seeking, cue language, `aria-current`, existing styles and server-owned progress
+remain intact. Design guidance now records the corrected behavior.
+
+Eight follow assertions reproduced the old ancestor-scrolling implementation.
+Geometry fixtures now test the actual required list offset, stillness, gaps,
+same-cue updates and both motion preferences instead of requiring the old API.
+All existing seeking/language/text-safety assertions remain. Browser inspection
+also reproduced a focused cue being clipped during playback. Its additional
+regression failed before the safeguard: following now pauses while the list
+contains focus and resumes on the next cue change after focus leaves.
+
+All **743 frontend tests across 59 files** pass on the final implementation,
+including 64 focused transcript/player tests. Frontend lint, type checking,
+production build and all four artifact gates pass: five public routes remain
+static, 13 built pages pass structure checks, CSS token references resolve and
+largest first load is 322.8 KB against 350 KB. The local production-settings
+Django deployment check reports zero issues. Patch whitespace is clean and the
+Impeccable detector returned no findings. Ruff is unavailable; no Python changed.
+Existing metadataBase, Vite and jsdom scrollTo notices remain.
+
+Final synthetic Chrome playback at 390px keeps document y=0 instead of the
+reproduced y=460 while the list follows cues; 1440px remains at y=0 too. The
+focused-cue probe keeps the cue visible/list offset unchanged through cue nine,
+then follows cue ten after focus leaves, with document position still zero.
+Thirteen lesson-state scenarios pass across desktop/mobile, light/dark, both
+motion preferences, empty/error/retry, completed/pending and 320px long text.
+No overflow/runtime errors were found, focus remains visible and speed targets
+measure 44px. Before/after, desktop/mobile/dark/long captures were reviewed
+together; the observed focus issue was corrected once and confirmed.
+
+Evidence in the task visualization directory: `transcript-scroll-review.json`,
+`transcript-follow-after-review.json`, `transcript-focus-final-review.json`,
+`transcript-final-review.json` and their JPG captures. Real provider/video playback,
+Safari/Firefox, physical devices and screen readers remain unverified. This batch
+is uncommitted; no push, merge, deployment or production configuration changed.
+
+## Latest inspection — 2026-10-17: transcript following moves the mobile page
+
+Reflow notes are committed as `192b04d`. During synthetic playback at 390px,
+`TranscriptPanel`'s cue `scrollIntoView` moved the page from y=0 to y=460 while
+the transcript list moved from 0 to 24px. At 1440px the page stayed at zero while
+the list moved 40px. Reduced motion was enabled, so this is not a smooth-scroll
+timing artifact. Captures and `transcript-scroll-review.json` are in the task
+visualization directory. Current tests assert the scrolling API call and miss
+ancestor scrolling. A bounded panel-only follow correction is proposed; product
+code is unchanged pending the owner's §7 approval.
 
 ## Latest verification — 2026-10-17: reflow and enlarged-text stress pass
 
