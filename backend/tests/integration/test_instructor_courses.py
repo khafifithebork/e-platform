@@ -12,6 +12,7 @@ yours", which is exactly the fact being protected.
 from __future__ import annotations
 
 import pytest
+from django.db import DatabaseError, connection
 
 from apps.accounts.models import Role
 
@@ -159,6 +160,96 @@ class TestCreation:
         )
 
         assert response.json()["status"] == "DRAFT"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestCourseWriteAtomicity:
+    @staticmethod
+    def fail_search_write(execute, sql, params, many, context):
+        if sql.startswith('UPDATE "catalog_course" SET "search_vector"'):
+            raise DatabaseError("Synthetic search write failure")
+        return execute(sql, params, many, context)
+
+    def test_creation_rolls_back_when_search_refresh_fails(self, client, language) -> None:
+        from apps.catalog.models import Course
+
+        _instructor("me@example.test")
+        _sign_in(client, "me@example.test")
+
+        with connection.execute_wrapper(self.fail_search_write), pytest.raises(DatabaseError):
+            client.post(
+                COURSES,
+                {"slug": "atomic-create", "title": "New", "language": language.pk, "level": "A1"},
+                content_type="application/json",
+            )
+
+        assert not Course.objects.filter(slug="atomic-create").exists()
+
+    def test_update_rolls_back_when_search_refresh_fails(self, client, mine) -> None:
+        _sign_in(client, "me@example.test")
+
+        with connection.execute_wrapper(self.fail_search_write), pytest.raises(DatabaseError):
+            client.patch(
+                f"{COURSES}{mine.id}/",
+                {"title": "Should not persist"},
+                content_type="application/json",
+            )
+
+        mine.refresh_from_db()
+        assert mine.title == "Mine"
+
+    def test_partial_edit_returns_persisted_fields_and_refreshes_search(self, client, mine) -> None:
+        from django.contrib.postgres.search import SearchQuery
+
+        from apps.catalog.models import Course
+
+        _sign_in(client, "me@example.test")
+        response = client.patch(
+            f"{COURSES}{mine.id}/",
+            {"description": "Portuguese pronunciation", "skill_areas": ["listening"]},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] == str(mine.pk)
+        assert response.json()["title"] == "Mine"
+        assert response.json()["description"] == "Portuguese pronunciation"
+        mine.refresh_from_db()
+        assert mine.skill_areas == ["listening"]
+        assert Course.objects.filter(pk=mine.pk, search_vector=SearchQuery("portuguese")).exists()
+        assert Course.objects.filter(pk=mine.pk, search_vector=SearchQuery("listening")).exists()
+
+    def test_full_edit_changes_content_but_not_ownership_or_publication(self, client, mine) -> None:
+        from apps.catalog.models import Language
+
+        other = _instructor("other@example.test")
+        french = Language.objects.create(code="fr", name="French")
+        _sign_in(client, "me@example.test")
+        response = client.put(
+            f"{COURSES}{mine.id}/",
+            {
+                "slug": "french-course",
+                "title": "French course",
+                "description": "Pronunciation",
+                "language": french.pk,
+                "level": "B2",
+                "skill_areas": ["speaking"],
+                "instructor": str(other.pk),
+                "status": "PUBLISHED",
+                "published_at": "2026-01-01T00:00:00Z",
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["slug"] == "french-course"
+        assert response.json()["title"] == "French course"
+        mine.refresh_from_db()
+        assert mine.language_id == french.pk
+        assert mine.level == "B2"
+        assert mine.instructor_id != other.pk
+        assert mine.status == "DRAFT"
+        assert mine.published_at is None
 
 
 @pytest.mark.django_db

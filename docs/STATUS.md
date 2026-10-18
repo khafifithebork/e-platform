@@ -1,7 +1,23 @@
 # STATUS
 
 **Last updated:** 2026-10-18
-**Updated by:** Codex (authorized course-detail merge and local integration)
+**Updated by:** Codex (approved course write service repair)
+
+## Latest repair — 2026-10-18: atomic instructor course creation and edits
+
+The owner approved moving instructor course creation/update out of views into
+explicit catalogue services. Course content and its search vector now commit or
+roll back together; injected database-write failures reproduced persisted edits
+before the repair and now prove rollback. Session ownership, partial/full edits,
+empty values and protected publication fields remain covered; the service also
+rejects another instructor's edit directly. This covers these two write paths only.
+All 1,569 backend tests and 757 frontend tests pass. Catalogue services have 99.2%
+statement and 100% branch coverage; both new services have full measured line coverage.
+Ruff check/format, frontend types/lint, migration dry-run and production-settings
+checks pass (zero deployment-check issues). Windows pytest temp-directory setup
+and cleanup required the final backend run outside the sandbox; no test was skipped.
+No API contract, migration, dependency, UI or course metadata field was changed.
+The repair is isolated on `codex/catalog-course-writes`, based on the PR #115 notes.
 
 ## Latest verification — 2026-10-18: saved-password autofill and learner recovery
 
