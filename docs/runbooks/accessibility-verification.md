@@ -195,6 +195,10 @@ scrollbars were captured in light/dark; genuine email autofill was captured in
 both preferences, with 18.33:1 contrast. See STATUS and ADR-032. Password-manager
 autofill, other engines and human confirmation remain open; no conformance claim.
 
+**2026-10-18 limit:** the isolated headless password manager's import control did
+not open a file chooser. Password-manager autofill remains unverified; use an
+interactive browser. The successful email-address autofill pass does not cover it.
+
 Windows High Contrast, or Chrome DevTools → Rendering → `forced-colors: active`.
 
 - ~~Focus is still visible.~~ **Confirmed by the owner 2026-09-28.** This is the one

@@ -1,7 +1,16 @@
 # STATUS
 
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-18
 **Updated by:** Codex (authorized course-detail merge and local integration)
+
+## Latest verification limit — 2026-10-18: password-manager autofill still open
+
+An isolated Chrome profile exposed the password-import control, but selecting
+the synthetic CSV did not emit a file-chooser event in headless mode. Import and
+password-manager autofill were therefore not verified; no sign-in was submitted.
+This is a test-environment limit, not a demonstrated product defect. Evidence:
+`probe-password-manager.cjs`, `audit-password-manager.cjs` and the capability PNG
+in the task visualization directory. Continue this check in an interactive browser.
 
 ## Latest verification — 2026-10-17: native scrollbar and email autofill
 
