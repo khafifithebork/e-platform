@@ -175,6 +175,9 @@ Chrome 155 screenshots show native light/dark transcript scrollbars. Real synthe
 email autofill matched `:autofill` with 18.33:1 text contrast in both preferences;
 auth correctly stays light. Password-manager autofill and human A4 confirmation remain open.
 
+**2026-10-18 update:** genuine saved-password autofill also passed in isolated Chrome
+via Add password, including locally intercepted React form submission; human A4 remains open.
+
 1. ~~A test asserting `color-scheme` is declared.~~ **Done** — `src/app/theme.test.ts`,
    five assertions, each provoked: removing the declaration fails three, forcing a
    single scheme fails one, and adding a `data-theme` selector fails the one that

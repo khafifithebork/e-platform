@@ -199,6 +199,13 @@ autofill, other engines and human confirmation remain open; no conformance claim
 not open a file chooser. Password-manager autofill remains unverified; use an
 interactive browser. The successful email-address autofill pass does not cover it.
 
+**2026-10-18 follow-up supersedes that limit for saved-password testing:** Chrome's
+Add password dialog worked. Both inputs matched `:autofill`; intercepted submissions
+matched the synthetic saved login in both preferences, with values retained and
+submission enabled after refusal. See `test-saved-password-binding.cjs` and its JSON.
+Eight learner recovery/gate cases also passed at 1440px light and 320px dark, with
+zero axe violations. Human screen-reader/device checks and real media remain open.
+
 Windows High Contrast, or Chrome DevTools → Rendering → `forced-colors: active`.
 
 - ~~Focus is still visible.~~ **Confirmed by the owner 2026-09-28.** This is the one

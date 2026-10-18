@@ -3,6 +3,16 @@
 **Last updated:** 2026-10-18
 **Updated by:** Codex (authorized course-detail merge and local integration)
 
+## Latest verification — 2026-10-18: saved-password autofill and learner recovery
+
+Chrome's Add password dialog bypassed the import limitation below. A synthetic
+saved login genuinely autofilled both inputs in light/dark preferences; locally
+intercepted submissions proved React sent the correct values, retained them after
+refusal and re-enabled submission. Eight desktop/mobile learner retry, pagination,
+missing-lesson and sign-in-gate cases passed with no overflow, runtime errors or
+axe violations. Evidence: `saved-password*-review.json`, `learner-recovery-review.json`
+and matching PNGs in the task visualization directory. No product code changed.
+
 ## Latest verification limit — 2026-10-18: password-manager autofill still open
 
 An isolated Chrome profile exposed the password-import control, but selecting
