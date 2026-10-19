@@ -6,7 +6,7 @@ HTTP concerns only (invariant 2). The publication rules live in
 
 from django.http import Http404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
@@ -43,9 +43,23 @@ from apps.catalog.services import (
 )
 
 
+class _InstructorContentViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Content editing without destructive deletion (ADR-039).
+
+    Omit DestroyModelMixin so routing and the generated API contract cannot
+    advertise deletion. Withdrawing a course remains an admin archive action.
+    """
+
+
 @extend_schema(tags=["instructor"])
-class InstructorCourseViewSet(viewsets.ModelViewSet):
-    """CRUD over the courses you own.
+class InstructorCourseViewSet(_InstructorContentViewSet):
+    """Create, read and edit the courses you own.
 
     There is deliberately **no publish action here at all**. An instructor's
     only forward move is ``submit-for-review``; the route to PUBLISHED exists
@@ -60,7 +74,7 @@ class InstructorCourseViewSet(viewsets.ModelViewSet):
         """Scoped to the caller. Every detail route resolves through this.
 
         This single filter is what turns "someone else's course" into a 404
-        rather than a 403 for read, update *and* delete at once — there is no
+        rather than a 403 for read and update — there is no
         per-action check to forget.
         """
         # drf-spectacular introspects the view class with no authenticated
@@ -146,7 +160,7 @@ class _CourseScopedMixin:
 
 
 @extend_schema(tags=["instructor"])
-class InstructorSectionViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
+class InstructorSectionViewSet(_CourseScopedMixin, _InstructorContentViewSet):
     """Sections of one of your courses."""
 
     serializer_class = SectionSerializer
@@ -201,7 +215,7 @@ class InstructorSectionViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
 
 
 @extend_schema(tags=["instructor"])
-class InstructorLessonViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
+class InstructorLessonViewSet(_CourseScopedMixin, _InstructorContentViewSet):
     """Lessons of one of your courses."""
 
     serializer_class = LessonSerializer

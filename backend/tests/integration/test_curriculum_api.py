@@ -79,6 +79,79 @@ def _sections_url(course) -> str:
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("target", ["course", "section", "lesson"])
+def test_refused_delete_preserves_curriculum_and_progress(client, mine, target) -> None:
+    from django.utils import timezone
+
+    from apps.accounts.services import create_account
+    from apps.catalog.models import Lesson
+    from apps.learning.models import Enrollment, LessonProgress
+
+    section = _section(mine, "First", 1)
+    lesson = Lesson.objects.create(
+        course=mine, section=section, slug="intro", title="Introduction", position=1
+    )
+    learner = create_account(email="learner@example.test", password=PASSWORD)
+    completed_at = timezone.now()
+    enrollment = Enrollment.objects.create(user=learner, course=mine, last_lesson=lesson)
+    progress = LessonProgress.objects.create(
+        user=learner,
+        lesson=lesson,
+        last_position_seconds=20,
+        max_position_seconds=30,
+        watched_seconds=25,
+        completed_at=completed_at,
+    )
+    urls = {
+        "course": f"/api/v1/instructor/courses/{mine.pk}/",
+        "section": f"{_sections_url(mine)}{section.pk}/",
+        "lesson": f"/api/v1/instructor/courses/{mine.pk}/lessons/{lesson.pk}/",
+    }
+    _sign_in(client, "me@example.test")
+
+    response = client.delete(urls[target])
+
+    assert response.status_code == 405
+    assert "DELETE" not in response["Allow"]
+    assert "DELETE" not in client.options(urls[target])["Allow"]
+    mine.refresh_from_db()
+    section.refresh_from_db()
+    lesson.refresh_from_db()
+    enrollment.refresh_from_db()
+    progress.refresh_from_db()
+    assert section.course_id == lesson.course_id == enrollment.course_id == mine.pk
+    assert lesson.section_id == section.pk
+    assert enrollment.last_lesson_id == progress.lesson_id == lesson.pk
+    assert progress.last_position_seconds == 20
+    assert progress.max_position_seconds == 30
+    assert progress.watched_seconds == 25
+    assert progress.completed_at == completed_at
+    assert enrollment.completed_at is None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("target", ["sections", "lessons"])
+def test_curriculum_delete_does_not_disclose_foreign_objects(client, mine, theirs, target) -> None:
+    from apps.catalog.models import Lesson
+
+    section = _section(theirs, "Foreign", 1)
+    lesson = Lesson.objects.create(
+        course=theirs, section=section, slug="intro", title="Introduction", position=1
+    )
+    item = section if target == "sections" else lesson
+    prefix = f"/api/v1/instructor/courses/{theirs.pk}/{target}/"
+    _sign_in(client, "me@example.test")
+
+    foreign = client.delete(f"{prefix}{item.pk}/")
+    missing = client.delete(f"{prefix}00000000-0000-0000-0000-000000000000/")
+
+    assert foreign.status_code == missing.status_code == 405
+    assert foreign.json() == missing.json()
+    section.refresh_from_db()
+    lesson.refresh_from_db()
+
+
+@pytest.mark.django_db
 class TestSectionScoping:
     def test_sections_of_another_course_are_not_listed(self, client, mine, theirs) -> None:
         _section(mine, "Mine", 1)

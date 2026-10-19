@@ -522,7 +522,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description CRUD over the courses you own.
+         * @description Create, read and edit the courses you own.
          *
          *     There is deliberately **no publish action here at all**. An instructor's
          *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
@@ -532,7 +532,7 @@ export interface paths {
         get: operations["instructor_courses_list"];
         put?: never;
         /**
-         * @description CRUD over the courses you own.
+         * @description Create, read and edit the courses you own.
          *
          *     There is deliberately **no publish action here at all**. An instructor's
          *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
@@ -576,8 +576,7 @@ export interface paths {
         /** @description Lessons of one of your courses. */
         put: operations["instructor_courses_lessons_update"];
         post?: never;
-        /** @description Lessons of one of your courses. */
-        delete: operations["instructor_courses_lessons_destroy"];
+        delete?: never;
         options?: never;
         head?: never;
         /** @description Lessons of one of your courses. */
@@ -686,8 +685,7 @@ export interface paths {
         /** @description Sections of one of your courses. */
         put: operations["instructor_courses_sections_update"];
         post?: never;
-        /** @description Sections of one of your courses. */
-        delete: operations["instructor_courses_sections_destroy"];
+        delete?: never;
         options?: never;
         head?: never;
         /** @description Sections of one of your courses. */
@@ -722,7 +720,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description CRUD over the courses you own.
+         * @description Create, read and edit the courses you own.
          *
          *     There is deliberately **no publish action here at all**. An instructor's
          *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
@@ -731,7 +729,7 @@ export interface paths {
          */
         get: operations["instructor_courses_retrieve"];
         /**
-         * @description CRUD over the courses you own.
+         * @description Create, read and edit the courses you own.
          *
          *     There is deliberately **no publish action here at all**. An instructor's
          *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
@@ -740,19 +738,11 @@ export interface paths {
          */
         put: operations["instructor_courses_update"];
         post?: never;
-        /**
-         * @description CRUD over the courses you own.
-         *
-         *     There is deliberately **no publish action here at all**. An instructor's
-         *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
-         *     solely in Django Admin, for admins (ADR-007 §2). Absence is a stronger
-         *     guarantee than a permission check on an endpoint that exists.
-         */
-        delete: operations["instructor_courses_destroy"];
+        delete?: never;
         options?: never;
         head?: never;
         /**
-         * @description CRUD over the courses you own.
+         * @description Create, read and edit the courses you own.
          *
          *     There is deliberately **no publish action here at all**. An instructor's
          *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
@@ -773,7 +763,7 @@ export interface paths {
         put?: never;
         /**
          * Submit a course for review
-         * @description CRUD over the courses you own.
+         * @description Create, read and edit the courses you own.
          *
          *     There is deliberately **no publish action here at all**. An instructor's
          *     only forward move is ``submit-for-review``; the route to PUBLISHED exists
@@ -2975,28 +2965,6 @@ export interface operations {
             };
         };
     };
-    instructor_courses_lessons_destroy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                course_pk: string;
-                /** @description A UUID string identifying this lesson. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No response body */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     instructor_courses_lessons_partial_update: {
         parameters: {
             query?: never;
@@ -3226,28 +3194,6 @@ export interface operations {
             };
         };
     };
-    instructor_courses_sections_destroy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                course_pk: string;
-                /** @description A UUID string identifying this section. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No response body */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     instructor_courses_sections_partial_update: {
         parameters: {
             query?: never;
@@ -3370,27 +3316,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Course"];
                 };
-            };
-        };
-    };
-    instructor_courses_destroy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description A UUID string identifying this course. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No response body */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

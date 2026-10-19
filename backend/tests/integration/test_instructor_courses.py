@@ -111,16 +111,43 @@ class TestScoping:
         theirs.refresh_from_db()
         assert theirs.title == "Theirs"
 
-    def test_deleting_someone_elses_course_is_a_404(self, client, mine, theirs) -> None:
+    def test_delete_is_unavailable_without_disclosing_course_existence(
+        self, client, mine, theirs
+    ) -> None:
         from apps.catalog.models import Course
 
         _sign_in(client, "me@example.test")
 
-        assert client.delete(f"{COURSES}{theirs.id}/").status_code == 404
+        # DELETE is no longer an action, even for the owner (ADR-039).
+        foreign = client.delete(f"{COURSES}{theirs.id}/")
+        missing = client.delete(f"{COURSES}00000000-0000-0000-0000-000000000000/")
+        assert foreign.status_code == missing.status_code == 405
+        assert foreign.json() == missing.json()
         assert Course.objects.filter(pk=theirs.pk).exists()
 
     def test_anonymous_callers_are_refused(self, client, mine) -> None:
         assert client.get(COURSES).status_code in (401, 403)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("course_status", ["DRAFT", "IN_REVIEW", "PUBLISHED", "ARCHIVED"])
+def test_instructor_delete_is_unavailable(client, mine, course_status) -> None:
+    from django.utils import timezone
+
+    from apps.catalog.models import Course
+
+    mine.status = course_status
+    mine.published_at = timezone.now() if course_status == "PUBLISHED" else None
+    mine.save(update_fields=["status", "published_at"])
+    _sign_in(client, "me@example.test")
+    url = f"{COURSES}{mine.pk}/"
+
+    response = client.delete(url)
+
+    assert response.status_code == 405
+    assert "DELETE" not in response["Allow"]
+    assert Course.objects.filter(pk=mine.pk, status=course_status).exists()
+    assert "DELETE" not in client.options(url)["Allow"]
 
 
 @pytest.mark.django_db
