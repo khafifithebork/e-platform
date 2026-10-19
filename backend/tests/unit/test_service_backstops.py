@@ -267,3 +267,90 @@ class TestCourseContentWrites:
         assert created.description == ""
         assert created.skill_areas == []
         assert created.search_vector is not None
+
+
+class TestSectionWrites:
+    @pytest.fixture
+    def courses(self):
+        from apps.accounts.models import Role
+        from apps.catalog.models import Course, Language
+
+        owner = _user("section-owner@example.test", role=Role.INSTRUCTOR)
+        language = Language.objects.create(code="es", name="Spanish")
+        return [
+            Course.objects.create(
+                slug=slug, title=slug, language=language, level="A1", instructor=owner
+            )
+            for slug in ("first-course", "second-course")
+        ]
+
+    def test_creation_records_the_supplied_course(self, courses) -> None:
+        from apps.catalog.services import create_section
+
+        course = courses[0]
+        section = create_section(course=course, by=course.instructor, title="First", position=1)
+
+        section.refresh_from_db()
+        assert section.course_id == course.pk
+        assert section.title == "First"
+        assert section.position == 1
+
+    def test_another_instructor_cannot_create_or_edit_sections(self, courses) -> None:
+        from apps.accounts.models import Role
+        from apps.catalog.models import Section
+        from apps.catalog.services import NotPermitted, create_section, update_section
+
+        course = courses[0]
+        other = _user("section-other@example.test", role=Role.INSTRUCTOR)
+        with pytest.raises(NotPermitted):
+            create_section(course=course, by=other, title="Injected", position=1)
+        assert not Section.objects.filter(course=course).exists()
+
+        section = Section.objects.create(course=course, title="Original", position=1)
+        with pytest.raises(NotPermitted):
+            update_section(section=section, course=course, by=other, title="Hijacked")
+        section.refresh_from_db()
+        assert section.title == "Original"
+
+    def test_a_section_cannot_be_edited_through_another_owned_course(self, courses) -> None:
+        from apps.catalog.models import Section
+        from apps.catalog.services import NotPermitted, update_section
+
+        first, second = courses
+        section = Section.objects.create(course=first, title="Original", position=1)
+        with pytest.raises(NotPermitted):
+            update_section(
+                section=section, course=second, by=second.instructor, title="Wrong parent"
+            )
+        section.refresh_from_db()
+        assert section.title == "Original"
+        assert section.course_id == first.pk
+
+    def test_partial_edits_preserve_omitted_fields(self, courses) -> None:
+        from apps.catalog.models import Section
+        from apps.catalog.services import update_section
+
+        course = courses[0]
+        section = Section.objects.create(course=course, title="Original", position=1)
+        updated = update_section(section=section, course=course, by=course.instructor, position=0)
+        updated.refresh_from_db()
+        assert updated.position == 0
+        assert updated.title == "Original"
+
+    @pytest.mark.django_db(transaction=True)
+    def test_position_conflicts_roll_back_the_edit(self, courses) -> None:
+        from django.db import IntegrityError
+
+        from apps.catalog.models import Section
+        from apps.catalog.services import update_section
+
+        course = courses[0]
+        Section.objects.create(course=course, title="First", position=1)
+        second = Section.objects.create(course=course, title="Second", position=2)
+        with pytest.raises(IntegrityError):
+            update_section(
+                section=second, course=course, by=course.instructor, title="Conflicting", position=1
+            )
+        second.refresh_from_db()
+        assert second.title == "Second"
+        assert second.position == 2

@@ -1,7 +1,21 @@
 # STATUS
 
 **Last updated:** 2026-10-19
-**Updated by:** Codex (approved course write service repair)
+**Updated by:** Codex (approved section write service repair)
+
+## Latest repair — 2026-10-19: instructor section writes in services
+
+The owner approved the section batch. Section creation/edits now use explicit
+services, checking the actor's ownership and the section's parent identity even
+for non-HTTP callers. Views retain response binding and 404 translation; readonly
+parent fields, partial/full edits and position constraints keep their behavior.
+Nine new regression cases cover those contracts, including deferred-conflict rollback.
+All 1,578 backend tests and 757 frontend tests pass; both new services have full
+measured line/branch coverage (catalogue services: 99.3% statements, 100% branches).
+Ruff check/format, frontend types/lint, migration dry-run and production-settings
+checks pass, with zero deployment-check issues. Existing local Docker services
+were restarted before verification. No API contract, model, dependency or UI changed.
+Lesson and deletion write paths are outside this batch; no deployment was requested.
 
 ## Latest checkpoint — 2026-10-19: PRs #115 and #116 merged
 

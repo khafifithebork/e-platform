@@ -32,10 +32,12 @@ from apps.catalog.services import (
     InvalidTransition,
     NotPermitted,
     create_course,
+    create_section,
     reorder_lessons,
     reorder_sections,
     submit_for_review,
     update_course,
+    update_section,
 )
 
 
@@ -153,7 +155,23 @@ class InstructorSectionViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
         return sections_for_course(course=self._course())
 
     def perform_create(self, serializer):
-        serializer.save(course=self._course())
+        try:
+            serializer.instance = create_section(
+                course=self._course(), by=self.request.user, **serializer.validated_data
+            )
+        except NotPermitted as exc:
+            raise Http404 from exc
+
+    def perform_update(self, serializer):
+        try:
+            serializer.instance = update_section(
+                section=serializer.instance,
+                course=self._course(),
+                by=self.request.user,
+                **serializer.validated_data,
+            )
+        except NotPermitted as exc:
+            raise Http404 from exc
 
     @extend_schema(
         request=ReorderSerializer,

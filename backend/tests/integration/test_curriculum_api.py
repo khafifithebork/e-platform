@@ -109,6 +109,69 @@ class TestSectionScoping:
         assert response.status_code == 404
         assert not Section.objects.filter(course=theirs).exists()
 
+    def test_creation_uses_the_url_course_even_when_the_body_names_another(
+        self, client, mine, theirs
+    ) -> None:
+        from apps.catalog.models import Section
+
+        _sign_in(client, "me@example.test")
+        response = client.post(
+            _sections_url(mine),
+            {"title": "New section", "position": 1, "course": str(theirs.pk)},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 201
+        section = Section.objects.get(pk=response.json()["id"])
+        assert section.course_id == mine.pk
+        assert response.json()["title"] == "New section"
+
+    def test_partial_edit_preserves_position_and_parent(self, client, mine, theirs) -> None:
+        section = _section(mine, "Original", 1)
+        _sign_in(client, "me@example.test")
+        response = client.patch(
+            f"{_sections_url(mine)}{section.pk}/",
+            {"title": "Edited", "course": str(theirs.pk)},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["title"] == "Edited"
+        section.refresh_from_db()
+        assert section.title == "Edited"
+        assert section.position == 1
+        assert section.course_id == mine.pk
+
+    def test_full_edit_returns_the_saved_section(self, client, mine) -> None:
+        section = _section(mine, "Original", 1)
+        _sign_in(client, "me@example.test")
+        response = client.put(
+            f"{_sections_url(mine)}{section.pk}/",
+            {"title": "Edited", "position": 3},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] == str(section.pk)
+        assert response.json()["position"] == 3
+        section.refresh_from_db()
+        assert section.title == "Edited"
+        assert section.position == 3
+
+    def test_editing_another_instructors_section_is_a_404(self, client, mine, theirs) -> None:
+        section = _section(theirs, "Untouched", 1)
+        _sign_in(client, "me@example.test")
+
+        response = client.patch(
+            f"{_sections_url(theirs)}{section.pk}/",
+            {"title": "Hijacked"},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 404
+        section.refresh_from_db()
+        assert section.title == "Untouched"
+
 
 @pytest.mark.django_db
 class TestReorder:
