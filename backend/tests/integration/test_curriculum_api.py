@@ -285,6 +285,131 @@ class TestLessons:
     def _lessons_url(self, course) -> str:
         return f"/api/v1/instructor/courses/{course.id}/lessons/"
 
+    def test_lesson_uses_url_course_and_ignores_preview_assignment(
+        self, client, mine, theirs
+    ) -> None:
+        from apps.catalog.models import Lesson
+
+        section = _section(mine, "First", 1)
+        _sign_in(client, "me@example.test")
+        response = client.post(
+            self._lessons_url(mine),
+            {
+                "section": str(section.pk),
+                "slug": "created",
+                "title": "Created",
+                "position": 1,
+                "course": str(theirs.pk),
+                "is_preview": True,
+                "body": "Lesson text",
+                "lesson_type": "AUDIO",
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 201
+        lesson = Lesson.objects.get(pk=response.json()["id"])
+        assert lesson.course_id == mine.pk
+        assert lesson.section_id == section.pk
+        assert lesson.is_preview is False
+        assert lesson.body == "Lesson text"
+        assert lesson.lesson_type == "AUDIO"
+
+    def test_foreign_section_is_rejected_on_edit(self, client, mine, theirs) -> None:
+        from apps.catalog.models import Lesson
+
+        section = _section(mine, "Mine", 1)
+        foreign = _section(theirs, "Foreign", 1)
+        lesson = Lesson.objects.create(
+            course=mine, section=section, slug="intro", title="Intro", position=1
+        )
+        _sign_in(client, "me@example.test")
+        response = client.patch(
+            f"{self._lessons_url(mine)}{lesson.pk}/",
+            {"section": str(foreign.pk), "title": "Should not persist"},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        lesson.refresh_from_db()
+        assert lesson.section_id == section.pk
+        assert lesson.title == "Intro"
+
+    def test_wrong_owner_cannot_edit_lesson(self, client, mine, theirs) -> None:
+        from apps.catalog.models import Lesson
+
+        section = _section(theirs, "Foreign", 1)
+        lesson = Lesson.objects.create(
+            course=theirs, section=section, slug="intro", title="Intro", position=1
+        )
+        _sign_in(client, "me@example.test")
+        response = client.patch(
+            f"{self._lessons_url(theirs)}{lesson.pk}/",
+            {"title": "Hijacked"},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 404
+        lesson.refresh_from_db()
+        assert lesson.title == "Intro"
+
+    def test_partial_edit_preserves_fields_and_preview_protection(
+        self, client, mine, theirs
+    ) -> None:
+        from apps.catalog.models import Lesson
+
+        section = _section(mine, "First", 1)
+        lesson = Lesson.objects.create(
+            course=mine, section=section, slug="intro", title="Intro", body="Original", position=1
+        )
+        _sign_in(client, "me@example.test")
+        response = client.patch(
+            f"{self._lessons_url(mine)}{lesson.pk}/",
+            {"title": "Edited", "course": str(theirs.pk), "is_preview": True},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["title"] == "Edited"
+        lesson.refresh_from_db()
+        assert lesson.body == "Original"
+        assert lesson.position == 1
+        assert lesson.section_id == section.pk
+        assert lesson.course_id == mine.pk
+        assert lesson.is_preview is False
+
+    def test_full_edit_can_move_within_course_and_preserve_preview(self, client, mine) -> None:
+        from apps.catalog.models import Lesson
+
+        first = _section(mine, "First", 1)
+        second = _section(mine, "Second", 2)
+        lesson = Lesson.objects.create(
+            course=mine, section=first, slug="intro", title="Intro", position=1, is_preview=True
+        )
+        _sign_in(client, "me@example.test")
+        response = client.put(
+            f"{self._lessons_url(mine)}{lesson.pk}/",
+            {
+                "section": str(second.pk),
+                "slug": "edited",
+                "title": "Edited",
+                "position": 2,
+                "body": "",
+                "lesson_type": "TEXT",
+                "is_preview": False,
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["slug"] == "edited"
+        lesson.refresh_from_db()
+        assert lesson.section_id == second.pk
+        assert lesson.position == 2
+        assert lesson.body == ""
+        assert lesson.lesson_type == "TEXT"
+        assert lesson.is_preview is True
+
     def test_a_lesson_inherits_its_course_from_the_url(self, client, mine) -> None:
         """`course` is never taken from the body — that is what keeps a lesson
         from being planted in somebody else's course."""

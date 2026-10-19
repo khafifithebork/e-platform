@@ -32,11 +32,13 @@ from apps.catalog.services import (
     InvalidTransition,
     NotPermitted,
     create_course,
+    create_lesson,
     create_section,
     reorder_lessons,
     reorder_sections,
     submit_for_review,
     update_course,
+    update_lesson,
     update_section,
 )
 
@@ -212,10 +214,8 @@ class InstructorLessonViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
     def get_serializer(self, *args, **kwargs):
         """Narrow ``section`` to this course.
 
-        Both the lesson and the section are individually valid rows, so no
-        database constraint can reject the pairing; the only place that knows
-        they must share a course is here, where the URL names it. Narrowing the
-        related queryset makes DRF answer 400 "does not exist" — the same reply
+        Services enforce the matching course for every caller. This scoped
+        field also preserves DRF's 400 "does not exist" — the same reply
         a wholly invented id gets, which is what §6.3 wants: no confirmation
         that the other course's section is real.
         """
@@ -227,9 +227,23 @@ class InstructorLessonViewSet(_CourseScopedMixin, viewsets.ModelViewSet):
         return serializer
 
     def perform_create(self, serializer):
-        # `course` comes from the URL and the section is already narrowed to
-        # it, so the two cannot disagree.
-        serializer.save(course=self._course())
+        try:
+            serializer.instance = create_lesson(
+                course=self._course(), by=self.request.user, **serializer.validated_data
+            )
+        except NotPermitted as exc:
+            raise Http404 from exc
+
+    def perform_update(self, serializer):
+        try:
+            serializer.instance = update_lesson(
+                lesson=serializer.instance,
+                course=self._course(),
+                by=self.request.user,
+                **serializer.validated_data,
+            )
+        except NotPermitted as exc:
+            raise Http404 from exc
 
     @extend_schema(
         request=LessonReorderSerializer,

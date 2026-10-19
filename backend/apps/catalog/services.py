@@ -21,7 +21,15 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.accounts.selectors import administrator_emails
-from apps.catalog.models import Course, CourseReviewEvent, CourseStatus, Language, Lesson, Section
+from apps.catalog.models import (
+    Course,
+    CourseReviewEvent,
+    CourseStatus,
+    Language,
+    Lesson,
+    LessonType,
+    Section,
+)
 from apps.core.audit import AdminAction, record_admin_action
 from apps.notifications.emails import (
     send_course_reviewed_email,
@@ -177,6 +185,71 @@ def update_section(
         section.position = position
     section.save()
     return section
+
+
+@transaction.atomic
+def create_lesson(
+    *,
+    course: Course,
+    section: Section,
+    by: User,
+    slug: str,
+    title: str,
+    position: int,
+    body: str = "",
+    lesson_type: str = LessonType.VIDEO,
+) -> Lesson:
+    """Keep new lessons in the owned course without exposing preview assignment."""
+    _require_owner(course, by)
+    if section.course_id != course.pk:
+        raise NotPermitted
+    return Lesson.objects.create(
+        course=course,
+        section=section,
+        slug=slug,
+        title=title,
+        position=position,
+        body=body,
+        lesson_type=lesson_type,
+    )
+
+
+@transaction.atomic
+def update_lesson(
+    *,
+    lesson: Lesson,
+    course: Course,
+    by: User,
+    section: Section | None = None,
+    slug: str | None = None,
+    title: str | None = None,
+    position: int | None = None,
+    body: str | None = None,
+    lesson_type: str | None = None,
+) -> Lesson:
+    """Allow section moves only inside the resolved course, preserving partial edits.
+
+    The view already scopes lesson and section inputs. Recheck their identities
+    here for non-HTTP callers, without loading either parent again. Preview status
+    is deliberately absent from the editable parameters.
+    """
+    _require_owner(course, by)
+    if lesson.course_id != course.pk:
+        raise NotPermitted
+    if section is not None and section.course_id != course.pk:
+        raise NotPermitted
+    for field, value in (
+        ("section", section),
+        ("slug", slug),
+        ("title", title),
+        ("position", position),
+        ("body", body),
+        ("lesson_type", lesson_type),
+    ):
+        if value is not None:
+            setattr(lesson, field, value)
+    lesson.save()
+    return lesson
 
 
 @transaction.atomic
