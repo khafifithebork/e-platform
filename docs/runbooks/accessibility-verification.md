@@ -169,6 +169,16 @@ matter, not something to fix in code. Record it under §4 and stop.
 
 ### 3.4 Zoom, reflow, and text expansion
 
+**2026-10-17 native page-zoom check:** isolated Chrome 155.0.8059.80 on Windows;
+native Appearance → Page zoom set to 200%. Viewport width changed 1422→711 CSS px
+and DPR 1→2; direct Chrome metrics also reported `zoom: 2`. Twelve routes passed
+in both light/dark preferences (24 cases, 258 keyboard stops), including synthetic
+form refusals, empty My Courses and long lesson/transcript content. No measured
+overflow, clipped headings/controls, obscured focus or runtime errors. Evidence:
+`native-zoom-review.json`, `native-zoom-metrics.json`, `native-zoom-confirm-*.png`
+in the task visualization directory. This is a bounded automated Chrome check;
+native text-only zoom, other engines and human assistive-technology checks remain open.
+
 - **200% zoom** (1.4.4) on every route: no loss of content or function.
 - **320 CSS px wide** (1.4.10): no horizontal scrolling, no two-dimensional
   scroll. The lesson layout is two columns at `lg` and must collapse.
@@ -179,6 +189,22 @@ matter, not something to fix in code. Record it under §4 and stop.
   English, and no localisation exists yet, so this is the cheap proxy.
 
 ### 3.5 Forced colours — **all three checks passed 2026-09-28**
+
+**2026-10-17 browser-furniture evidence:** isolated Chrome 155 native transcript
+scrollbars were captured in light/dark; genuine email autofill was captured in
+both preferences, with 18.33:1 contrast. See STATUS and ADR-032. Password-manager
+autofill, other engines and human confirmation remain open; no conformance claim.
+
+**2026-10-18 limit:** the isolated headless password manager's import control did
+not open a file chooser. Password-manager autofill remains unverified; use an
+interactive browser. The successful email-address autofill pass does not cover it.
+
+**2026-10-18 follow-up supersedes that limit for saved-password testing:** Chrome's
+Add password dialog worked. Both inputs matched `:autofill`; intercepted submissions
+matched the synthetic saved login in both preferences, with values retained and
+submission enabled after refusal. See `test-saved-password-binding.cjs` and its JSON.
+Eight learner recovery/gate cases also passed at 1440px light and 320px dark, with
+zero axe violations. Human screen-reader/device checks and real media remain open.
 
 Windows High Contrast, or Chrome DevTools → Rendering → `forced-colors: active`.
 

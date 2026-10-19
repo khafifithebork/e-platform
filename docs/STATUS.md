@@ -1,7 +1,56 @@
 # STATUS
 
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-18
 **Updated by:** Codex (authorized course-detail merge and local integration)
+
+## Latest verification — 2026-10-18: saved-password autofill and learner recovery
+
+Chrome's Add password dialog bypassed the import limitation below. A synthetic
+saved login genuinely autofilled both inputs in light/dark preferences; locally
+intercepted submissions proved React sent the correct values, retained them after
+refusal and re-enabled submission. Eight desktop/mobile learner retry, pagination,
+missing-lesson and sign-in-gate cases passed with no overflow, runtime errors or
+axe violations. Evidence: `saved-password*-review.json`, `learner-recovery-review.json`
+and matching PNGs in the task visualization directory. No product code changed.
+
+## Latest verification limit — 2026-10-18: password-manager autofill still open
+
+An isolated Chrome profile exposed the password-import control, but selecting
+the synthetic CSV did not emit a file-chooser event in headless mode. Import and
+password-manager autofill were therefore not verified; no sign-in was submitted.
+This is a test-environment limit, not a demonstrated product defect. Evidence:
+`probe-password-manager.cjs`, `audit-password-manager.cjs` and the capability PNG
+in the task visualization directory. Continue this check in an interactive browser.
+
+## Latest verification — 2026-10-17: native scrollbar and email autofill
+
+Isolated Chrome 155 showed a visible native transcript scrollbar in both schemes;
+two fixture cases passed with 66 keyboard stops. Genuine email autofill emitted
+an event and matched `:autofill` under both system preferences; the fixed-light
+auth page retained readable black text on RGB(232,240,254), 18.33:1 contrast.
+Evidence: `native-scrollbar-*.png`, `native-autofill-*.png` and their review JSON
+in the task visualization directory. No form was submitted or product code changed.
+
+## Latest verification — 2026-10-17: native Chrome 200% page zoom
+
+Chrome 155.0.8059.80 on Windows, using an isolated profile and its native page-zoom
+setting, passed 24 cases across 12 routes in light/dark preferences, with 258
+keyboard stops and no measured overflow, clipped headings/controls, obscured focus
+or runtime errors. Learner data and form refusals were synthetic; real media was
+not assessed. `native-zoom-review.json` and `native-zoom-metrics.json` record the
+pass; `native-zoom-confirm-*.png` are direct Chrome captures (helper JPGs crop at
+zoom and are not visual evidence). No product code changed; remaining manual gates persist.
+
+## Latest checkpoint — 2026-10-17: PR #114 merged; approved frontend batches integrated
+
+The owner authorized merging PR #114. Reviewed head `9f8d79b` passed all backend,
+frontend and audit CI checks and merged as `c7daf847ce485f8f71ab2db6e62afaad1cb3f212`.
+Local master was fast-forwarded; frontend/backend/infra/workflow trees match the
+tested head exactly. No additional implementation was needed during integration.
+The remaining checklist still requires actual browser zoom, native text-only zoom,
+screen readers, physical devices/other browsers, and real lesson-media assessment.
+Content, provider, spend and unapproved product ideas retain their existing gates.
+This checkpoint does not claim those passes or authorize a deployment.
 
 ## Latest correction — 2026-10-17: independent transcript reading direction
 
