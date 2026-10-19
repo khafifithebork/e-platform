@@ -1,7 +1,18 @@
 # STATUS
 
-**Last updated:** 2026-10-18
+**Last updated:** 2026-10-19
 **Updated by:** Codex (approved course write service repair)
+
+## Latest checkpoint — 2026-10-19: PRs #115 and #116 merged
+
+The owner authorized both merges. PR #115 merged as `3076bce`; PR #116 was
+retargeted to master and merged as `ba485f1`, preserving the reviewed commits.
+Both heads passed all CI checks before merge. Local master was fast-forwarded;
+its entire tracked tree matches verified head `6a3a796` exactly.
+Follow-up inspection confirmed direct serializer writes for section/lesson
+creation still exist. Next proposed batch: section creation/edits only, moving
+writes into services while preserving parent scoping and position constraints.
+Implementation awaits the separate AGENTS §7 approval; no new code or deployment.
 
 ## Latest repair — 2026-10-18: atomic instructor course creation and edits
 
