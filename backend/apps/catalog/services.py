@@ -148,6 +148,38 @@ def update_course(
 
 
 @transaction.atomic
+def create_section(*, course: Course, by: User, title: str, position: int) -> Section:
+    """Keep section creation scoped even when no HTTP queryset runs first."""
+    _require_owner(course, by)
+    return Section.objects.create(course=course, title=title, position=position)
+
+
+@transaction.atomic
+def update_section(
+    *,
+    section: Section,
+    course: Course,
+    by: User,
+    title: str | None = None,
+    position: int | None = None,
+) -> Section:
+    """Preserve partial edits without allowing a section to change courses.
+
+    Passing the resolved course avoids another parent lookup. Check its identity
+    as well as ownership: an instructor may own more than one course.
+    """
+    _require_owner(course, by)
+    if section.course_id != course.pk:
+        raise NotPermitted
+    if title is not None:
+        section.title = title
+    if position is not None:
+        section.position = position
+    section.save()
+    return section
+
+
+@transaction.atomic
 def submit_for_review(*, course: Course, by: User) -> Course:
     """An instructor offers their course for approval.
 
