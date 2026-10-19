@@ -1,7 +1,23 @@
 # STATUS
 
 **Last updated:** 2026-10-19
-**Updated by:** Codex (approved lesson write service repair)
+**Updated by:** Codex (PRs #117/#118 merged; deletion-policy discrepancy)
+
+## Latest checkpoint — 2026-10-19: catalogue repairs merged; deletion needs a decision
+
+The owner authorized both merges. PR #117 merged as `3af1d47`; PR #118 was
+retargeted to master and merged as `62cd4f1`, preserving both reviewed heads.
+All pre-merge CI checks passed. Local master was fast-forwarded and its entire
+tracked tree matches tested head `cde6d5f` exactly; post-merge CI is pending.
+Follow-up inspection found inherited instructor DELETE actions for courses,
+sections and lessons (`ModelViewSet`, with no `perform_destroy` override).
+ADR-017 §1 says no lesson-deletion flow exists, but DRF's inherited handler
+calls `instance.delete()` and `LessonProgress.lesson` uses `CASCADE`.
+This is a code/document discrepancy under AGENTS §9, not an approved deletion
+policy. Product changes stop pending an owner decision: disable destructive
+instructor DELETE pending retention rules (recommended), or explicitly design
+supported deletion and its progress/media effects. No deletion was executed.
+No product code, API contract, migration or deployment configuration changed.
 
 ## Latest repair — 2026-10-19: instructor lesson writes in services
 
