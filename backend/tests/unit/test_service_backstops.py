@@ -354,3 +354,165 @@ class TestSectionWrites:
         second.refresh_from_db()
         assert second.title == "Second"
         assert second.position == 2
+
+
+class TestLessonWrites:
+    @pytest.fixture
+    def lesson_context(self):
+        from types import SimpleNamespace
+
+        from apps.accounts.models import Role
+        from apps.catalog.models import Course, Language, Lesson, Section
+
+        owner = _user("lesson-owner@example.test", role=Role.INSTRUCTOR)
+        language = Language.objects.create(code="es", name="Spanish")
+        course, other_course = [
+            Course.objects.create(
+                slug=slug, title=slug, language=language, level="A1", instructor=owner
+            )
+            for slug in ("lesson-course", "other-course")
+        ]
+        section = Section.objects.create(course=course, title="First", position=1)
+        foreign = Section.objects.create(course=other_course, title="Foreign", position=1)
+        lesson = Lesson.objects.create(
+            course=course,
+            section=section,
+            slug="intro",
+            title="Original",
+            body="Original body",
+            position=1,
+            is_preview=True,
+        )
+        return SimpleNamespace(
+            course=course,
+            other_course=other_course,
+            section=section,
+            foreign=foreign,
+            lesson=lesson,
+        )
+
+    def test_service_creation_defaults_to_a_non_preview_lesson(self, lesson_context) -> None:
+        from apps.catalog.services import create_lesson
+
+        c = lesson_context
+        created = create_lesson(
+            course=c.course,
+            section=c.section,
+            by=c.course.instructor,
+            slug="created",
+            title="Created",
+            position=2,
+        )
+        created.refresh_from_db()
+        assert created.course_id == c.course.pk
+        assert created.section_id == c.section.pk
+        assert created.body == ""
+        assert created.lesson_type == "VIDEO"
+        assert created.is_preview is False
+
+    def test_creation_rejects_another_owned_courses_section(self, lesson_context) -> None:
+        from apps.catalog.models import Lesson
+        from apps.catalog.services import NotPermitted, create_lesson
+
+        c = lesson_context
+        with pytest.raises(NotPermitted):
+            create_lesson(
+                course=c.course,
+                section=c.foreign,
+                by=c.course.instructor,
+                slug="injected",
+                title="Injected",
+                position=2,
+            )
+        assert not Lesson.objects.filter(slug="injected").exists()
+
+    def test_another_instructor_cannot_create_or_edit(self, lesson_context) -> None:
+        from apps.accounts.models import Role
+        from apps.catalog.models import Lesson
+        from apps.catalog.services import NotPermitted, create_lesson, update_lesson
+
+        c = lesson_context
+        other = _user("lesson-other@example.test", role=Role.INSTRUCTOR)
+        with pytest.raises(NotPermitted):
+            create_lesson(
+                course=c.course,
+                section=c.section,
+                by=other,
+                slug="injected",
+                title="Injected",
+                position=2,
+            )
+        assert not Lesson.objects.filter(slug="injected").exists()
+        with pytest.raises(NotPermitted):
+            update_lesson(lesson=c.lesson, course=c.course, by=other, title="Hijacked")
+        c.lesson.refresh_from_db()
+        assert c.lesson.title == "Original"
+
+    def test_edit_rejects_another_owned_course_as_context(self, lesson_context) -> None:
+        from apps.catalog.services import NotPermitted, update_lesson
+
+        c = lesson_context
+        with pytest.raises(NotPermitted):
+            update_lesson(
+                lesson=c.lesson,
+                course=c.other_course,
+                by=c.course.instructor,
+                title="Wrong context",
+            )
+        c.lesson.refresh_from_db()
+        assert c.lesson.title == "Original"
+        assert c.lesson.course_id == c.course.pk
+
+    def test_edit_rejects_a_section_from_another_owned_course(self, lesson_context) -> None:
+        from apps.catalog.services import NotPermitted, update_lesson
+
+        c = lesson_context
+        with pytest.raises(NotPermitted):
+            update_lesson(
+                lesson=c.lesson,
+                course=c.course,
+                by=c.course.instructor,
+                section=c.foreign,
+                title="Wrong section",
+            )
+        c.lesson.refresh_from_db()
+        assert c.lesson.section_id == c.section.pk
+        assert c.lesson.title == "Original"
+
+    def test_partial_edit_preserves_omitted_fields_and_preview(self, lesson_context) -> None:
+        from apps.catalog.services import update_lesson
+
+        c = lesson_context
+        updated = update_lesson(
+            lesson=c.lesson, course=c.course, by=c.course.instructor, body="", position=0
+        )
+        updated.refresh_from_db()
+        assert updated.body == ""
+        assert updated.position == 0
+        assert updated.title == "Original"
+        assert updated.slug == "intro"
+        assert updated.section_id == c.section.pk
+        assert updated.is_preview is True
+
+    @pytest.mark.django_db(transaction=True)
+    def test_position_conflict_rolls_back_the_edit(self, lesson_context) -> None:
+        from django.db import IntegrityError
+
+        from apps.catalog.models import Lesson
+        from apps.catalog.services import update_lesson
+
+        c = lesson_context
+        second = Lesson.objects.create(
+            course=c.course, section=c.section, slug="second", title="Second", position=2
+        )
+        with pytest.raises(IntegrityError):
+            update_lesson(
+                lesson=second,
+                course=c.course,
+                by=c.course.instructor,
+                title="Conflicting",
+                position=1,
+            )
+        second.refresh_from_db()
+        assert second.title == "Second"
+        assert second.position == 2

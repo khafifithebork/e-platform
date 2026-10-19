@@ -1,7 +1,22 @@
 # STATUS
 
 **Last updated:** 2026-10-19
-**Updated by:** Codex (approved section write service repair)
+**Updated by:** Codex (approved lesson write service repair)
+
+## Latest repair — 2026-10-19: instructor lesson writes in services
+
+The owner approved the lesson batch. Creation/edits now use explicit services
+that check ownership, lesson/course identity and any supplied section's parent.
+The existing scoped section field keeps API validation responses unchanged;
+service guards also protect non-HTTP calls. Preview assignment remains absent
+from editable parameters, and existing preview status survives edits.
+Twelve new cases cover those contracts, partial/full edits, same-course section
+moves, empty values and position-conflict rollback. All 1,590 backend tests and
+757 frontend tests pass; both new services have full measured line/branch coverage
+(catalogue services: 99.3% statements, 100% branches). Ruff check/format, frontend
+types/lint, migration dry-run and production-settings checks pass, with zero
+deployment-check issues. No API contract, model, dependency or UI changed.
+This batch is based on pending PR #117; deletion paths remain outside its scope.
 
 ## Latest repair — 2026-10-19: instructor section writes in services
 
