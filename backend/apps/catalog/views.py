@@ -4,6 +4,7 @@ HTTP concerns only (invariant 2). The publication rules live in
 ``services.py``; this decides status codes.
 """
 
+from django.http import Http404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -30,10 +31,11 @@ from apps.catalog.services import (
     InvalidReorder,
     InvalidTransition,
     NotPermitted,
-    refresh_search_vector,
+    create_course,
     reorder_lessons,
     reorder_sections,
     submit_for_review,
+    update_course,
 )
 
 
@@ -64,18 +66,17 @@ class InstructorCourseViewSet(viewsets.ModelViewSet):
         return courses_for_instructor(user=self.request.user)
 
     def perform_create(self, serializer):
-        # Ownership from the session. `instructor` is read-only on the
-        # serializer, so a value in the body reaches nothing.
-        course = serializer.save(instructor=self.request.user)
-        refresh_search_vector(course=course)
+        serializer.instance = create_course(
+            instructor=self.request.user, **serializer.validated_data
+        )
 
     def perform_update(self, serializer):
-        # The searchable fields — title, description, skill_areas — are all
-        # writable here, so this is the write path a learner's search depends
-        # on. ADR-020 §3 accepted that a writer bypassing the refresher drifts;
-        # this is the one that must not.
-        course = serializer.save()
-        refresh_search_vector(course=course)
+        try:
+            serializer.instance = update_course(
+                course=serializer.instance, by=self.request.user, **serializer.validated_data
+            )
+        except NotPermitted as exc:
+            raise Http404 from exc
 
     @extend_schema(
         request=None,

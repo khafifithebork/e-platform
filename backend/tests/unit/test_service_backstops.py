@@ -206,3 +206,64 @@ class TestTheLockoutReadsAFormLogin:
         from apps.accounts.axes import get_username
 
         assert get_username(rf.post("/login/", {}), credentials=None) == ""
+
+
+class TestCourseContentWrites:
+    @pytest.fixture
+    def course(self):
+        from apps.accounts.models import Role
+        from apps.catalog.models import Course, Language
+
+        return Course.objects.create(
+            slug="service-course",
+            title="Original title",
+            description="Original description",
+            skill_areas=["listening"],
+            language=Language.objects.create(code="es", name="Spanish"),
+            level="A1",
+            instructor=_user("owner@example.test", role=Role.INSTRUCTOR),
+        )
+
+    def test_another_instructor_cannot_edit_through_the_service(self, course) -> None:
+        from apps.accounts.models import Role
+        from apps.catalog.services import NotPermitted, update_course
+
+        other = _user("other@example.test", role=Role.INSTRUCTOR)
+        with pytest.raises(NotPermitted):
+            update_course(course=course, by=other, title="Hijacked")
+
+        course.refresh_from_db()
+        assert course.title == "Original title"
+        assert course.instructor_id != other.pk
+
+    def test_explicit_empty_fields_are_saved_and_omitted_fields_survive(self, course) -> None:
+        from apps.catalog.services import update_course
+
+        updated = update_course(course=course, by=course.instructor, description="", skill_areas=[])
+
+        updated.refresh_from_db()
+        assert updated.description == ""
+        assert updated.skill_areas == []
+        assert updated.title == "Original title"
+        assert updated.level == "A1"
+        assert updated.search_vector is not None
+
+    def test_service_creation_retains_defaults_and_indexes_content(self, course) -> None:
+        from apps.catalog.models import CourseStatus
+        from apps.catalog.services import create_course
+
+        created = create_course(
+            instructor=course.instructor,
+            slug="created-by-service",
+            title="New course",
+            language=course.language,
+            level="A2",
+        )
+
+        created.refresh_from_db()
+        assert created.instructor_id == course.instructor_id
+        assert created.status == CourseStatus.DRAFT
+        assert created.published_at is None
+        assert created.description == ""
+        assert created.skill_areas == []
+        assert created.search_vector is not None

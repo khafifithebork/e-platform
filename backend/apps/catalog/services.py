@@ -21,7 +21,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.accounts.selectors import administrator_emails
-from apps.catalog.models import Course, CourseReviewEvent, CourseStatus, Lesson, Section
+from apps.catalog.models import Course, CourseReviewEvent, CourseStatus, Language, Lesson, Section
 from apps.core.audit import AdminAction, record_admin_action
 from apps.notifications.emails import (
     send_course_reviewed_email,
@@ -82,6 +82,69 @@ def _require_owner(course: Course, by: User) -> None:
 def _require_admin(by: User) -> None:
     if by.role != Role.ADMIN:
         raise NotPermitted
+
+
+@transaction.atomic
+def create_course(
+    *,
+    instructor: User,
+    slug: str,
+    title: str,
+    language: Language,
+    level: str,
+    description: str = "",
+    skill_areas: list[str] | None = None,
+) -> Course:
+    """Keep a new draft and its searchable content in the same transaction.
+
+    Ownership is supplied separately from editable content; publication fields
+    remain exclusively under the review state machine.
+    """
+    course = Course.objects.create(
+        instructor=instructor,
+        slug=slug,
+        title=title,
+        language=language,
+        level=level,
+        description=description,
+        skill_areas=skill_areas if skill_areas is not None else [],
+    )
+    refresh_search_vector(course=course)
+    return course
+
+
+@transaction.atomic
+def update_course(
+    *,
+    course: Course,
+    by: User,
+    slug: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    language: Language | None = None,
+    level: str | None = None,
+    skill_areas: list[str] | None = None,
+) -> Course:
+    """Preserve partial edits while making content and search updates atomic.
+
+    The API rejects null for these fields, so None represents an omitted field;
+    empty descriptions and tag lists remain deliberate edits. Check ownership
+    here too so a non-HTTP caller cannot bypass the scoped API queryset.
+    """
+    _require_owner(course, by)
+    for field, value in (
+        ("slug", slug),
+        ("title", title),
+        ("description", description),
+        ("language", language),
+        ("level", level),
+        ("skill_areas", skill_areas),
+    ):
+        if value is not None:
+            setattr(course, field, value)
+    course.save()
+    refresh_search_vector(course=course)
+    return course
 
 
 @transaction.atomic
