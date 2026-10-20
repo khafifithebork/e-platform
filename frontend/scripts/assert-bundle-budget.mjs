@@ -65,8 +65,7 @@ function resolveAsset(url) {
   const clean = url.split("?")[0];
   if (!clean.startsWith("/_next/")) return null;
 
-  const path = join(NEXT_DIR, clean.slice("/_next/".length));
-  return existsSync(path) ? path : null;
+  return join(NEXT_DIR, clean.slice("/_next/".length));
 }
 
 let pages;
@@ -92,6 +91,7 @@ if (pages.length === 0) {
 }
 
 const rows = [];
+const missing = [];
 
 for (const page of pages) {
   const html = readFileSync(page, "utf8");
@@ -114,12 +114,22 @@ for (const page of pages) {
   for (const ref of refs) {
     const file = resolveAsset(ref);
     if (file === null) continue;
+    if (!existsSync(file)) {
+      missing.push(`${name}: ${ref}`);
+      continue;
+    }
 
     total += gzipSync(readFileSync(file), { level: 9 }).length;
     assets += 1;
   }
 
   rows.push({ name, total, assets });
+}
+
+// A partial build must fail even when its remaining assets fit the budget.
+if (missing.length > 0) {
+  console.error(`Missing local assets referenced by built pages:\n  ${missing.join("\n  ")}`);
+  process.exit(1);
 }
 
 /**
