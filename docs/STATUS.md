@@ -1,7 +1,22 @@
 # STATUS
 
-**Last updated:** 2026-10-19
-**Updated by:** Codex (approved instructor DELETE restriction)
+**Last updated:** 2026-10-20
+**Updated by:** Codex (PR #119 merged; bundle-check reproduction)
+
+## Latest checkpoint — 2026-10-20: DELETE restriction merged; budget-check gap reproduced
+
+The owner authorized PR #119's merge. All pre-merge backend, frontend and audit
+checks passed at head `f154d21`; it merged as `be4cc03`. Local master was
+fast-forwarded and its entire tracked tree matches that tested head exactly.
+Post-merge CI is running. No deployment was requested.
+Follow-up inspection reproduced a separate guard defect: a synthetic built page
+with one present local script and one missing local script passes `verify:bundle`
+with exit code 0. `resolveAsset` conflates external URLs with missing local files,
+so the loop skips both; the existing zero-assets floor cannot catch a partial loss.
+The isolated fixture lives in the task visualization directory; no product data
+was changed. Proposed batch: reject missing local script/stylesheet assets, add
+real-command regression tests and run them in frontend CI. This awaits AGENTS §7
+approval; no budget threshold, dependency, runtime behavior or guard was changed.
 
 ## Latest repair — 2026-10-19: instructor editing excludes destructive deletion
 
