@@ -324,6 +324,9 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Test bundle budget guard
+        run: node --test scripts/assert-bundle-budget.test.mjs
+
       # The API the build reads from.
       #
       # Deliberately after the tests and the audit: those need no database, and

@@ -1,7 +1,40 @@
 # STATUS
 
-**Last updated:** 2026-10-19
-**Updated by:** Codex (approved instructor DELETE restriction)
+**Last updated:** 2026-10-20
+**Updated by:** Codex (approved missing-asset budget-check repair)
+
+## Latest repair — 2026-10-20: budget checks reject partial builds
+
+The owner approved the follow-up. Local asset resolution now distinguishes
+external URLs from missing build files; the checker reports every missing
+script/stylesheet with its page and exits nonzero before reporting budget success.
+Seven real-command tests cover partial script loss, both stylesheet attribute
+orders, complete builds with duplicate/query-string references, external URLs,
+over-budget builds and the existing empty-page/zero-assets floors. The three
+missing-file cases failed against the old checker; all seven pass after repair.
+Frontend CI runs them before building, using Node's existing test runner.
+All 23 script tests, 757 frontend tests and 53 backend workflow tests pass.
+Ruff check/format, frontend types/lint, production build and all four artifact
+checks pass (five static public routes; largest first load still 322.9 KB).
+Production-settings checks report zero issues. The existing local metadata-origin
+warning remains. No dependency, threshold, API, schema or application behavior
+changed; the dynamic lesson route remains outside this static-page budget check.
+The full backend suite was not rerun locally for this tooling-only batch.
+
+## Latest checkpoint — 2026-10-20: DELETE restriction merged; budget-check gap reproduced
+
+The owner authorized PR #119's merge. All pre-merge backend, frontend and audit
+checks passed at head `f154d21`; it merged as `be4cc03`. Local master was
+fast-forwarded and its entire tracked tree matches that tested head exactly.
+Post-merge CI passed. No deployment was requested.
+Follow-up inspection reproduced a separate guard defect: a synthetic built page
+with one present local script and one missing local script passes `verify:bundle`
+with exit code 0. `resolveAsset` conflates external URLs with missing local files,
+so the loop skips both; the existing zero-assets floor cannot catch a partial loss.
+The isolated fixture lives in the task visualization directory; no product data
+was changed. Proposed batch: reject missing local script/stylesheet assets, add
+real-command regression tests and run them in frontend CI. This awaits AGENTS §7
+approval; no budget threshold, dependency, runtime behavior or guard was changed.
 
 ## Latest repair — 2026-10-19: instructor editing excludes destructive deletion
 
