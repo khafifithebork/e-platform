@@ -1,7 +1,43 @@
 # STATUS
 
 **Last updated:** 2026-10-19
-**Updated by:** Codex (approved lesson write service repair)
+**Updated by:** Codex (approved instructor DELETE restriction)
+
+## Latest repair — 2026-10-19: instructor editing excludes destructive deletion
+
+The owner approved disabling instructor DELETE for courses, sections and lessons.
+Their shared editing base now omits DRF's destroy mixin; the existing course
+scoping and read-only review-event bases remain separate. Supported actions and
+admin archiving are unchanged. ADR-039 records the decision and its scope.
+Authenticated instructors receive 405 without an existence lookup; DELETE is
+absent from Allow/OPTIONS and the regenerated OpenAPI schema/frontend types.
+Nine new cases cover every course state, rejected deletion with progress and
+bookmarks, and foreign/missing curriculum identifiers. The existing foreign-course
+negative case now checks the approved 405 contract and identical missing response.
+The red run reproduced successful deletion and the enrolled-course ProtectedError;
+all 48 focused API tests then passed. All 1,599 backend and 757 frontend tests pass,
+including schema drift and existing archive coverage. Ruff check/format, frontend
+types/lint, production build and all four artifact checks pass (five static public
+routes; largest first load 322.9 KB). The local build reports the metadata-origin
+fallback warning. Migration dry-run found no changes; production-settings checks
+report zero issues. No new query, model, dependency or UI change. Admin/ORM deletion
+and media retention remain outside this API restriction; no deployment requested.
+
+## Latest checkpoint — 2026-10-19: catalogue repairs merged; deletion needs a decision
+
+The owner authorized both merges. PR #117 merged as `3af1d47`; PR #118 was
+retargeted to master and merged as `62cd4f1`, preserving both reviewed heads.
+All pre-merge CI checks passed. Local master was fast-forwarded and its entire
+tracked tree matches tested head `cde6d5f` exactly; final master post-merge CI passed.
+Follow-up inspection found inherited instructor DELETE actions for courses,
+sections and lessons (`ModelViewSet`, with no `perform_destroy` override).
+ADR-017 §1 says no lesson-deletion flow exists, but DRF's inherited handler
+calls `instance.delete()` and `LessonProgress.lesson` uses `CASCADE`.
+This is a code/document discrepancy under AGENTS §9, not an approved deletion
+policy. Product changes stop pending an owner decision: disable destructive
+instructor DELETE pending retention rules (recommended), or explicitly design
+supported deletion and its progress/media effects. No deletion was executed.
+No product code, API contract, migration or deployment configuration changed.
 
 ## Latest repair — 2026-10-19: instructor lesson writes in services
 
