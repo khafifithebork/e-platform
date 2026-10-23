@@ -1,7 +1,36 @@
 # STATUS
 
 **Last updated:** 2026-10-23
-**Updated by:** Codex (approved DRF security repair; frontend audit still blocked)
+**Updated by:** Codex (approved Next.js security repair; Sentry/tooling audit still blocked)
+
+## Latest repair — 2026-10-23: Next.js security upgrade verified
+
+The owner approved upgrading Next.js and its matching ESLint configuration from
+16.3.8 to 16.4.1. The package-manager-generated lockfile changes only Next.js
+packages; Sentry, the OpenNext adapter and development-tool versions are unchanged.
+Official release notes identify fixes for GHSA-2464-fhr4-w9xw,
+GHSA-673q-mjm6-r5xr and GHSA-p3m5-59mp-jv5r. The refreshed npm audit no longer
+reports Next.js. No application workaround or audit exception was added.
+
+All 757 frontend tests and 16 dependency-audit guard tests pass. Types, lint,
+the native production build and the Linux OpenNext 1.20.4 build pass. Both build
+outputs pass static-route, page-structure, CSS-token and bundle checks: five
+public routes prerender, 13 pages pass structure checks, and the largest initial
+bundle is 323.1 KB against the 350 KB ceiling. OpenNext emits a nonempty Worker.
+The first Linux attempt reached Django through host.docker.internal and received
+400; a direct comparison confirmed localhost returns 200. Reusing the API
+container's network and localhost fixed the verification environment without
+changing allowed hosts. Local environment/secret files were excluded from the
+disposable build container. The pre-existing metadataBase warning remains because
+no public domain is chosen. This verifies builds, not deployed Worker routing.
+
+The unchanged audit gate still fails for Sentry GHSA-mchm-gjx6-7h55 and
+launch-editor GHSA-587h-7wmj-h5pm through development tooling, and warns that the
+braces exception is stale. These require separate approved repairs; PR #121
+remains draft and is not release-ready. No API, auth strategy, entitlement model,
+production configuration or database changed. Backend tests were not repeated
+for this frontend-only batch. Nothing was merged or deployed.
+Source: https://github.com/vercel/next.js/releases/tag/v16.4.1
 
 ## Latest repair — 2026-10-23: DRF security patch verified
 
