@@ -1,7 +1,20 @@
 # STATUS
 
 **Last updated:** 2026-10-23
-**Updated by:** Codex (approved Sentry security repair; development-tool audit still blocked)
+**Updated by:** Codex (approved tooling repair blocked by npm resolver crash)
+
+## Latest blocker — 2026-10-23: transitive update cannot resolve peers
+
+The owner approved updating existing Vite/Zod transitives in the lockfile.
+`npm update vite zod` crashes while building Vitest's optional peer graph with
+`Cannot read properties of null (reading 'edgesOut')`. Windows npm 10.9.3 and
+a clean lockfile-only directory in Linux with npm 10.9.9 fail identically.
+Neither attempt modifies the repository's dependency files. No dependency repair
+or new validation pass is claimed. AGENTS section 9 requires stopping after two
+failed attempts. Proposed next approach: explicit compatible Vite/Zod overrides,
+requiring a new package.json change and owner approval before implementation.
+Launch-editor and Zod still block release; PR #121 remains draft. No merge,
+deployment, new dependency, audit exception or security-gate change occurred.
 
 ## Latest repair — 2026-10-23: Sentry security upgrade verified
 
