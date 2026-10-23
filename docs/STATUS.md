@@ -1,7 +1,39 @@
 # STATUS
 
 **Last updated:** 2026-10-23
-**Updated by:** Codex (approved Next.js security repair; Sentry/tooling audit still blocked)
+**Updated by:** Codex (approved Sentry security repair; development-tool audit still blocked)
+
+## Latest repair — 2026-10-23: Sentry security upgrade verified
+
+The owner approved upgrading `@sentry/nextjs` from 10.72.0 to 10.75.2, the
+patched version for GHSA-mchm-gjx6-7h55. The package-manager-generated lockfile
+updates its SDK and tracing dependencies; no new direct dependency, Sentry
+configuration, service, credentials or paid feature was added. Next.js 16.4.1,
+OpenNext 1.20.4 and test-tool versions remain unchanged. A clean Linux `npm ci`
+succeeds. The refreshed npm audit no longer reports Sentry or any critical
+finding; it still fails on launch-editor GHSA-587h-7wmj-h5pm through Vite and
+Zod GHSA-mrhx-c7xc-m3w5, whose advisory was updated today. Zod 4.4.3 is unchanged
+by this repair and enters through existing development tooling. The old braces
+exception remains stale; no audit exception or security gate was changed.
+
+All 17 focused observability tests and 16 audit-guard tests pass. The initial
+full frontend run, concurrent with build work, had four 5-second timeouts and
+one subsequent DOM assertion failure. After compilation finished, the unchanged
+suite passed all 757 tests across 60 files with `--maxWorkers=2`; assertions,
+timeouts and runner configuration were not modified. Types, lint, the native
+production build and the separate Linux OpenNext build pass. Both outputs pass
+static-route, page-structure, CSS-token and bundle guards: five public routes
+prerender, 13 pages pass structure checks and OpenNext emits a nonempty Worker.
+The largest initial bundle grows from 323.1 KB to 335.4 KB, leaving 14.6 KB below
+the existing 350 KB ceiling. The pre-existing metadataBase warning remains.
+
+This verifies local builds and tests, not deployed Worker routing or live Sentry
+ingestion. Backend checks were not repeated for this frontend-only repair. No
+API, business behavior, auth strategy, entitlement model, production configuration
+or database changed. PR #121 remains draft and is not release-ready while the
+development-tool audit fails. Nothing was merged or deployed.
+Sources: https://github.com/getsentry/sentry-javascript/releases/tag/10.75.2
+and https://github.com/advisories/GHSA-mrhx-c7xc-m3w5
 
 ## Latest repair — 2026-10-23: Next.js security upgrade verified
 
