@@ -1,7 +1,36 @@
 # STATUS
 
 **Last updated:** 2026-10-23
-**Updated by:** Codex (approved tooling repair blocked by npm resolver crash)
+**Updated by:** Codex (approved Vite/Zod overrides verified; high/critical frontend audit passes)
+
+## Latest repair — 2026-10-23: Vite/Zod overrides resolve the audit blocker
+
+The owner approved the alternative after npm update failed twice. Explicit
+overrides pin existing transitives Vite 8.2.4 and Zod 4.6.6 within all installed
+parent ranges. Normal `npm install` succeeds; its generated lockfile changes only
+those two package entries. No direct dependency, npm upgrade, peer-resolution
+bypass or audit-fix force flag was added. Next.js, Sentry and Vitest are unchanged.
+
+All 757 frontend tests across 60 files pass with two workers, and all 16 audit
+guard tests pass unchanged. Types, lint, native production build and Linux
+OpenNext 1.20.4 build pass. A clean Linux `npm ci` succeeds and its audit gate
+also passes. Both build outputs pass static-route, page-structure, CSS-token and
+bundle checks: five public routes prerender, 13 pages pass structure checks and
+OpenNext emits a nonempty Worker. The largest initial bundle remains 335.4 KB
+against the unchanged 350 KB ceiling. The pre-existing metadataBase warning
+remains until a public domain is chosen. This is build verification, not proof
+of deployed Worker routing, live monitoring or production readiness.
+
+The complete npm report has zero high/critical findings and two moderate package
+findings in unchanged Vitest/@vitest/mocker: GHSA-qxg6-89mg-rqv8 and
+GHSA-xp26-3454-mjgp. Their published 4.1.12 repair is a separate proposed batch.
+The stale braces exception is still printed for cleanup; its policy and the
+high/critical gate are unchanged. The audit is passing, not vulnerability-free.
+Backend checks were not repeated locally for this tooling-only repair. No API,
+business behavior, auth strategy, entitlement model, production configuration or
+database changed. PR #121 remains draft; nothing was merged or deployed.
+Sources: https://github.com/vitejs/vite/releases/tag/v8.2.4
+and https://github.com/colinhacks/zod/releases/tag/v4.6.6
 
 ## Latest blocker — 2026-10-23: transitive update cannot resolve peers
 

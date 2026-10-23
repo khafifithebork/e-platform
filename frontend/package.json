@@ -52,6 +52,8 @@
     "wrangler": "4.151.0"
   },
   "overrides": {
-    "js-yaml": "4.3.2"
+    "js-yaml": "4.3.2",
+    "vite": "8.2.4",
+    "zod": "4.6.6"
   }
 }
