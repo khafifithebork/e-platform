@@ -1,7 +1,28 @@
 # STATUS
 
 **Last updated:** 2026-10-23
-**Updated by:** Codex (invitation PR #121 blocked by dependency audits)
+**Updated by:** Codex (approved DRF security repair; frontend audit still blocked)
+
+## Latest repair — 2026-10-23: DRF security patch verified
+
+The owner approved the backend security repair. The sole dependency pin change
+is DRF 3.18.0 to 3.18.3: 3.18.2 fixes the three reported advisories, while 3.18.3
+also restores a helper return type accidentally changed in that release. Official
+release notes were reviewed before installation. No application workaround or
+audit exception was introduced.
+A fresh isolated environment installed the declared dependencies the same way
+CI does. `pip check` passed and `pip-audit --skip-editable` found no known
+vulnerabilities. The existing shared development environment has older certifi
+and urllib3 transitives; it was not silently upgraded or used for verification.
+All 26 focused auth/registration tests and all 1,604 backend tests passed on
+DRF 3.18.3, including the unchanged schema snapshot. Ruff check/format, frontend
+types/lint and migration drift checks pass. Production-settings deployment checks
+report zero issues using the local Compose configuration in memory; the initial
+host-only attempt lacked required storage settings. No values were logged or
+written, and no deployed configuration or database was changed.
+Frontend dependency findings remain unresolved and block release/CI approval.
+This batch does not authorize frontend upgrades, invitation services, merging or
+deployment. Source: https://www.django-rest-framework.org/community/release-notes/#3183
 
 ## Latest blocker — 2026-10-23: security audits block the next beta slice
 
