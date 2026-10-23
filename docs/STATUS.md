@@ -1,7 +1,23 @@
 # STATUS
 
-**Last updated:** 2026-10-19
-**Updated by:** Codex (approved instructor DELETE restriction)
+**Last updated:** 2026-10-23
+**Updated by:** Codex (private-beta readiness planning)
+
+## Latest direction — 2026-10-23: invited private beta, no payments
+
+The owner chose private beta without payments, keeping public pages visible
+and learner admission invitation-only. Lean costs must be verified before any
+purchase; no domain is chosen. `tasks/plan.md` and `tasks/todo.md` hold the
+proposed slices, checkpoints and remaining decisions. Registration currently
+allows any email, and UserAdmin cannot create accounts; admission needs real
+server-side enforcement, not a hidden link. Proposed beta lesson access uses
+existing bounded, audited admin overrides rather than fake paid subscriptions.
+Current official vendor sources were inspected; server availability, a full
+hosting/staging/backup quote and a spending cap remain unapproved. Conflicting
+legacy approval records are flagged rather than rewritten. No application,
+provider, auth strategy, entitlement model or deployment setting changed.
+PR #120 remains green and open. First proposed implementation: invitation
+persistence and constraints; AGENTS section 7 approval is still required.
 
 ## Latest repair — 2026-10-19: instructor editing excludes destructive deletion
 
