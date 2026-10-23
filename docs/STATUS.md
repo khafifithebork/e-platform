@@ -1,7 +1,26 @@
 # STATUS
 
 **Last updated:** 2026-10-23
-**Updated by:** Codex (approved beta invitation persistence)
+**Updated by:** Codex (invitation PR #121 blocked by dependency audits)
+
+## Latest blocker — 2026-10-23: security audits block the next beta slice
+
+Invitation foundation commit `a5cdca2` is pushed in draft PR #121. Both dependency
+audits fail on the inherited dependency set; no dependency was changed by this
+slice. Backend audit lists DRF 3.18.0 advisories GHSA-33wh-fxxf-88vv,
+GHSA-3547-9m27-7rxg and GHSA-xw6w-gcfp-cf8m, fixed in 3.18.2.
+Frontend audit reports Sentry GHSA-mchm-gjx6-7h55, Next.js
+GHSA-2464-fhr4-w9xw / GHSA-p3m5-59mp-jv5r / GHSA-673q-mjm6-r5xr, and
+launch-editor GHSA-587h-7wmj-h5pm through development tooling. Published fixes
+include Sentry 10.75.2, Next.js 16.4.1 and launch-editor 2.14.2 (or a patched
+parent); exact dependency trees and compatibility need checking before upgrades.
+The old braces exception is now reported stale; do not extend it or add blanket
+exclusions. Primary GitHub advisories and a read-only local npm audit confirm the
+findings; the report is in the task visualization directory. Dependency pins,
+lockfile and exception list remain unchanged. Propose separate reviewed security
+repair commits before invitation services; their AGENTS section 7 approval is
+required. Local feature verification below passed, but this PR is not CI-green
+or production-ready. Nothing was merged or deployed.
 
 ## Latest implementation — 2026-10-23: beta invitation persistence
 
