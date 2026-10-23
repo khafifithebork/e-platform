@@ -1,7 +1,29 @@
 # STATUS
 
 **Last updated:** 2026-10-23
-**Updated by:** Codex (private-beta readiness planning)
+**Updated by:** Codex (approved beta invitation persistence)
+
+## Latest implementation — 2026-10-23: beta invitation persistence
+
+The owner approved readiness slice 1. `BetaInvitation` records an email, explicit
+expiry and nullable revocation/consumption timestamps, with UUID and standard
+creation/update timestamps. PostgreSQL enforces case-insensitive email uniqueness
+and expiry strictly after creation, including direct writes that bypass services.
+Five new test cases cover the constraints on inserts/updates, rejected-write
+rollback and lifecycle persistence without creating an account. All failed before
+the model existed; all 18 focused invitation/registration tests and all 1,604
+backend tests now pass. Ruff check/format and frontend types/lint pass; migration
+drift check is clean and production-settings checks report zero issues.
+Migration 0005 creates only a new table and its unique index/check constraint;
+no existing table is altered and no backfill or concurrent index build is needed.
+Reverse SQL drops that new table and its rows. Forward/reverse SQL were reviewed;
+only the test database was migrated, not the running app database or production.
+Docker Desktop and the existing local services were started for verification.
+No invitation service, admin action, API, registration restriction or access grant
+is wired yet: the beta is not ready for invited onboarding. Existing registration
+and entitlement behavior remain unchanged. No schema/types regeneration was
+needed; the backend schema drift guard passed. Frontend tests/build were not rerun
+locally for this model-only batch. Slice 2 remains unapproved.
 
 ## Latest direction — 2026-10-23: invited private beta, no payments
 

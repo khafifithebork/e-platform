@@ -100,6 +100,30 @@ class User(UUIDPrimaryKeyModel, AbstractBaseUser, PermissionsMixin):
         return self.email
 
 
+class BetaInvitation(UUIDPrimaryKeyModel, TimestampedModel):
+    """A beta admission record, not an account or a course-access grant.
+
+    Email verification remains the proof of inbox ownership. Future services
+    will issue and consume these records; merely inserting one has no effect
+    on registration or the entitlement resolver.
+    """
+
+    email = models.EmailField()
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints: ClassVar[list] = [
+            # Match the account identity guarantee even for direct/bulk writes.
+            models.UniqueConstraint(Lower("email"), name="beta_invitation_email_ci_unique"),
+            models.CheckConstraint(
+                condition=models.Q(expires_at__gt=models.F("created_at")),
+                name="beta_invitation_expiry_after_issue",
+            ),
+        ]
+
+
 class EmailVerificationToken(UUIDPrimaryKeyModel, TimestampedModel):
     """A single-use, expiring proof that someone can read an inbox.
 

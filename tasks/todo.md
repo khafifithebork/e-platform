@@ -8,8 +8,8 @@ Unchecked means not completed, not permission to implement or deploy.
 - [x] Confirm lean cost verification; domain remains unchosen.
 - [x] Inspect registration, operator account creation, existing access overrides,
   provisioning and available primary-source pricing.
-- [ ] Approve slice 1 and its invitation approach.
-- [ ] 1. Invitation persistence and database constraints.
+- [x] Approve slice 1 and its invitation approach.
+- [x] 1. Invitation persistence and database constraints (1,604 backend tests passed).
 - [ ] 2. Authorized, audited invitation services and atomic consumption.
 - [ ] 3a. Server-side registration admission and negative API tests.
 - [ ] 3b. Honest signup UI and tested operator onboarding runbook.
