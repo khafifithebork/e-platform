@@ -1,7 +1,42 @@
 # STATUS
 
-**Last updated:** 2026-10-23
-**Updated by:** Codex (approved Vite/Zod overrides verified; high/critical frontend audit passes)
+**Last updated:** 2026-10-24
+**Updated by:** Codex (approved Vitest repair verified; fresh inherited audit findings block release)
+
+## Latest repair — 2026-10-24: Vitest 4.1.12 verified
+
+The owner approved upgrading Vitest from 4.1.11 to 4.1.12. Its mock tooling no
+longer reports GHSA-qxg6-89mg-rqv8 or GHSA-xp26-3454-mjgp. Direct installation
+first crashed in npm's optional-peer resolver, which was exploring Vitest 5.
+An exact direct pin with a matching literal override keeps resolution on the
+approved version and installs successfully. The documented `$vitest` reference
+form also failed to resolve in this environment; the equivalent literal form
+works. No npm upgrade, new direct dependency, forced audit fix or peer bypass
+was introduced. The generated lockfile changes Vitest's internal packages and
+its compatible Chai/tinyrainbow transitives; other dependency versions remain
+unchanged. Next.js, Sentry, Vite/Zod overrides and audit policy are preserved.
+
+All 757 frontend tests across 60 files pass with two workers; all 16 audit-guard
+tests pass unchanged. Types, lint, native production build, clean Linux npm ci
+and OpenNext 1.20.4 build pass. Both outputs pass static-route, page-structure,
+CSS-token and bundle guards: five public routes prerender, 13 pages pass structure
+checks and OpenNext emits a nonempty Worker. The largest initial bundle remains
+335.4 KB against the 350 KB ceiling. The existing metadataBase warning remains.
+Backend checks were not repeated locally for this frontend-tooling repair.
+
+Fresh native and Linux audits fail on inherited body-parser 2.3.0
+(GHSA-27r3-jxmh-p828) and undici 7.29.1 (GHSA-xjj6-f33q-929c). The complete npm
+report has two high and four moderate package findings, including fast-uri and
+the Cloudflare tooling ancestry. These versions did not change in this batch;
+the previous green audit snapshot is historical, not today's release status.
+Miniflare pins undici exactly; even the inspected latest Wrangler 4.152.0 still
+resolves a Miniflare pin of 7.29.1. A separate repair must verify compatibility,
+not follow npm's suggested adapter/CLI downgrade. The stale braces exception is
+still printed; no gate or exception was changed. PR #121 remains draft and is
+not release-ready. No API, business behavior, auth strategy, entitlement model,
+production configuration or database changed. Nothing was merged or deployed.
+Sources: https://github.com/vitest-dev/vitest/releases/tag/v4.1.12
+and https://docs.npmjs.com/cli/v10/configuring-npm/package-json/#overrides
 
 ## Latest repair — 2026-10-23: Vite/Zod overrides resolve the audit blocker
 
