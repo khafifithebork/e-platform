@@ -489,6 +489,27 @@ class TestRetryIsGuardedWhereEveryCallerPassesThrough:
         asset.refresh_from_db()
         assert asset.status == MediaAssetStatus.UPLOADED
 
+    def test_completing_someone_elses_upload_is_refused(self, asset) -> None:
+        """`complete_upload`'s own ownership guard, which had no negative test
+        until coverage with object storage running pointed at the line.
+
+        It refuses before touching the store, so this needs no S3 endpoint —
+        and `storage=None` proves it: a guard that ran after the `head` would
+        raise `AttributeError` here instead.
+        """
+        from apps.media_assets.models import MediaAssetStatus as S
+        from apps.media_assets.services import NotYours, complete_upload
+
+        MediaAsset.objects.filter(pk=asset.pk).update(status=S.PENDING)
+        asset.refresh_from_db()
+        rival = _user("rival@example.test")
+
+        with pytest.raises(NotYours):
+            complete_upload(asset=asset, by=rival, storage=None)
+
+        asset.refresh_from_db()
+        assert asset.status == S.PENDING
+
     def test_a_stranger_is_not_told_the_asset_is_mid_flight(self, asset) -> None:
         """Ownership is checked before state, deliberately. 409 for a
         TRANSCODING asset and 404 for a FAILED one tells a stranger which it

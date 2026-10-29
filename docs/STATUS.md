@@ -104,6 +104,37 @@ LocalStack object-storage skips); `ruff check`/`format` clean; `makemigrations
 --check` detects no changes; `check --deploy` zero issues; OpenAPI byte-identical.
 Frontend untouched.
 
+## Measurement closed — 2026-10-29: the media coverage gap was environmental
+
+The entry above left `media_assets/services.py` at **83%**, under §8's ~85%
+services target, and said the gap looked environmental. **Measured rather than
+left as a claim:** a temporary S3 endpoint was run locally (`moto`, installed
+into the gitignored venv only — **`pyproject.toml` is untouched, so this is not
+a §5 dependency**, and it has since been uninstalled), which let 36 of the 40
+skipped tests run.
+
+`media_assets/services.py` goes from 83% to **100% statement and 100% branch**.
+`providers/storage.py` measures 95%. So the gap was the missing endpoint, as
+suspected — **except for one line that was not environmental at all**:
+`complete_upload`'s own `NotYours` guard had no negative test. It has one now,
+calling the service with `storage=None` to prove the refusal happens before the
+store is ever touched. §8's ~85% services target is met, and that was the one
+genuine hole the number was hiding.
+
+**Four tests cannot be verified in this environment, and were not altered.** All
+four assert that *the store* rejects a tampered presigned URL or a mismatched
+content type with a 403 — MinIO and R2 enforce presigned signatures; `moto` does
+not, so it accepts them. That is a limitation of the local stand-in, not a
+product defect, and weakening the assertions to make them pass would be exactly
+what §6 forbids. **CI, which runs MinIO as a service, stays authoritative for
+those four.** A second difference worth recording for whoever repeats this:
+`MEDIA_STORAGE_REGION` defaults to `auto` (R2's convention), which MinIO accepts
+and `moto` rejects on `create_bucket`; the run overrode it by environment
+variable, changing no code.
+
+Counts: **1601 pass, 40 skipped** with no storage endpoint; **1637 pass, 4
+failed** with the local stand-in up. Both figures are real runs.
+
 **Still open and deliberately not touched:** the admin site gates on `is_staff`
 plus a second factor, not on `Role.ADMIN`, so on every *other* registered model
 it is model permissions that separate operators. `MediaAssetAdmin` is scoped
