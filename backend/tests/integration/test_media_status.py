@@ -472,6 +472,38 @@ class TestTheScopeFilterAndTheObjectCheckAgree:
 
         self._agree(asset, AnonymousUser())
 
+    def test_a_divergent_scope_is_a_404_rather_than_a_500(self, client, asset) -> None:
+        """Why `MediaAssetRetryView` still catches `NotYours`.
+
+        With the scope filter in place that handler is unreachable — proved by
+        the equivalence tests above, not assumed — so coverage flagged it as a
+        line no request can execute. It is kept rather than deleted because
+        the state it handles is exactly the one those tests forbid: a scope
+        filter that grew broader than `may_manage`. Without the handler that
+        divergence is an unhandled exception and a 500; with it, the refusal
+        the service still makes reaches the caller as the 404 it should be.
+
+        Simulated by widening the selector, which is the only way to reach the
+        line at all.
+        """
+        from unittest.mock import patch
+
+        from apps.media_assets.models import MediaAsset
+
+        _fail(asset)
+        _user("rival@example.test")
+        _sign_in(client, "rival@example.test")
+
+        with patch(
+            "apps.media_assets.views.assets_manageable_by",
+            return_value=MediaAsset.objects.all(),
+        ):
+            response = client.post(_retry(asset))
+
+        assert response.status_code == 404
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
+
     def test_the_status_read_costs_a_bounded_number_of_queries(
         self, client, asset, django_assert_max_num_queries
     ) -> None:

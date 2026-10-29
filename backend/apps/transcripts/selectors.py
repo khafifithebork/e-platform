@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.db.models import Count, Min, Prefetch
 from django.utils import timezone
 
+from apps.accounts.models import Role
 from apps.transcripts.models import (
     Transcript,
     TranscriptKind,
@@ -14,15 +15,45 @@ from apps.transcripts.models import (
 )
 
 
-def transcript_for_review(*, pk):
-    """One transcript with its cues, in order.
+def transcripts_reviewable_by(*, user):
+    """Every transcript this person may review, and nothing else.
+
+    The scope filter invariant 10 asks for. A transcript is addressed by its
+    own id, with no course in the path, and the module this feeds used to
+    answer that by fetching the row and then calling ``may_review`` in the
+    view — which is the fetch-then-check architecture.md §4.4 names as the
+    commonest IDOR, and put a business-state ``if`` in a view besides
+    (invariant 2).
+
+    Mirrors ``services.may_review``, which mirrors ``media_assets.may_manage``:
+    an admin reviews anything, an instructor reviews their own courses.
+    ``test_the_review_scope_agrees_with_may_review`` pins the two together so
+    the duplication cannot drift.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return Transcript.objects.none()
+
+    if getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
+        return Transcript.objects.all()
+
+    return Transcript.objects.filter(media_asset__lesson__course__instructor=user)
+
+
+def transcript_for_review(*, pk, user):
+    """One transcript with its cues, in order — if it is one of theirs.
 
     Prefetched: a review screen renders every segment, and without this that
     is one query per cue — on a transcript with six hundred of them, which is
     an ordinary hour of speech.
+
+    ``user`` is required rather than optional. An optional scope is one every
+    caller may forget, and the two callers of this function are the review
+    screen and the response rendered after a review transition — both of which
+    must show a transcript only to someone entitled to review it.
     """
     return (
-        Transcript.objects.filter(pk=pk)
+        transcripts_reviewable_by(user=user)
+        .filter(pk=pk)
         .select_related("media_asset__lesson__course", "language")
         .prefetch_related(
             Prefetch("segments", queryset=TranscriptSegment.objects.order_by("position"))

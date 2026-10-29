@@ -1,9 +1,16 @@
 """Transcript review endpoints. HTTP concerns only (invariant 2).
 
 Someone else's transcript is a **404**, never a 403: a 403 confirms it exists,
-which §6.3 forbids. Ownership is checked in the view rather than by a queryset
-filter because a transcript and a segment are each addressed by their own id —
-architecture.md §4.4 calls exactly that the commonest IDOR in DRF codebases.
+which §6.3 forbids.
+
+A transcript and a segment are each addressed by their own id, with no course
+in the path to scope them by — which architecture.md §4.4 calls the commonest
+IDOR in a DRF codebase. This module used to answer that by fetching the row
+and then calling ``may_review``; **invariant 10 asks for the scope filter
+instead**, and invariant 2 forbids the business-state ``if`` that the check
+became once it sat in a view. So the reads go through
+``transcripts_reviewable_by`` and the writes hand the actor to a service that
+decides for every caller, not only the HTTP one. ADR-040.
 """
 
 from typing import ClassVar
@@ -38,7 +45,6 @@ from apps.transcripts.services import (
     NotYours,
     approve,
     edit_segment,
-    may_review,
     reopen,
     start_review,
 )
@@ -58,10 +64,11 @@ class TranscriptDetailView(APIView):
         summary="Read a transcript for review",
     )
     def get(self, request, pk):
-        transcript = transcript_for_review(pk=pk)
-        if transcript is None or not may_review(transcript=transcript, user=request.user):
-            # One branch for both, deliberately: "does not exist" and "not
-            # yours" must be indistinguishable from outside.
+        # One branch, because there is now one question: the selector is
+        # scoped, so "does not exist" and "not yours" are the same absence
+        # rather than two cases a reader has to notice are merged.
+        transcript = transcript_for_review(pk=pk, user=request.user)
+        if transcript is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         return Response(TranscriptSerializer(transcript).data)
@@ -149,7 +156,7 @@ class TranscriptReviewView(APIView):
         except NothingToApprove as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
-        return Response(TranscriptSerializer(transcript_for_review(pk=pk)).data)
+        return Response(TranscriptSerializer(transcript_for_review(pk=pk, user=request.user)).data)
 
 
 @extend_schema(tags=["learning"])
