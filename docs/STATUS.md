@@ -1,7 +1,76 @@
 # STATUS
 
-**Last updated:** 2026-10-19
-**Updated by:** Codex (approved instructor DELETE restriction)
+**Last updated:** 2026-10-29
+**Updated by:** Claude (media and transcript authorization moved into services and selectors)
+
+## Latest repair — 2026-10-29: authorization moved out of views (media, transcripts)
+
+The owner approved the batch and its one admin-surface tightening. Four object-
+addressed routes decided ownership by fetching from an unscoped manager and then
+asking a predicate in the view — the fetch-then-check architecture.md §4.4 names
+as the commonest IDOR, and a business-state `if` in a view besides (invariant 2).
+Reads now go through new scope filters, `media_assets.selectors
+.assets_manageable_by` and `transcripts.selectors.transcripts_reviewable_by`;
+`transcript_for_review` requires `user` rather than defaulting it. ADR-040 records
+the decision and supersedes the `transcripts/views.py` docstring that argued for
+the old shape.
+
+**One hole was real and reachable, and was reproduced before being fixed.**
+`retry_processing` took no actor: its only ownership check lived in
+`MediaAssetRetryView`, which protected one of its two callers. The `retry_failed`
+admin action reaches the service through no view, and because `is_staff` is
+independent of `Role`, a staff account holding only `change_mediaasset` requeued
+another instructor's FAILED asset — the probe signed in as role STUDENT and the
+asset moved to UPLOADED. The service now requires `by` and raises `NotYours`,
+checked **before** state so a refusal cannot tell a stranger whether the asset is
+mid-flight (§6.3). The cost of the hole was provider minutes and a pipeline run,
+not disclosure: the admin action returns no asset data and the API surface was
+guarded correctly throughout.
+
+**The duplication this creates is pinned, not trusted.** A queryset and a
+predicate stating one rule is the drift `may_review`'s own docstring warns about,
+so two test classes assert they answer identically for owner, other instructor,
+student, admin, superuser and anonymous. Change either and a test fails.
+
+**Coverage found one thing reading did not:** scoping the retry view made its own
+`except NotYours` unreachable, since the scoped fetch refuses anyone the service
+would. It is kept rather than deleted — deleting it turns a future scope
+divergence into a 500 instead of a 404 — and a test widens the selector to reach
+the line, so the branch is measured.
+
+Verified, run rather than assumed, on a backend environment built this session
+(no venv or Postgres existed; both were created, and `pg_trgm` was available):
+**1587 backend tests pass, 40 skipped**, against a 1559/40 baseline measured
+before any change — which reconciles exactly with the 1599 figure recorded on
+2026-10-19. **All 40 skips are environmental**, the LocalStack object-storage
+tests; no S3 endpoint is reachable here and none of the new tests needs one.
+Frontend: **757 tests across 60 files**, `tsc --noEmit` and ESLint clean, no
+frontend file changed. `ruff check` and `ruff format` clean across 239 files.
+`makemigrations --check` detects no changes. `check --deploy` under production
+settings reports **zero issues**. The OpenAPI schema was regenerated and is
+**byte-identical**, so invariant 16 needs no frontend type rebuild.
+
+Measured coverage on the touched modules, full suite: both new selectors 100%
+statement and 100% branch; `transcripts/views.py` 100%; `transcripts/services.py`
+98%; `media_assets/services.py` 83%, where every miss is a LocalStack-gated
+upload path and both functions this batch touched are fully covered.
+`media_assets/services.py` therefore sits just under §8's ~85% services target
+**for an environmental reason, not an untested one** — worth re-measuring where
+object storage answers.
+
+**One behaviour changed.** A staff user who is neither role `ADMIN` nor a
+superuser can no longer retry an asset from the admin action. That matches the
+`Role.ADMIN or is_superuser` definition already used in four other modules, so it
+narrows one surface to the rule the rest of the codebase applies. No fixture or
+seed account is in that position; **whether any real operator account is, is for
+the owner to confirm when admin accounts are provisioned.**
+
+No model, migration, dependency, API contract, UI or cost change. No deployment
+was requested or performed. **Not done, and named rather than quietly skipped:**
+`SegmentEditView` still fetches `TranscriptSegment` unscoped before handing it to
+`edit_segment`, which does raise `NotYours` — the decision is in the right layer
+and the outcome is correct, but the fetch is against the letter of invariant 10.
+Left out to keep this batch inside §9's file budget; ADR-040 says so too.
 
 ## Latest repair — 2026-10-19: instructor editing excludes destructive deletion
 
