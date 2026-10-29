@@ -252,11 +252,22 @@ class PublicCourseDetailSerializer(PublicCourseSerializer):
 
     related = PublicCourseSerializer(many=True, read_only=True)
 
+    # Annotated by `_with_total_duration`, not computed here: whether a partial
+    # total may be published is a decision (ADR-041), and invariant 2 keeps
+    # decisions out of serializers. Declared explicitly rather than left to
+    # ModelSerializer, which cannot see an annotation and would drop the field
+    # silently — the same failure `get_instructor_name` above documents.
+    #
+    # `allow_null` is the contract, not an oversight: null means the course has
+    # a lesson nobody has measured yet.
+    total_duration_seconds = serializers.IntegerField(read_only=True, allow_null=True)
+
     class Meta(PublicCourseSerializer.Meta):
         fields: ClassVar[list[str]] = [
             *PublicCourseSerializer.Meta.fields,
             "sections",
             "related",
+            "total_duration_seconds",
         ]
 
 

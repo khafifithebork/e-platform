@@ -4,7 +4,7 @@ import operator
 from functools import reduce
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramSimilarity
-from django.db.models import Case, F, IntegerField, Prefetch, Q, Value, When
+from django.db.models import Case, Count, F, IntegerField, Prefetch, Q, Sum, Value, When
 
 from apps.accounts.models import Role, User
 from apps.catalog.models import (
@@ -99,14 +99,64 @@ def published_courses():
     )
 
 
+# Where a course's total length comes from. `MediaAsset.duration_seconds` is
+# the only duration this product measures — it is written by the transcoding
+# task from what the provider reports, so it is a fact about the file rather
+# than a number anybody typed. Reached by ORM path rather than by importing
+# `media_assets`, which keeps the app boundary intact.
+_LESSON_DURATION = "sections__lessons__media_asset__duration_seconds"
+
+
+def _with_total_duration(queryset):
+    """Annotate a course's total length, or ``None`` when it is not yet known.
+
+    **Derived, never stored.** A `total_duration_seconds` column would be a
+    second answer to a question the lesson rows already answer, maintained by
+    a job that can fall behind — the shape invariant 3 refuses for access and
+    invariant 13 refuses for transcripts.
+
+    **``None`` unless every lesson has been measured, which is the whole
+    decision here.** A course with nine measured lessons and one still
+    transcoding would otherwise advertise nine lessons' worth of minutes as
+    its total — an understatement presented as a fact, which is the thing §6
+    forbids inventing. A learner deciding whether to start a course is better
+    served by no number than by a wrong one, and `None` is a value the
+    catalogue can render as silence. ADR-041.
+
+    Two counts over one join chain, so they cannot disagree: `Count` ignores
+    nulls, so `_measured` counts lessons whose asset reports a duration while
+    `_lessons` counts lessons. Equal means complete. A course with no lessons
+    is `None` rather than zero — "no lessons yet" and "zero minutes long" are
+    different claims, and only one of them is true.
+    """
+    return queryset.annotate(
+        _lessons=Count("sections__lessons"),
+        _measured=Count(_LESSON_DURATION),
+        _measured_seconds=Sum(_LESSON_DURATION),
+    ).annotate(
+        total_duration_seconds=Case(
+            When(_lessons=0, then=Value(None)),
+            When(_measured=F("_lessons"), then=F("_measured_seconds")),
+            default=Value(None),
+            output_field=IntegerField(),
+        )
+    )
+
+
 def published_course_detail(*, slug: str) -> Course:
     """One published course, with its curriculum, or ``DoesNotExist``.
 
     Prefetched: a detail page renders every section and every lesson, which is
     one query per section without this.
+
+    The duration annotation is applied here rather than in
+    ``published_courses``, deliberately: it adds a GROUP BY and two joins, and
+    putting that on the queryset every public list, filter and search builds
+    from would change the plan of all of them to serve a number only the
+    detail page shows.
     """
     return (
-        published_courses()
+        _with_total_duration(published_courses())
         .prefetch_related(
             Prefetch("sections", queryset=Section.objects.order_by("position")),
             Prefetch("sections__lessons", queryset=Lesson.objects.order_by("position")),

@@ -19,6 +19,11 @@ const course: PublicCourseDetail = {
     lessons: [{ id: "lesson-1", slug: "hello", title: "Saying hello", position: 1, is_preview: true }],
   }],
   related: [],
+  // Unknown, which is every course in the repository today (ADR-041): no
+  // `MediaAsset` carries a provider-reported duration yet. The default
+  // fixture therefore exercises the omitted case, and the two tests below
+  // supply a measured total explicitly.
+  total_duration_seconds: null,
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -55,4 +60,20 @@ it("preserves related courses as a named list with working destinations", async 
   const related = screen.getByRole("list", { name: "Related courses" });
   expect(within(related).getByRole("article", { name: "Everyday Spanish" })).toBeVisible();
   expect(within(related).getByRole("link", { name: "Everyday Spanish" })).toHaveAttribute("href", "/courses/next-spanish");
+});
+
+it("states the total length when every lesson has been measured", async () => {
+  await show({ ...course, total_duration_seconds: 2 * 3600 + 35 * 60 });
+  expect(screen.getByText("1 section", { exact: false })).toHaveTextContent(
+    "1 section · 1 lesson · 2 hr 35 min",
+  );
+});
+
+it("says nothing about length when the total is unknown", async () => {
+  // ADR-041 withholds a partial total, so the page must render no label
+  // rather than "0 min" or an empty slot beside a separator.
+  await show({ ...course, total_duration_seconds: null });
+  const line = screen.getByText("1 section", { exact: false });
+  expect(line).toHaveTextContent("1 section · 1 lesson");
+  expect(line.textContent).not.toMatch(/min|hr/);
 });

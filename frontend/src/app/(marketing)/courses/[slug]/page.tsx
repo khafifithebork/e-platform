@@ -13,6 +13,7 @@ import {
   publishedCourse,
   publishedCourseSlugs,
 } from "@/lib/catalogue/courses";
+import { formatCourseDuration } from "@/lib/catalogue/duration";
 import { courseStructuredData } from "@/lib/seo/structured-data";
 import { publicMetadata } from "@/lib/site";
 
@@ -103,6 +104,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
   const course = await loadCourse(slug);
   const skills = Array.isArray(course.skill_areas) ? (course.skill_areas as string[]) : [];
   const lessonCount = course.sections.reduce((total, section) => total + section.lessons.length, 0);
+  const duration = formatCourseDuration(course.total_duration_seconds);
 
   return (
     <article className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-10 sm:gap-12 sm:py-16 [overflow-wrap:anywhere]">
@@ -162,6 +164,19 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
           {course.sections.length} {course.sections.length === 1 ? "section" : "sections"}
           <span aria-hidden="true"> · </span>
           {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"}
+          {/*
+           * Omitted entirely when unknown, rather than shown as "0 min" or as
+           * an empty slot. ADR-041: the API withholds a course's total until
+           * every lesson has been measured, so there is nothing to render and
+           * nothing to apologise for — a label with no value beside it is
+           * worse than no label.
+           */}
+          {duration !== null && (
+            <>
+              <span aria-hidden="true"> · </span>
+              {duration}
+            </>
+          )}
         </p>
 
         {course.description && (

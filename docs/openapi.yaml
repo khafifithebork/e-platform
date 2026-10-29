@@ -3482,6 +3482,10 @@ components:
           items:
             $ref: '#/components/schemas/PublicCourse'
           readOnly: true
+        total_duration_seconds:
+          type: integer
+          readOnly: true
+          nullable: true
       required:
       - id
       - instructor_name
@@ -3491,6 +3495,7 @@ components:
       - sections
       - slug
       - title
+      - total_duration_seconds
     PublicLesson:
       type: object
       description: |-

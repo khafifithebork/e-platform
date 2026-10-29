@@ -135,6 +135,56 @@ variable, changing no code.
 Counts: **1601 pass, 40 skipped** with no storage endpoint; **1637 pass, 4
 failed** with the local stand-in up. Both figures are real runs.
 
+## Roadmap E8, duration third — 2026-10-29: derived, and withheld when partial
+
+`docs/specs/frontend-roadmap.md` §E8 listed three things a course page cannot
+state because the backend does not model them. **Duration is the one that needed
+no new column**, so it is done; objectives and prerequisites are not, and are
+still the owner's (below). ADR-041 records it.
+
+`MediaAsset.duration_seconds` is already written by the transcoding task from
+what the provider reports, so the number is a fact about the file rather than
+something typed. `_with_total_duration` annotates the sum in SQL on the course
+detail queryset. **No column, no migration** — a stored total would be a second
+answer to a question the lesson rows already answer, kept in step by a job that
+can fall behind, which is the shape invariant 3 refuses for access and invariant
+13 for transcripts. The ORM path is a string, so `catalog` still imports nothing
+from `media_assets`.
+
+**The decision worth the ADR is when a total may be published at all: `None`
+unless every lesson has been measured.** A ten-lesson course with nine measured
+lessons would otherwise advertise nine lessons' minutes as its total — an
+understatement presented as a fact, which is what §6 is about. A course with no
+lessons is `None` rather than `0`, because "no lessons yet" and "zero minutes
+long" are different claims and only one is true. Detail only, not the catalogue
+card: the annotation adds a GROUP BY and two joins, and every public list, filter
+and search queryset builds on `published_courses` — a test pins the card's
+absence so adding it later is a decision rather than a side effect.
+
+Frontend: `formatCourseDuration` renders it and returns `null` for the unknown
+case, so a page cannot turn "unknown" into "0 min" with a `?? 0`. English only —
+ADR-033 §4 defers localisation, and a named function is easier to find than JSX
+when that reopens.
+
+**Verified in a real production build, not only in tests.** A local Django with
+`seed_demo_catalogue`, Redis and one course given measured assets: the built HTML
+for the measured course reads `2 sections · 4 lessons · 1 hr 1 min`, and the
+unmeasured courses read `2 sections · 5 lessons` with no dangling separator and
+no empty slot. **`tsc` caught the existing page fixture missing the new required
+field** — invariant 16 working as intended rather than a type written by hand.
+
+Gates: **1609 backend tests pass, 40 skipped**; **766 frontend across 61 files**
+(9 new); `tsc` and ESLint clean; `ruff check`/`format` clean; `makemigrations
+--check` no changes; `check --deploy` zero issues. OpenAPI regenerated — one
+nullable integer added — and frontend types regenerated from it. All four
+artifact gates pass: five public routes prerender, 17 built pages sound, tokens
+resolve, worst first load **322.9 KB** against the 350 KB ceiling, unchanged.
+
+**Not done, and named:** the number will be `None` for every course in the
+repository today, because no `MediaAsset` carries a provider-reported duration
+yet. That is correct rather than a defect — the same reason E7 cannot be answered
+— and it starts reporting at the first real upload.
+
 ## Documentation defects corrected — 2026-10-29: flagged, not rewritten
 
 The four cost defects this file has listed under *"Documentation defects, not yet
