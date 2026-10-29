@@ -28,9 +28,13 @@ from rest_framework.views import APIView
 from apps.catalog.selectors import lessons_visible_to
 from apps.entitlements.exceptions import EntitlementDenied
 from apps.entitlements.resolver import resolve_access
-from apps.transcripts.models import Transcript, TranscriptSegment
 from apps.transcripts.rendering import render_vtt
-from apps.transcripts.selectors import approved_transcript_for, transcript_for_review
+from apps.transcripts.selectors import (
+    approved_transcript_for,
+    segments_editable_by,
+    transcript_for_review,
+    transcripts_reviewable_by,
+)
 from apps.transcripts.serializers import (
     LessonTranscriptSerializer,
     SegmentEditSerializer,
@@ -94,10 +98,7 @@ class SegmentEditView(APIView):
         payload = SegmentEditSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
 
-        segment = get_object_or_404(
-            TranscriptSegment.objects.select_related("transcript__media_asset__lesson__course"),
-            pk=pk,
-        )
+        segment = get_object_or_404(segments_editable_by(user=request.user), pk=pk)
 
         try:
             edit_segment(segment=segment, by=request.user, **payload.validated_data)
@@ -141,9 +142,7 @@ class TranscriptReviewView(APIView):
         summary="Move a transcript through review",
     )
     def post(self, request, pk, action):
-        transcript = get_object_or_404(
-            Transcript.objects.select_related("media_asset__lesson__course"), pk=pk
-        )
+        transcript = get_object_or_404(transcripts_reviewable_by(user=request.user), pk=pk)
 
         try:
             self.ACTIONS[action](transcript=transcript, by=request.user)

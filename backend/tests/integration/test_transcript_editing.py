@@ -323,3 +323,81 @@ class TestTheReviewScreen:
         # Session, user, the transcript with its joins, and the cues.
         with django_assert_num_queries(4):
             client.get(f"/api/v1/transcripts/{transcript.id}/")
+
+
+class TestTheSegmentReadIsScopedToo:
+    """ADR-040's own "what this does not cover", now covered.
+
+    `edit_segment` always refused a stranger, so the outcome here was never
+    wrong. What was wrong was where the safety came from: the view fetched any
+    cue by id from an unscoped manager and depended on the write to say no.
+    Invariant 10 wants the queryset scoped as well, because a read that is
+    only safe because of what happens next is one refactor away from not
+    being.
+    """
+
+    def _agree(self, segment, user) -> None:
+        from apps.transcripts.selectors import segments_editable_by
+        from apps.transcripts.services import may_review
+
+        in_scope = segments_editable_by(user=user).filter(pk=segment.pk).exists()
+        predicate = may_review(transcript=segment.transcript, user=user)
+
+        assert in_scope == predicate, f"{user} disagrees: scope={in_scope} predicate={predicate}"
+
+    def test_the_scope_agrees_with_may_review_for_the_owner(self, transcript, instructor) -> None:
+        self._agree(_segment(transcript), instructor)
+
+    def test_the_scope_agrees_for_another_instructor(self, transcript) -> None:
+        self._agree(_segment(transcript), _user("rival@example.test"))
+
+    def test_the_scope_agrees_for_a_student(self, transcript) -> None:
+        self._agree(_segment(transcript), _user("student@example.test", Role.STUDENT))
+
+    def test_the_scope_agrees_for_an_admin(self, transcript) -> None:
+        self._agree(_segment(transcript), _user("boss@example.test", Role.ADMIN))
+
+    def test_the_scope_agrees_for_a_superuser(self, transcript) -> None:
+        root = _user("root@example.test", Role.STUDENT)
+        root.is_superuser = True
+        root.save(update_fields=["is_superuser"])
+
+        self._agree(_segment(transcript), root)
+
+    def test_the_scope_is_empty_for_anonymous(self, transcript) -> None:
+        from django.contrib.auth.models import AnonymousUser
+
+        self._agree(_segment(transcript), AnonymousUser())
+
+    def test_a_strangers_cue_is_absent_rather_than_refused(self, transcript) -> None:
+        """The distinction the invariant is about: not "fetched and then
+        rejected" but "never returned"."""
+        from apps.transcripts.selectors import segments_editable_by
+
+        rival = _user("rival@example.test")
+
+        assert not segments_editable_by(user=rival).filter(pk=_segment(transcript).pk).exists()
+
+    def test_the_edit_still_refuses_without_the_view(self, transcript) -> None:
+        """The service keeps its own guard. The scope filter protects this
+        route; the guard protects every caller, which is the pair ADR-040
+        settled on."""
+        from apps.transcripts.services import NotYours, edit_segment
+
+        rival = _user("rival@example.test")
+
+        with pytest.raises(NotYours):
+            edit_segment(segment=_segment(transcript), by=rival, text="Hijacked.")
+
+        assert _segment(transcript).text == "Buenos días."
+
+    def test_the_edit_costs_no_extra_query(
+        self, client, transcript, django_assert_max_num_queries
+    ) -> None:
+        """The `select_related` the unscoped fetch carried has to survive
+        being moved into the selector: `edit_segment` reads
+        `segment.transcript`, and `may_review` walks it to the course."""
+        _sign_in(client, "teacher@example.test")
+
+        with django_assert_max_num_queries(8):
+            assert _edit(client, _segment(transcript), text="Corregido.").status_code == 200

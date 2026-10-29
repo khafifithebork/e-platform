@@ -20,7 +20,7 @@ def assets_manageable_by(*, user):
     The same rule as ``services.may_manage``, expressed as a queryset because
     that is the form a view can be handed. Two expressions of one rule is the
     drift ``transcripts.services.may_review`` warns about, so
-    ``test_the_scope_filter_agrees_with_may_manage`` asserts the two answer
+    ``TestTheScopeFilterAndTheObjectCheckAgree`` asserts the two answer
     identically across every role — the duplication is pinned rather than
     trusted.
 

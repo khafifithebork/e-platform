@@ -66,11 +66,50 @@ seed account is in that position; **whether any real operator account is, is for
 the owner to confirm when admin accounts are provisioned.**
 
 No model, migration, dependency, API contract, UI or cost change. No deployment
-was requested or performed. **Not done, and named rather than quietly skipped:**
-`SegmentEditView` still fetches `TranscriptSegment` unscoped before handing it to
-`edit_segment`, which does raise `NotYours` — the decision is in the right layer
-and the outcome is correct, but the fetch is against the letter of invariant 10.
-Left out to keep this batch inside §9's file budget; ADR-040 says so too.
+was requested or performed.
+
+## Follow-up — 2026-10-29: the review of that repair found a read hole
+
+A `/code-review` pass over the batch above raised four findings and **all four
+were real.** The first matters most, because it falsified a sentence the first
+draft of ADR-040 asserted.
+
+**Closing the write hole left the read open.** `MediaAssetAdmin` had no
+`get_queryset`, so the same staff-plus-`view_mediaasset` account that could not
+retry an asset could still *read* every instructor's asset — changelist and
+change form, with `source_object_key`, `provider_asset_id` and `error_message`
+present. Reproduced, like the write hole. ADR-040 had said "it is not a
+data-disclosure hole"; that sentence reasoned about the action's return value and
+called it the whole surface. It is corrected in place rather than deleted, with
+why it was wrong. The admin now scopes through `assets_manageable_by`, so it
+cannot drift from the API, and admins still see the whole dead-letter queue.
+
+The other three: `SegmentEditView` is now scoped by a new `segments_editable_by`
+selector (ADR-040's one deferral, closed — its reasoning kept, since a read that
+is safe only because of the write after it is one refactor from not being); the
+post-transition re-read in `TranscriptReviewView` was still unscoped while the
+docstring claimed otherwise, and is scoped now; and **three selector docstrings
+cited pinning tests by names that did not exist** — corrected to the real class
+names. That last one is the kind of error this repository keeps finding: a
+comment asserting a guarantee nobody checked.
+
+**A measurement that was wrong and is corrected:** an interim check suggested the
+segment selector's `select_related` saved no queries. It came from a patch that
+silently matched nothing — `ruff format` had collapsed the call onto one line.
+Measured properly, the join saves **four queries** (12 → 8 on the edit path), and
+the bound is pinned at 8, verified to fail at 12 when the join is removed.
+
+Verified after the follow-up: **1600 backend tests pass, 40 skipped** (the same
+LocalStack object-storage skips); `ruff check`/`format` clean; `makemigrations
+--check` detects no changes; `check --deploy` zero issues; OpenAPI byte-identical.
+Frontend untouched.
+
+**Still open and deliberately not touched:** the admin site gates on `is_staff`
+plus a second factor, not on `Role.ADMIN`, so on every *other* registered model
+it is model permissions that separate operators. `MediaAssetAdmin` is scoped
+because this batch is about media; `WebhookEventAdmin` and the rest were not
+reviewed. **Whether the admin should require `Role.ADMIN` outright is a change to
+the admin access strategy and is the owner's under §5**, not a repair batch's.
 
 ## Latest repair — 2026-10-19: instructor editing excludes destructive deletion
 

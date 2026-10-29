@@ -27,7 +27,7 @@ def transcripts_reviewable_by(*, user):
 
     Mirrors ``services.may_review``, which mirrors ``media_assets.may_manage``:
     an admin reviews anything, an instructor reviews their own courses.
-    ``test_the_review_scope_agrees_with_may_review`` pins the two together so
+    ``TestTheReviewScopeAndTheObjectCheckAgree`` pins the two together so
     the duplication cannot drift.
     """
     if user is None or not getattr(user, "is_authenticated", False):
@@ -60,6 +60,31 @@ def transcript_for_review(*, pk, user):
         )
         .first()
     )
+
+
+def segments_editable_by(*, user):
+    """Every cue this person may correct, and nothing else.
+
+    The segment half of ``transcripts_reviewable_by``. A ``TranscriptSegment``
+    is addressed by its own id with neither a transcript nor a course in the
+    path, so without this the view fetches from an unscoped manager and leans
+    entirely on ``edit_segment`` to refuse — which it does, but invariant 10
+    asks for the queryset to be scoped as well, and a read that depends on a
+    later write to be safe is one refactor away from not being.
+
+    Scoped by the same join `transcripts_reviewable_by` uses, one level
+    deeper. ``TestTheSegmentReadIsScopedToo`` pins it to the
+    predicate.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return TranscriptSegment.objects.none()
+
+    editable = TranscriptSegment.objects.select_related("transcript__media_asset__lesson__course")
+
+    if getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
+        return editable
+
+    return editable.filter(transcript__media_asset__lesson__course__instructor=user)
 
 
 def approved_transcript_for(*, lesson):

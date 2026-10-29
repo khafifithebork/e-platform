@@ -14,6 +14,8 @@ required a re-upload would satisfy a weaker assertion.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from apps.accounts.models import Role
@@ -296,23 +298,73 @@ class TestTheDeadLetterQueueIsReadable:
 
         assert b"not failed" in response.content
 
-    def test_the_action_refuses_a_staff_user_who_is_not_an_admin(self, client, asset) -> None:
-        """`is_staff` is not a role (`accounts/models.py`), so an operator can
-        hold `change_mediaasset` without being an admin — and before the
-        service took `by`, that account requeued any instructor's asset from
-        here, because the only ownership check was in a view this never
-        touches. Measured before the fix, not inferred from the code.
+    @pytest.fixture
+    def staff_outsider(self, db):
+        """Staff, permitted, and entitled to none of this content.
+
+        `is_staff` is independent of `Role` (`accounts/models.py`), so this
+        combination is reachable: an operator account granted model
+        permissions without being a platform admin.
         """
         from django.contrib.auth.models import Permission
 
-        _fail(asset)
-        intruder = _user("ops@example.test", Role.STUDENT)
-        intruder.is_staff = True
-        intruder.save(update_fields=["is_staff"])
-        intruder.user_permissions.add(
+        user = _user("ops@example.test", Role.STUDENT)
+        user.is_staff = True
+        user.save(update_fields=["is_staff"])
+        user.user_permissions.add(
             Permission.objects.get(codename="change_mediaasset"),
             Permission.objects.get(codename="view_mediaasset"),
         )
+        return user
+
+    def test_the_changelist_hides_another_instructors_asset(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """Closing the write hole below left this read open, and a review of
+        that fix found it. The queue listed every instructor's asset to any
+        permitted staff account."""
+        _sign_in(client, "ops@example.test")
+
+        page = client.get("/admin/media_assets/mediaasset/").content
+
+        assert b"masters/abc" not in page
+        assert b"fakeasset_abc" not in page
+
+    def test_the_change_form_is_a_404_for_another_instructors_asset(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """The changelist hiding a row is not enough on its own: the change
+        form is reachable by id, and it renders every field."""
+        _sign_in(client, "ops@example.test")
+
+        response = client.get(f"/admin/media_assets/mediaasset/{asset.pk}/change/")
+
+        assert response.status_code in (302, 404)
+        assert b"fakeplay_abc" not in response.content
+
+    def test_an_admin_still_sees_the_whole_queue(self, client, asset, admin_user) -> None:
+        """The scope must not have cost the queue its purpose (§10 M5)."""
+        _fail(asset, "provider exploded")
+        _sign_in(client, "admin@example.test")
+
+        page = client.get("/admin/media_assets/mediaasset/?status__exact=FAILED").content
+
+        assert b"FAILED" in page
+
+    def test_the_action_refuses_a_staff_user_who_is_not_an_admin(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """`is_staff` is not a role, so an operator can hold
+        `change_mediaasset` without being an admin — and before the service
+        took `by`, that account requeued any instructor's asset from here,
+        because the only ownership check was in a view this never touches.
+        Measured before the fix, not inferred from the code.
+
+        Two things now stop it, and the asset not moving is the contract:
+        `get_queryset` keeps it out of the selection, and the service would
+        refuse it anyway.
+        """
+        _fail(asset)
         _sign_in(client, "ops@example.test")
 
         response = client.post(
@@ -323,7 +375,38 @@ class TestTheDeadLetterQueueIsReadable:
 
         asset.refresh_from_db()
         assert asset.status == MediaAssetStatus.FAILED
+        assert b"asset(s) requeued" not in response.content
+
+    def test_a_divergent_admin_scope_warns_rather_than_500s(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """Why the action still catches `NotYours`.
+
+        With `get_queryset` scoped, that handler is unreachable from the admin
+        — the row is never in the selection. It is kept because the state it
+        handles is the one the equivalence tests forbid: a scope that grew
+        broader than `may_manage`. Unhandled, that divergence is a server
+        error page in front of an operator; handled, it is a warning.
+        """
+        from apps.media_assets.models import MediaAsset
+
+        _fail(asset)
+        _sign_in(client, "ops@example.test")
+
+        with patch(
+            "apps.media_assets.admin.assets_manageable_by",
+            return_value=MediaAsset.objects.all(),
+        ):
+            response = client.post(
+                "/admin/media_assets/mediaasset/",
+                {"action": "retry_failed", "_selected_action": [str(asset.pk)]},
+                follow=True,
+            )
+
+        assert response.status_code == 200
         assert b"not an asset you may manage" in response.content
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
 
     def test_a_webhook_event_cannot_be_deleted(self, client, admin_user) -> None:
         """Deleting a row from the idempotency table lets a replayed event be
@@ -378,8 +461,6 @@ class TestRetryIsGuardedWhereEveryCallerPassesThrough:
         """The status staying FAILED would hide a queued task. A refusal that
         still enqueued would re-run the pipeline — and spend provider minutes
         — for someone with no claim on the asset."""
-        from unittest.mock import patch
-
         from apps.media_assets.services import NotYours, retry_processing
 
         _fail(asset)
@@ -486,8 +567,6 @@ class TestTheScopeFilterAndTheObjectCheckAgree:
         Simulated by widening the selector, which is the only way to reach the
         line at all.
         """
-        from unittest.mock import patch
-
         from apps.media_assets.models import MediaAsset
 
         _fail(asset)

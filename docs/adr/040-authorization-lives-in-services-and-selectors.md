@@ -38,19 +38,33 @@ through the admin changelist. **This was reproduced against the running code
 before the change, not inferred** — the probe signed in as a staff user with
 role `STUDENT` and the asset moved from `FAILED` to `UPLOADED`.
 
-The cost is provider minutes and a pipeline run on content the caller has no
-claim on. It is not a data-disclosure hole: the admin action returns no asset
-data, and the API surface was correctly guarded throughout.
+The cost of the *write* is provider minutes and a pipeline run on content the
+caller has no claim on.
+
+**The first draft of this ADR added "it is not a data-disclosure hole", and a
+review of the fix falsified that.** Closing the write left the **read** open:
+`MediaAssetAdmin` had no `get_queryset`, so the same account loaded the
+changelist and every change form on it, with `source_object_key`,
+`provider_asset_id` and `error_message` present. Reproduced, like the write.
+The sentence was wrong because it reasoned about one surface — the action's
+return value — and called it the whole surface. The API was correctly guarded
+throughout; the admin was not.
 
 ## Decision
 
-**1. Object reads are scoped in the queryset.** `media_assets.selectors
-.assets_manageable_by(user)` and `transcripts.selectors
-.transcripts_reviewable_by(user)` return what the caller may touch.
-`transcript_for_review` now requires `user` — a required argument rather than
-an optional one, because an optional scope is the one the next caller forgets.
-Views call `get_object_or_404` against the scoped queryset and branch on
-absence only.
+**1. Object reads are scoped in the queryset.** Three selectors return what
+the caller may touch: `media_assets.selectors.assets_manageable_by(user)`,
+`transcripts.selectors.transcripts_reviewable_by(user)` and
+`transcripts.selectors.segments_editable_by(user)`. `transcript_for_review`
+requires `user` — a required argument rather than an optional one, because an
+optional scope is the one the next caller forgets. Views call
+`get_object_or_404` against the scoped queryset and branch on absence only.
+
+**Every object read on these routes, with no exceptions left standing**: the
+asset status read, the upload-completion fetch, the retry fetch, the review
+screen, the response rendered after a review transition, and the segment edit.
+`MediaAssetAdmin.get_queryset` uses the same selector, so the admin cannot
+drift from the API.
 
 **2. Services decide for every caller, not only the HTTP one.**
 `retry_processing` requires `by` and raises `NotYours`, like `request_upload`
@@ -102,10 +116,17 @@ it exists is written down next to it.
 
 ## What this does not cover
 
-`SegmentEditView` still fetches `TranscriptSegment` from an unscoped manager
-before handing it to `edit_segment`, which raises `NotYours`. The decision is
-in the service, so invariant 2 holds and the outcome is right; the fetch is
-unscoped against the letter of invariant 10. It is left alone deliberately —
-this batch was scoped to the paths where the decision itself sat in the wrong
-layer, and widening it would have put the change over §9's file budget. Worth a
-separate look.
+**`SegmentEditView` was the one exception this ADR first carried, and it is now
+closed** — `segments_editable_by` scopes it, and `edit_segment` keeps its own
+guard. The deferral is recorded rather than deleted because the reasoning is
+worth keeping: a read that is safe only because of the write that follows it is
+one refactor away from not being, which is the argument for scoping it even
+where the outcome was never wrong.
+
+**Still open, and deliberately not touched here:** the admin site gates on
+`is_staff` plus a second factor (`core/admin_site.py`), not on `Role.ADMIN`, so
+model permissions are what separate operators on every *other* registered
+model. `MediaAssetAdmin` is scoped because this batch is about media and
+transcripts; `WebhookEventAdmin` and the rest are not reviewed here. Whether
+the admin should require `Role.ADMIN` outright is a change to the admin access
+strategy and belongs to the owner under §5, not to a repair batch.
