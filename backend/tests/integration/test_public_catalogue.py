@@ -391,6 +391,36 @@ class TestTotalDuration:
 
         assert self._duration(client, course) is None
 
+    def test_a_text_lesson_that_does_carry_media_is_counted(self, client, language) -> None:
+        """The other half of the exemption, and a review found it missing.
+
+        Nothing ties `MediaAsset` to a lesson type — no constraint, and
+        `request_upload` never looks at one — so a TEXT lesson *can* hold a
+        measured asset. Exempting it by type alone dropped its real seconds
+        from the total, which is the understatement the whole rule exists to
+        prevent. It counts if it has a duration, whatever its type says.
+        """
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=300, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) == 900
+
+    def test_a_text_lesson_with_an_unmeasured_asset_withholds_the_total(
+        self, client, language
+    ) -> None:
+        """And it blocks, for the same reason it counts: it has an asset, so
+        it has a length, and nobody knows what it is yet."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=None, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) is None
+
     def test_a_course_of_only_text_lessons_is_null(self, client, language) -> None:
         """Nothing measurable is not the same as zero minutes."""
         from apps.catalog.models import LessonType

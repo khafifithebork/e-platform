@@ -82,6 +82,31 @@ at the rebuild after it** — see the last section.
 Measured, not assumed: the annotation folds into the existing course query, so
 the detail page still costs four queries regardless of how many lessons it has.
 
+**On the shape of that query, two reviewers measured opposite things and the
+disagreement is recorded rather than resolved.** The first version aggregated
+on the course row, which forces a GROUP BY over a ~3KB row. Replacing it with a
+correlated subquery measured, on 503 courses / 27,000 lessons with statistics
+refreshed: **6.96ms vs 9.11ms** on a 48-lesson course, **30.97ms vs 35.97ms** on
+a 1000-lesson course, and **15.3ms vs 49.0ms** for twenty cards — and `EXPLAIN`
+showed both forms nested-looping into `media_assets_mediaasset` by index, with
+no sequential scan in either.
+
+A reviewer measuring a different shape — 100 courses of 1000 lessons each,
+72,000 assets, so every course is 1% of the asset table — found the subquery
+**losing** that nested loop and seq-scanning, at 17.1ms against the aggregate's
+6.5ms. **That cliff could not be reproduced on the shape above**, and the
+subquery form was kept: it wins at every shape measured here, it wins decisively
+on lists, and it is simpler — the "nothing measurable" case needs no branch at
+all, because a subquery matching no rows yields NULL by itself, where the
+aggregate needed an explicit `When` that a reviewer separately showed was
+redundant.
+
+**The honest summary is that the plan is dataset-dependent**, the absolute
+numbers are single-digit to low-tens of milliseconds, and the course page is
+built statically — so this is build-time cost, not request latency. If the
+catalogue ever becomes a hundred enormous courses rather than many small ones,
+re-measure before trusting either form.
+
 ## What this does not decide
 
 **Objectives and prerequisites — the other two thirds of E8 — are untouched.**

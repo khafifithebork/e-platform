@@ -99,20 +99,41 @@ migration, dependency or cost. Every refusal that was a 404 is still a 404, by
 the same reasoning (§6.3) from a different mechanism, and the OpenAPI schema is
 byte-identical.
 
-## One handler is deliberately unreachable
+## Every `except NotYours` in these views is now a divergence guard
 
-Scoping the retry view made its own `except NotYours` dead: the scoped
+Scoping a read makes that view's own `except NotYours` dead: the scoped
 `get_object_or_404` already refuses anyone the service would, and the
-equivalence tests above prove the two cannot disagree. Coverage found it; it
-was not noticed by reading.
+equivalence tests above prove the two cannot disagree. Coverage found the
+first one; reading the code did not.
 
-It is kept rather than deleted, because the state it handles is precisely the
-one those tests forbid — a scope filter that grew broader than `may_manage`.
-Without the handler that divergence surfaces as an unhandled exception and a
-500; with it, the refusal the service still makes reaches the caller as a 404.
-`test_a_divergent_scope_is_a_404_rather_than_a_500` widens the selector to
-reach the line, so the branch is measured rather than asserted and the reason
-it exists is written down next to it.
+**This section was written in the singular and that was wrong.** It described
+the retry view's handler while the same batch scoped three more reads —
+`MediaAssetCompleteView`, `SegmentEditView` and `TranscriptReviewView` — each
+of which has a handler in exactly the same position. A reviewer measured them
+as uncovered. Documenting one and leaving three indistinguishable from
+leftovers is worse than either rule applied consistently, so the rule is
+stated once, here:
+
+> In `media_assets.views`, `transcripts.views` and the `retry_failed` admin
+> action, an `except NotYours` is kept **even where the scope filter makes it
+> unreachable**, because the state it handles is the one the equivalence tests
+> forbid: a scope filter that grew broader than its predicate. Without the
+> handler that divergence is an unhandled exception and a 500; with it, the
+> refusal the service still correctly makes reaches the caller as the 404 it
+> should be. They are not leftovers and should not be deleted as dead code.
+
+Two tests reach that state by widening a selector —
+`test_a_divergent_scope_is_a_404_rather_than_a_500` for the retry view and
+`test_a_divergent_admin_scope_warns_rather_than_500s` for the admin action —
+so the branch is measured rather than asserted. The others are the same
+mechanism and are covered by the rule rather than by a test each; one more
+patching test per handler would assert the same thing four times.
+
+`LessonUploadUrlView` is the exception that proves the rule: its lesson is
+still fetched from `Lesson.objects` unscoped, so **its handler is live**. A
+`lessons_manageable_by` selector would scope it, and `lessons_visible_to` is
+the wrong rule for the job — it admits other instructors' published lessons.
+Left for whoever needs it.
 
 ## What this does not cover
 

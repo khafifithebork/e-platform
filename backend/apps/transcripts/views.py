@@ -11,6 +11,10 @@ instead**, and invariant 2 forbids the business-state ``if`` that the check
 became once it sat in a view. So the reads go through
 ``transcripts_reviewable_by`` and the writes hand the actor to a service that
 decides for every caller, not only the HTTP one. ADR-040.
+
+An ``except NotYours`` here is kept even where the scope filter makes it
+unreachable — see that ADR's "Every ``except NotYours`` in these views is now
+a divergence guard". They are not dead code.
 """
 
 from typing import ClassVar

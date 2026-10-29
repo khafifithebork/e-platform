@@ -135,6 +135,94 @@ variable, changing no code.
 Counts: **1601 pass, 40 skipped** with no storage endpoint; **1637 pass, 4
 failed** with the local stand-in up. Both figures are real runs.
 
+## Quality and performance pass — 2026-10-29: four reviewers, and two real regressions
+
+`/simplify` ran four independent cleanup agents over the whole branch, and a
+separate performance pass measured the new query paths at scale on an isolated
+503-course / 27,000-lesson database. **Two of the findings were regressions this
+branch introduced, both measured rather than reasoned about.**
+
+**`transcripts_reviewable_by` had dropped a join and cost three round trips per
+review transition.** The code it replaced fetched the transcript with
+`select_related("media_asset__lesson__course")`; the new scope filter did not,
+and `may_review` walks exactly that chain to the course's instructor. **11
+queries where there had been 8**, on `start-review`, `approve` and `reopen`
+alike. Restored on both branches and pinned by
+`test_a_transition_costs_no_query_per_hop`. Writing the selector did not reveal
+this; measuring it did.
+
+**The duration filter could have dropped a real lesson's seconds.** Filtering
+measurable lessons by type alone assumed a TEXT lesson never carries media —
+but no constraint ties `MediaAsset` to a lesson type and `request_upload` never
+looks at one, so a TEXT lesson *can* hold a measured asset, and its seconds
+would have vanished from the total. That is precisely the quiet understatement
+ADR-041 exists to forbid, arriving through the constant added to prevent the
+opposite failure. A lesson now counts if it *ought* to have a duration **or**
+*does* have one, with two tests, verified to fail against the type-only filter.
+
+**Also applied, each from a reviewer:**
+
+- **The `Role.ADMIN or is_superuser` predicate was written seven times with no
+  home**, and three reviewers found it independently. Extracted to
+  `accounts/privileges.py` as `is_platform_administrator` and `is_signed_in`,
+  used at the four sites in this branch, tested once in
+  `tests/unit/test_privileges.py` instead of six times per call site. **It had
+  already drifted:** `catalog.services` requires the ADMIN role with *no*
+  superuser clause, so a superuser can scope media and transcripts but cannot
+  approve a course. **Left alone — changing it grants superusers a publication
+  power they do not have today, which is §5 and the owner's**, not a cleanup's.
+- **Which lesson types carry media was model knowledge living in a catalogue
+  selector.** `LessonType` says in its own docstring that it is extensible on
+  purpose, so whoever adds a live-session type must be able to find the one
+  place that decides whether it has a length. Now `LessonType.with_media()`.
+- **`test:scripts` enumerated the two test files that exist today** — the same
+  gap, re-armed, one level up from the one it had just closed. It globs now.
+- **ADR-040's "One handler is deliberately unreachable" was written in the
+  singular while the batch scoped three more reads**, leaving three handlers
+  indistinguishable from leftovers. The rule is now stated once and covers all
+  of them, with the one live handler (`LessonUploadUrlView`, still an unscoped
+  fetch) named as the exception that proves it.
+- **Two comments had stopped being true.** `assets_manageable_by` justified its
+  join by "the status response renders the lesson" after the change that stopped
+  the serializer needing it; and `seo/structured-data.ts` justified omitting
+  `timeRequired` on the grounds that no duration aggregate existed, which this
+  branch created. Both corrected in place, with what changed.
+
+**Performance: the detail query's shape was contested, and the disagreement is
+recorded rather than settled.** Replacing the GROUP BY aggregate with a
+correlated subquery measured **6.96ms vs 9.11ms** (48-lesson course),
+**30.97ms vs 35.74ms** (1000-lesson course) and **15.3ms vs 49.0ms** (twenty
+cards), with `EXPLAIN` showing both forms nested-looping by index and neither
+seq-scanning. A reviewer measuring a different shape — 100 uniformly
+1000-lesson courses — found the subquery losing that nested loop and seq-scanning
+at 17.1ms against 6.5ms. **That cliff did not reproduce here.** The subquery was
+kept: faster at every shape measured, decisively faster on lists, and simpler —
+the "nothing measurable" case needs no branch, where the aggregate needed one a
+reviewer separately proved redundant. **The plan is dataset-dependent and the
+page is statically generated, so this is build-time cost, not request latency.**
+ADR-041 records both measurements. **One methodological note worth keeping: the
+first round of these numbers was taken without running `ANALYZE`, so the planner
+had stale statistics. A reviewer caught it; every figure above is post-`ANALYZE`.**
+
+**Deliberately not applied, with reasons:** composing `segments_editable_by` on
+`transcripts_reviewable_by` (it degenerates to a pointless semi-join over every
+transcript for an admin, and the reviewer proposing it agreed it was the weaker
+of its two findings); a `scoped_to_instructor(queryset, path=...)` helper (the
+join path becomes a stringly-typed indirection that is harder to grep than a
+literal `filter`); parametrising the three six-role equivalence matrices into one
+fixture (judgement call, and the per-case docstrings earn their keep); turning
+`NotYours` into a DRF exception carrying its own 404 (it would change five
+response bodies from empty to `application/problem+json` — an ADR-004 question
+and the owner's); and scoping the other `ModelAdmin`s, which ADR-040 already
+defers under §5.
+
+Verified after all of it: **1627 backend tests pass, 40 skipped**; **766 frontend
+across 61 files plus 23 `node --test` cases**; `ruff check`/`format`, `tsc` and
+ESLint clean; `makemigrations --check` no changes; `check --deploy` zero issues;
+**OpenAPI unchanged**; production build green against a live seeded API, with the
+measured course still rendering `1 hr 1 min` and the unmeasured ones rendering
+nothing; all four artifact gates pass, worst first load **322.9 KB**.
+
 ## Roadmap E8, duration third — 2026-10-29: derived, and withheld when partial
 
 `docs/specs/frontend-roadmap.md` §E8 listed three things a course page cannot

@@ -6,7 +6,7 @@ from datetime import timedelta
 from django.db.models import Count, Min, Prefetch
 from django.utils import timezone
 
-from apps.accounts.models import Role
+from apps.accounts.privileges import is_platform_administrator, is_signed_in
 from apps.transcripts.models import (
     Transcript,
     TranscriptKind,
@@ -30,13 +30,21 @@ def transcripts_reviewable_by(*, user):
     ``TestTheReviewScopeAndTheObjectCheckAgree`` pins the two together so
     the duplication cannot drift.
     """
-    if user is None or not getattr(user, "is_authenticated", False):
+    if not is_signed_in(user):
         return Transcript.objects.none()
 
-    if getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
-        return Transcript.objects.all()
+    # Joined on both branches. The code this replaced fetched the transcript
+    # with `select_related("media_asset__lesson__course")` and dropping it cost
+    # **three extra round trips on every review transition** — 11 queries
+    # instead of 8 — because `may_review` walks exactly that chain to the
+    # course's instructor. Measured by a reviewer, not noticed by writing it,
+    # and pinned now by `test_a_transition_costs_no_query_per_hop`.
+    reviewable = Transcript.objects.select_related("media_asset__lesson__course")
 
-    return Transcript.objects.filter(media_asset__lesson__course__instructor=user)
+    if is_platform_administrator(user):
+        return reviewable
+
+    return reviewable.filter(media_asset__lesson__course__instructor=user)
 
 
 def transcript_for_review(*, pk, user):
@@ -76,12 +84,12 @@ def segments_editable_by(*, user):
     deeper. ``TestTheSegmentReadIsScopedToo`` pins it to the
     predicate.
     """
-    if user is None or not getattr(user, "is_authenticated", False):
+    if not is_signed_in(user):
         return TranscriptSegment.objects.none()
 
     editable = TranscriptSegment.objects.select_related("transcript__media_asset__lesson__course")
 
-    if getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
+    if is_platform_administrator(user):
         return editable
 
     return editable.filter(transcript__media_asset__lesson__course__instructor=user)

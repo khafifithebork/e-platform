@@ -324,6 +324,22 @@ class TestTheReviewScreenIsScopedRatherThanChecked:
         with pytest.raises(TypeError):
             transcript_for_review(pk=None)
 
+    def test_a_transition_costs_no_query_per_hop(
+        self, client, transcript, django_assert_max_num_queries
+    ) -> None:
+        """Scoping this read dropped the join the code it replaced had.
+
+        `may_review` walks `transcript.media_asset.lesson.course.instructor`,
+        so without `select_related` every transition paid three extra round
+        trips — 11 queries instead of 8. A reviewer measured it; writing it did
+        not reveal it, which is why the number is pinned here rather than
+        described in the selector's docstring.
+        """
+        _sign_in(client, "teacher@example.test")
+
+        with django_assert_max_num_queries(8):
+            assert _act(client, transcript, "start-review").status_code == 200
+
     def test_the_read_costs_no_query_per_cue(
         self, client, transcript, django_assert_max_num_queries
     ) -> None:

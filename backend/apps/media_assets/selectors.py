@@ -10,7 +10,7 @@ who does not.
 
 from __future__ import annotations
 
-from apps.accounts.models import Role
+from apps.accounts.privileges import is_platform_administrator, is_signed_in
 from apps.media_assets.models import MediaAsset
 
 
@@ -28,17 +28,22 @@ def assets_manageable_by(*, user):
     (invariant 3). This decides who may *replace*, and merging them would let
     every subscriber overwrite an instructor's master.
     """
-    if user is None or not getattr(user, "is_authenticated", False):
+    if not is_signed_in(user):
         return MediaAsset.objects.none()
 
-    if getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
+    if is_platform_administrator(user):
         manageable = MediaAsset.objects.all()
     else:
         manageable = MediaAsset.objects.filter(lesson__course__instructor=user)
 
-    # Joined rather than left for the serializer to dereference: the status
-    # response renders the lesson, and `may_manage` reads `lesson.course`
-    # (ADR-009 — do not pay for a round trip you can fold into the join).
+    # Joined for the services, not for the serializer — and the first version
+    # of this comment said the opposite. `MediaAssetSerializer` emits `lesson`
+    # as a primary key and the view no longer calls `may_manage`, so the status
+    # response needs neither join. `complete_upload` and `retry_processing` do:
+    # both read `asset.lesson` and `may_manage` walks it to the course. Keeping
+    # it costs one join on a single-row read and saves a round trip on every
+    # write (ADR-009 — measured, and re-measured when a reviewer pointed out
+    # the stated reason had stopped being true).
     return manageable.select_related("lesson__course")
 
 

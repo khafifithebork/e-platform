@@ -3,6 +3,9 @@
 Two routes, both scoped to whoever may manage the lesson. Someone else's
 lesson is a **404**, never a 403: a 403 confirms the lesson exists, which is
 what §6.3 forbids.
+An ``except NotYours`` here is kept even where the scope filter makes it
+unreachable — see ADR-040, "Every ``except NotYours`` in these views is now a
+divergence guard". They are not dead code.
 """
 
 from dataclasses import asdict

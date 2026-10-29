@@ -19,7 +19,8 @@ import logging
 from django.conf import settings
 from django.db import transaction
 
-from apps.accounts.models import Role, User
+from apps.accounts.models import User
+from apps.accounts.privileges import is_platform_administrator
 from apps.catalog.models import Lesson
 from apps.entitlements.exceptions import EntitlementDenied
 from apps.entitlements.resolver import resolve_access
@@ -74,7 +75,7 @@ def may_manage(*, lesson: Lesson, user: User) -> bool:
     instructor's master, which is what happens the first time somebody reuses
     ``resolve_access`` because it was nearby.
     """
-    if getattr(user, "role", None) == Role.ADMIN or getattr(user, "is_superuser", False):
+    if is_platform_administrator(user):
         return True
     return lesson.course.instructor_id == user.pk
 
