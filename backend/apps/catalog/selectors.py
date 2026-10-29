@@ -13,6 +13,7 @@ from apps.catalog.models import (
     CourseStatus,
     Language,
     Lesson,
+    LessonType,
     Section,
 )
 
@@ -106,6 +107,15 @@ def published_courses():
 # `media_assets`, which keeps the app boundary intact.
 _LESSON_DURATION = "sections__lessons__media_asset__duration_seconds"
 
+# Only these two have a length. A TEXT or RESOURCE lesson never gets a
+# `MediaAsset`, so counting it as something awaiting measurement made the
+# completeness test below unsatisfiable: a course with one text lesson would
+# have withheld its total **forever** rather than until its videos were
+# measured. Found by review, reproduced, and the reason this constant exists.
+_MEASURABLE_LESSON_TYPES = (LessonType.VIDEO, LessonType.AUDIO)
+
+_IS_MEASURABLE = Q(sections__lessons__lesson_type__in=_MEASURABLE_LESSON_TYPES)
+
 
 def _with_total_duration(queryset):
     """Annotate a course's total length, or ``None`` when it is not yet known.
@@ -124,19 +134,28 @@ def _with_total_duration(queryset):
     catalogue can render as silence. ADR-041.
 
     Two counts over one join chain, so they cannot disagree: `Count` ignores
-    nulls, so `_measured` counts lessons whose asset reports a duration while
-    `_lessons` counts lessons. Equal means complete. A course with no lessons
-    is `None` rather than zero — "no lessons yet" and "zero minutes long" are
-    different claims, and only one of them is true.
+    nulls, so `_measured` counts measurable lessons whose asset reports a
+    duration while `_measurable` counts the measurable lessons. Equal means
+    complete. **Both are filtered to video and audio** — see
+    `_MEASURABLE_LESSON_TYPES`.
+
+    A course with nothing measurable — no lessons at all, or only text and
+    resources — is `None` rather than zero. "Nothing to measure" and "zero
+    minutes long" are different claims and only one of them is true.
+
+    **A permanently FAILED asset does suppress the total indefinitely, and
+    that is deliberate.** Its duration genuinely is unknown, and the remedy is
+    to repair the asset, which is what M5's dead-letter queue and retry path
+    exist for — not to publish a total that quietly omits a lesson.
     """
     return queryset.annotate(
-        _lessons=Count("sections__lessons"),
-        _measured=Count(_LESSON_DURATION),
-        _measured_seconds=Sum(_LESSON_DURATION),
+        _measurable=Count("sections__lessons", filter=_IS_MEASURABLE),
+        _measured=Count(_LESSON_DURATION, filter=_IS_MEASURABLE),
+        _measured_seconds=Sum(_LESSON_DURATION, filter=_IS_MEASURABLE),
     ).annotate(
         total_duration_seconds=Case(
-            When(_lessons=0, then=Value(None)),
-            When(_measured=F("_lessons"), then=F("_measured_seconds")),
+            When(_measurable=0, then=Value(None)),
+            When(_measured=F("_measurable"), then=F("_measured_seconds")),
             default=Value(None),
             output_field=IntegerField(),
         )

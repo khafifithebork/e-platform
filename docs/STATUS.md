@@ -183,7 +183,41 @@ resolve, worst first load **322.9 KB** against the 350 KB ceiling, unchanged.
 **Not done, and named:** the number will be `None` for every course in the
 repository today, because no `MediaAsset` carries a provider-reported duration
 yet. That is correct rather than a defect — the same reason E7 cannot be answered
-— and it starts reporting at the first real upload.
+— and the **API** starts reporting at the first real upload. **The page starts at
+the next rebuild after it**, because the course page is statically generated with
+no `revalidate` (invariant 15). An earlier draft of ADR-041 and of this entry said
+"starts reporting the moment one is uploaded", which was true of the API and not
+of the page; both are corrected.
+
+### The review of that change found a real defect in it
+
+A second `/code-review` pass raised four findings and **all four were real
+again.** One was a genuine bug in the annotation, not a nit:
+
+**`LessonType` has `TEXT` and `RESOURCE` as well as `VIDEO` and `AUDIO`, and the
+first two never get a `MediaAsset`.** Counting them as lessons awaiting
+measurement made completeness unreachable, so **a course with one text lesson
+would have withheld its total forever** rather than until its videos were
+measured — the opposite of the decision the ADR describes. Both counts are now
+filtered to video and audio. Five new cases cover text, resource and audio
+lessons, a text-only course and an unmeasured audio lesson; verified to fail
+against the unfiltered version. A permanently FAILED asset still suppresses the
+total, and that is kept deliberately: its length genuinely is unknown, and the
+remedy is the dead-letter queue, not a total that quietly omits a lesson.
+
+The other three: ADR-041 claimed "the two interface languages ADR-033 covers"
+when **ADR-033 commits to one** (English) and defers localisation — the ADR
+contradicted both `duration.ts` and the ADR it cited; the page-versus-API timing
+above; and **`assert-bundle-budget.test.mjs` ran only from a bespoke CI step**, so
+`make test` — documented as the full suite — never ran it, which is precisely the
+gap the Makefile's own comment warns about. `npm test` now runs `test:scripts`
+too, the duplicate CI step is removed, and the dependency-audit regression test
+stays in `audit-frontend` beside the gate it guards as ADR-022 §3 requires.
+
+Re-verified after those fixes: **1614 backend tests pass, 40 skipped**; **766
+frontend across 61 files plus 23 `node --test` cases**; `tsc`, ESLint, `ruff
+check`/`format` clean; production build green and all four artifact gates pass
+with the worst first load still **322.9 KB**.
 
 ## Documentation defects corrected — 2026-10-29: flagged, not rewritten
 

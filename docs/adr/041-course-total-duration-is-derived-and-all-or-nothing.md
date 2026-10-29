@@ -38,6 +38,20 @@ A lesson with no asset at all and a lesson whose asset is still transcoding are
 treated identically. The learner cannot tell them apart and neither can be
 counted.
 
+**"Every lesson" means every *measurable* lesson, and the first draft of this
+got it wrong.** `LessonType` has `TEXT` and `RESOURCE` alongside `VIDEO` and
+`AUDIO`, and the first two never get a `MediaAsset` — so counting them as
+awaiting measurement made completeness unreachable, and a course with one text
+lesson would have withheld its total **forever** rather than until its videos
+were measured. Found by review and reproduced; both counts are now filtered to
+video and audio. A course with nothing measurable is `None`, which is the same
+honesty as the empty case.
+
+**A permanently FAILED asset does suppress the total indefinitely, and that is
+kept.** Its length genuinely is unknown. The remedy is repairing the asset,
+which is what M5's dead-letter queue and retry path are for — not publishing a
+total that quietly omits a lesson.
+
 **3. A course with no lessons is `None`, not `0`.** "No lessons yet" and "zero
 minutes long" are different claims and only one of them is true.
 
@@ -62,7 +76,8 @@ model change, no new dependency, no cost.
 `MediaAsset` rows exist only in fixtures and none carries a provider-reported
 duration. That is correct rather than a defect, and it is the same reason
 roadmap E7 cannot be answered yet: the subject does not exist until a real
-lesson is uploaded. The field starts reporting the moment one is.
+lesson is uploaded. **The API starts reporting at that upload; the page starts
+at the rebuild after it** — see the last section.
 
 Measured, not assumed: the annotation folds into the existing course query, so
 the detail page still costs four queries regardless of how many lessons it has.
@@ -77,7 +92,11 @@ admin surface and the course page, and a wrong one costs a migration to undo.
 They are the owner's to make, and roadmap E8's framing of "a field" is too thin
 to pick from.
 
-**Where the duration is shown is a separate change.** This ADR makes the number
-available and correct. Rendering it on the course page — and choosing how to
-format it, including in the two interface languages ADR-033 covers — is frontend
-work that has not been done.
+**When the page shows a new duration is not immediate.** The number is correct
+in the API the moment an asset is measured, but the course page is statically
+generated and rebuilt on publish (invariant 15), with no `revalidate`. So a
+freshly measured course states its length at the next rebuild, not at the
+upload. `src/lib/catalogue/duration.ts` renders it; the string is English
+because ADR-033 §1 records the interface language as English and its §4 defers
+localisation until a launch locale is named — **one language, not two**, and it
+lives in a named function so it is easy to find when that reopens.

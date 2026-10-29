@@ -321,11 +321,17 @@ jobs:
       #
       # Before the build, deliberately: a failing unit test should not wait on
       # a Next production build to be reported.
+      # `npm run test` is vitest **and** `test:scripts`, the `node --test`
+      # suites for the build-artifact guards. They were added as a separate CI
+      # step at first, which meant `make test` — documented as the full suite —
+      # did not run them: exactly the gap the Makefile's own comment warns
+      # about, and found by review rather than by the suite.
+      #
+      # `assert-dependency-audit.test.mjs` also runs in `audit-frontend`
+      # alongside the gate it guards, which ADR-022 §3 requires and this does
+      # not replace.
       - name: Test
         run: npm run test
-
-      - name: Test bundle budget guard
-        run: node --test scripts/assert-bundle-budget.test.mjs
 
       # The API the build reads from.
       #

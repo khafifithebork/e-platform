@@ -249,14 +249,14 @@ class TestTotalDuration:
     fact, and §6 is about exactly that.
     """
 
-    def _lesson(self, course, position: int, *, duration):
+    def _lesson(self, course, position: int, *, duration, lesson_type=None):
         """A lesson, with a measured asset when `duration` is given.
 
         `duration=None` means an asset exists but the provider has not
         reported a length yet — the transcoding-in-progress case, which is the
         one that matters. `duration=False` means no asset at all.
         """
-        from apps.catalog.models import Lesson, Section
+        from apps.catalog.models import Lesson, LessonType, Section
         from apps.media_assets.models import MediaAsset, MediaAssetStatus
 
         section = Section.objects.create(
@@ -268,6 +268,7 @@ class TestTotalDuration:
             slug=f"lesson-{position}",
             title=f"Lesson {position}",
             position=1,
+            lesson_type=lesson_type or LessonType.VIDEO,
         )
         if duration is not False:
             MediaAsset.objects.create(
@@ -343,6 +344,61 @@ class TestTotalDuration:
 
         with django_assert_num_queries(4):
             client.get(f"{CATALOGUE}{course.slug}/")
+
+    def test_a_text_lesson_does_not_withhold_the_total(self, client, language) -> None:
+        """Found by review, and it was a real defect rather than a nit.
+
+        A TEXT lesson never gets a `MediaAsset`, so counting it as something
+        awaiting measurement made completeness unreachable: the course withheld
+        its total **forever** instead of until its videos were measured.
+        """
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=False, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) == 600
+
+    def test_a_resource_lesson_does_not_withhold_it_either(self, client, language) -> None:
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=900)
+        self._lesson(course, 2, duration=False, lesson_type=LessonType.RESOURCE)
+
+        assert self._duration(client, course) == 900
+
+    def test_an_audio_lesson_counts_toward_the_total(self, client, language) -> None:
+        """Audio is measurable too — it is a language-learning product, and an
+        audio-only lesson has a length like any other."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=300, lesson_type=LessonType.AUDIO)
+
+        assert self._duration(client, course) == 900
+
+    def test_an_unmeasured_audio_lesson_still_withholds_it(self, client, language) -> None:
+        """The exemption is by lesson type, not a blanket one: a measurable
+        lesson nobody has measured still suppresses the total."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=None, lesson_type=LessonType.AUDIO)
+
+        assert self._duration(client, course) is None
+
+    def test_a_course_of_only_text_lessons_is_null(self, client, language) -> None:
+        """Nothing measurable is not the same as zero minutes."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=False, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) is None
 
     def test_the_catalogue_card_does_not_carry_it(self, client, language) -> None:
         """Deliberately detail-only: the annotation adds a GROUP BY and two
