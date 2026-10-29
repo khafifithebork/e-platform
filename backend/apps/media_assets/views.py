@@ -16,8 +16,8 @@ from rest_framework.views import APIView
 
 from apps.catalog.models import Lesson
 from apps.catalog.selectors import lessons_visible_to
-from apps.media_assets.models import MediaAsset
 from apps.media_assets.providers.storage import UnsupportedContentType, object_storage
+from apps.media_assets.selectors import assets_manageable_by
 from apps.media_assets.serializers import (
     MediaAssetSerializer,
     PlaybackTokenSerializer,
@@ -31,7 +31,6 @@ from apps.media_assets.services import (
     UploadVerificationFailed,
     complete_upload,
     issue_playback_token,
-    may_manage,
     request_upload,
     retry_processing,
 )
@@ -106,7 +105,7 @@ class MediaAssetCompleteView(APIView):
         summary="Confirm an upload",
     )
     def post(self, request, pk):
-        asset = get_object_or_404(MediaAsset.objects.select_related("lesson__course"), pk=pk)
+        asset = get_object_or_404(assets_manageable_by(user=request.user), pk=pk)
 
         try:
             complete_upload(asset=asset, by=request.user, storage=object_storage())
@@ -197,12 +196,11 @@ class MediaAssetDetailView(APIView):
         summary="Processing status of an upload",
     )
     def get(self, request, pk):
-        asset = get_object_or_404(MediaAsset.objects.select_related("lesson__course"), pk=pk)
-
-        if not may_manage(lesson=asset.lesson, user=request.user):
-            # 404, not 403 (§6.3). Ownership is checked here rather than in a
-            # queryset filter because the asset is addressed by its own id.
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        # Scoped, not fetched-then-checked (invariant 10). Someone else's asset
+        # is absent from the queryset, so it is a 404 for the same reason a
+        # made-up id is — which is what §6.3 wants, and it is no longer
+        # possible to add a second read here that forgets the check.
+        asset = get_object_or_404(assets_manageable_by(user=request.user), pk=pk)
 
         return Response(MediaAssetSerializer(asset).data)
 
@@ -229,13 +227,16 @@ class MediaAssetRetryView(APIView):
         summary="Retry a failed upload",
     )
     def post(self, request, pk):
-        asset = get_object_or_404(MediaAsset.objects.select_related("lesson__course"), pk=pk)
-
-        if not may_manage(lesson=asset.lesson, user=request.user):
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        asset = get_object_or_404(assets_manageable_by(user=request.user), pk=pk)
 
         try:
-            retry_processing(asset=asset)
+            # `by` as well as the scope filter above, and not redundantly: the
+            # filter answers "is this yours" for *this* caller, and the
+            # service's own check is what protects the callers that never
+            # reach a view (admin.py, and any task or command after it).
+            retry_processing(asset=asset, by=request.user)
+        except NotYours:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         except UploadNotAllowed as exc:
             # 409: retrying something mid-flight would race the task already
             # running it.

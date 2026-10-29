@@ -255,7 +255,7 @@ class TestRetryingByHand:
         asset.refresh_from_db()
         key_before = asset.source_object_key
 
-        retry_processing(asset=asset)
+        retry_processing(asset=asset, by=asset.lesson.course.instructor)
 
         asset.refresh_from_db()
         assert asset.status == MediaAssetStatus.UPLOADED
@@ -280,7 +280,7 @@ class TestRetryingByHand:
             patch("apps.media_assets.tasks.process_media_asset.delay") as queued,
             django_capture_on_commit_callbacks(execute=True),
         ):
-            retry_processing(asset=asset)
+            retry_processing(asset=asset, by=asset.lesson.course.instructor)
 
         assert queued.called
 
@@ -292,7 +292,7 @@ class TestRetryingByHand:
         )
         asset.refresh_from_db()
 
-        retry_processing(asset=asset)
+        retry_processing(asset=asset, by=asset.lesson.course.instructor)
         _run(asset.pk)
 
         asset.refresh_from_db()
@@ -303,6 +303,22 @@ class TestRetryingByHand:
         from apps.media_assets.services import UploadNotAllowed, retry_processing
 
         with pytest.raises(UploadNotAllowed):
+            retry_processing(asset=asset, by=asset.lesson.course.instructor)
+
+    def test_a_retry_names_who_asked_for_it(self, asset) -> None:
+        """`by` is required rather than defaulted. A default would be whatever
+        the last caller to be written found convenient, and the point of the
+        parameter is that every caller has to answer."""
+        from apps.media_assets.services import retry_processing
+
+        # `error_message` is not optional here: `failed_assets_explain_why`
+        # refuses a dead-letter row with no reason on it (invariant 11).
+        MediaAsset.objects.filter(pk=asset.pk).update(
+            status=MediaAssetStatus.FAILED, error_message="provider was down"
+        )
+        asset.refresh_from_db()
+
+        with pytest.raises(TypeError):
             retry_processing(asset=asset)
 
 

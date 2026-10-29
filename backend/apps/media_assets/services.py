@@ -198,7 +198,7 @@ def complete_upload(*, asset: MediaAsset, by: User, storage: ObjectStorage) -> M
 
 
 @transaction.atomic
-def retry_processing(*, asset: MediaAsset) -> MediaAsset:
+def retry_processing(*, asset: MediaAsset, by: User) -> MediaAsset:
     """Put a dead-lettered asset back through the pipeline.
 
     The point of the master being ours: the file is still in storage, so a
@@ -207,7 +207,22 @@ def retry_processing(*, asset: MediaAsset) -> MediaAsset:
 
     Only from FAILED. Retrying something mid-flight would race the task that
     is already running it.
+
+    **``by`` is not decoration.** The ownership check used to live in
+    ``MediaAssetRetryView`` alone, which protected exactly one of this
+    function's callers: the admin action in ``admin.py`` reaches it without
+    passing through any view, and a staff account with nothing but
+    ``change_mediaasset`` requeued another instructor's asset through it —
+    measured, not inferred. Invariant 2 puts the decision here because here is
+    the only place every caller has to come through.
+
+    Ownership is checked **before** state, in that order and not the other
+    way: a stranger who gets 409 for a TRANSCODING asset and 404 for a FAILED
+    one has been told which it is, and §6.3 forbids confirming even that much.
     """
+    if not may_manage(lesson=asset.lesson, user=by):
+        raise NotYours
+
     if asset.status != MediaAssetStatus.FAILED:
         raise UploadNotAllowed(f"An asset in {asset.status} is not failed.")
 

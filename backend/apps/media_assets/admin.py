@@ -18,7 +18,7 @@ from django.contrib import admin, messages
 
 from apps.core.models import WebhookEvent
 from apps.media_assets.models import MediaAsset
-from apps.media_assets.services import UploadNotAllowed, retry_processing
+from apps.media_assets.services import NotYours, UploadNotAllowed, retry_processing
 
 
 @admin.register(MediaAsset)
@@ -76,11 +76,23 @@ class MediaAssetAdmin(admin.ModelAdmin):
         Per asset rather than in bulk: a selection routinely mixes states, and
         one that cannot be retried must be reported rather than silently
         skipped or allowed to cancel the rest.
+
+        ``by=request.user``, because ``is_staff`` is not a role: a staff
+        account holding only ``change_mediaasset`` used to requeue any
+        instructor's asset from here, since the ownership check lived in the
+        view this never passes through. The service now decides, and this
+        reports what it refused instead of appearing to succeed.
         """
         retried = 0
         for asset in queryset:
             try:
-                retry_processing(asset=asset)
+                retry_processing(asset=asset, by=request.user)
+            except NotYours:
+                self.message_user(
+                    request,
+                    f"{asset.lesson}: not an asset you may manage.",
+                    level=messages.WARNING,
+                )
             except UploadNotAllowed:
                 self.message_user(
                     request,

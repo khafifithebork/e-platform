@@ -119,9 +119,10 @@ class TestSeeingWhatHappened:
         assert body["retry_count"] == 3
 
     def test_another_instructor_gets_a_404(self, client, asset) -> None:
-        """Not 403 (§6.3). The asset is addressed by its own id, so ownership
-        is checked in the view rather than by a queryset filter — which is
-        exactly the case architecture.md §4.4 calls the commonest IDOR."""
+        """Not 403 (§6.3). The asset is addressed by its own id, which is the
+        case architecture.md §4.4 calls the commonest IDOR — answered by the
+        scope filter in `assets_manageable_by`, so a stranger's asset is
+        simply not in the queryset."""
         _user("rival@example.test")
         _sign_in(client, "rival@example.test")
 
@@ -295,6 +296,35 @@ class TestTheDeadLetterQueueIsReadable:
 
         assert b"not failed" in response.content
 
+    def test_the_action_refuses_a_staff_user_who_is_not_an_admin(self, client, asset) -> None:
+        """`is_staff` is not a role (`accounts/models.py`), so an operator can
+        hold `change_mediaasset` without being an admin — and before the
+        service took `by`, that account requeued any instructor's asset from
+        here, because the only ownership check was in a view this never
+        touches. Measured before the fix, not inferred from the code.
+        """
+        from django.contrib.auth.models import Permission
+
+        _fail(asset)
+        intruder = _user("ops@example.test", Role.STUDENT)
+        intruder.is_staff = True
+        intruder.save(update_fields=["is_staff"])
+        intruder.user_permissions.add(
+            Permission.objects.get(codename="change_mediaasset"),
+            Permission.objects.get(codename="view_mediaasset"),
+        )
+        _sign_in(client, "ops@example.test")
+
+        response = client.post(
+            "/admin/media_assets/mediaasset/",
+            {"action": "retry_failed", "_selected_action": [str(asset.pk)]},
+            follow=True,
+        )
+
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
+        assert b"not an asset you may manage" in response.content
+
     def test_a_webhook_event_cannot_be_deleted(self, client, admin_user) -> None:
         """Deleting a row from the idempotency table lets a replayed event be
         processed a second time — the exact thing the unique constraint
@@ -313,3 +343,142 @@ class TestTheDeadLetterQueueIsReadable:
 
         assert response.status_code == 403
         assert WebhookEvent.objects.filter(pk=event.pk).exists()
+
+
+class TestRetryIsGuardedWhereEveryCallerPassesThrough:
+    """Invariant 2, demonstrated rather than asserted.
+
+    The ownership check used to live in `MediaAssetRetryView` alone, and the
+    class below records what that actually cost: `retry_processing` is also
+    reached from the admin action, which passes through no view at all.
+    """
+
+    def test_another_instructor_cannot_retry_without_a_view(self, asset) -> None:
+        from apps.media_assets.services import NotYours, retry_processing
+
+        _fail(asset)
+        rival = _user("rival@example.test")
+
+        with pytest.raises(NotYours):
+            retry_processing(asset=asset, by=rival)
+
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
+
+    def test_a_student_cannot_retry_without_a_view(self, asset) -> None:
+        from apps.media_assets.services import NotYours, retry_processing
+
+        _fail(asset)
+        student = _user("student@example.test", Role.STUDENT)
+
+        with pytest.raises(NotYours):
+            retry_processing(asset=asset, by=student)
+
+    def test_a_refused_retry_queues_nothing(self, asset) -> None:
+        """The status staying FAILED would hide a queued task. A refusal that
+        still enqueued would re-run the pipeline — and spend provider minutes
+        — for someone with no claim on the asset."""
+        from unittest.mock import patch
+
+        from apps.media_assets.services import NotYours, retry_processing
+
+        _fail(asset)
+        rival = _user("rival@example.test")
+
+        with (
+            patch("apps.media_assets.tasks.process_media_asset.delay") as queued,
+            pytest.raises(NotYours),
+        ):
+            retry_processing(asset=asset, by=rival)
+
+        assert not queued.called
+
+    def test_the_owner_may_still_retry(self, asset, instructor) -> None:
+        """The guard added above must not have closed the door on the person
+        it exists for."""
+        from apps.media_assets.services import retry_processing
+
+        _fail(asset)
+        # `_fail` is a queryset update: refresh, or the service is handed an
+        # object that still says TRANSCODING.
+        asset.refresh_from_db()
+
+        retry_processing(asset=asset, by=instructor)
+
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.UPLOADED
+
+    def test_a_stranger_is_not_told_the_asset_is_mid_flight(self, asset) -> None:
+        """Ownership is checked before state, deliberately. 409 for a
+        TRANSCODING asset and 404 for a FAILED one tells a stranger which it
+        is, and §6.3 forbids confirming even that."""
+        from apps.media_assets.services import NotYours, retry_processing
+
+        rival = _user("rival@example.test")
+
+        # The fixture asset is TRANSCODING — the state that raises
+        # UploadNotAllowed for someone who may act on it.
+        with pytest.raises(NotYours):
+            retry_processing(asset=asset, by=rival)
+
+
+class TestTheScopeFilterAndTheObjectCheckAgree:
+    """One rule in two forms is the drift `may_review` warns about.
+
+    `assets_manageable_by` is a queryset because a view needs one;
+    `may_manage` is a predicate because a service holds an object already.
+    Pinning them against each other is what makes the duplication safe: change
+    either and this fails.
+    """
+
+    @pytest.fixture
+    def rival(self, db):
+        return _user("rival@example.test")
+
+    def _agree(self, asset, user) -> None:
+        from apps.media_assets.selectors import assets_manageable_by
+        from apps.media_assets.services import may_manage
+
+        in_scope = assets_manageable_by(user=user).filter(pk=asset.pk).exists()
+        predicate = may_manage(lesson=asset.lesson, user=user)
+
+        assert in_scope == predicate, f"{user} disagrees: scope={in_scope} predicate={predicate}"
+
+    def test_they_agree_for_the_owner(self, asset, instructor) -> None:
+        self._agree(asset, instructor)
+
+    def test_they_agree_for_another_instructor(self, asset, rival) -> None:
+        self._agree(asset, rival)
+
+    def test_they_agree_for_a_student(self, asset) -> None:
+        self._agree(asset, _user("student@example.test", Role.STUDENT))
+
+    def test_they_agree_for_an_admin(self, asset) -> None:
+        self._agree(asset, _user("boss@example.test", Role.ADMIN))
+
+    def test_they_agree_for_a_superuser(self, asset) -> None:
+        """`is_superuser` without the ADMIN role — the pair every other check
+        in this codebase treats as one answer."""
+        root = _user("root@example.test", Role.STUDENT)
+        root.is_superuser = True
+        root.save(update_fields=["is_superuser"])
+
+        self._agree(asset, root)
+
+    def test_the_scope_is_empty_for_anonymous(self, asset) -> None:
+        """`may_manage` reads `role` through `getattr`, so it answers for
+        `AnonymousUser` too — and the queryset must not be more generous."""
+        from django.contrib.auth.models import AnonymousUser
+
+        self._agree(asset, AnonymousUser())
+
+    def test_the_status_read_costs_a_bounded_number_of_queries(
+        self, client, asset, django_assert_max_num_queries
+    ) -> None:
+        """The scope filter adds a join rather than a second round trip
+        (ADR-009). Without `select_related` the serializer dereferences the
+        lesson and its course per response."""
+        _sign_in(client, "teacher@example.test")
+
+        with django_assert_max_num_queries(4):
+            assert client.get(_detail(asset)).status_code == 200
