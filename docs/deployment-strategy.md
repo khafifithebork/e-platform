@@ -8,6 +8,24 @@
 
 ---
 
+> **Superseded, and internally inconsistent — flagged 2026-10-29.**
+> CLAUDE.md §2 is explicit that `docs/adr/002-cost-reliability-streaming.md`
+> **supersedes all cost figures in this document.** ADR-002 totals the chosen
+> stack at **$50/mo**, and ADR-025 settled hosting on **B-lite at ~$44/mo**.
+>
+> Separately, **this document's own `~$62/mo` does not match its own line
+> items**, which sum to **$43** ($14 app + $15 database + $9 video + $5
+> transcription; every other row is $0). The gap appears to be a Cloudflare
+> Stream figure left in a Mux table, but that is a diagnosis, not a verified
+> fact — so **no number here has been rewritten.** §6 forbids inventing a
+> price, and choosing between $43 and $62 on inference would be exactly that.
+> Both figures are left as written, with the discrepancy named. Re-derive from
+> current vendor pricing before any budget decision; ADR-002 wins meanwhile.
+>
+> The same applies to every repetition of `~$62`, `~$312` and `~$469` below.
+
+---
+
 ## Evidence legend
 
 Every material claim in this document is tagged so you can tell what is fact and what is judgement.
@@ -710,6 +728,10 @@ CI/CD: GitHub → Actions (lint, test, migrate check) → Render auto-deploy
 
 ## 9.3 Estimated total
 
+> **Superseded.** ADR-002 overrides this figure (CLAUDE.md §2); ADR-025 settled
+> hosting at ~$44/mo. This table's line items sum to **$43**, not $62 — see the
+> notice at the top of this document. No number here has been rewritten.
+
 | Scenario | Infrastructure | Payment fees (excluded above) |
 |---|---:|---|
 | S1 — 100 users, 20 DAU | **~$62/mo** **[E]** | ~5% of revenue |
@@ -858,6 +880,10 @@ Scoring notes: A wins Cost and Lock-in outright and loses everything else — it
 # 14. Final Recommendation
 
 ## 🏆 Recommended Solution — Architecture B, Balanced Production
+
+> **Superseded.** ADR-002 overrides this figure (CLAUDE.md §2); ADR-025 settled
+> hosting at ~$44/mo. This table's line items sum to **$43**, not $62 — see the
+> notice at the top of this document. No number here has been rewritten.
 
 **Architecture:** a single server-rendered application plus a separate worker process on a managed container platform, with managed Postgres, managed video, and object storage. One region (Frankfurt). No Kubernetes, no microservices, no multi-region.
 

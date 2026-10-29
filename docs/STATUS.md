@@ -135,6 +135,59 @@ variable, changing no code.
 Counts: **1601 pass, 40 skipped** with no storage endpoint; **1637 pass, 4
 failed** with the local stand-in up. Both figures are real runs.
 
+## Documentation defects corrected — 2026-10-29: flagged, not rewritten
+
+The four cost defects this file has listed under *"Documentation defects, not yet
+corrected in source"* were checked by doing the arithmetic, and **three of the
+four reproduce.** Every figure is left exactly as written: CLAUDE.md §6 forbids
+inventing a price, and picking between two numbers by inference is inventing one.
+What changed is that a reader now meets the discrepancy where the number is.
+
+| Claim in this file | Checked | Result |
+|---|---|---|
+| `deployment-strategy.md` totals the Mux stack at ~$62; line items sum to ~$43 | 14 + 15 + 9 + 5 | **Confirmed — $43.** Notice added at the top of the document and above both tables that state the total |
+| ADR-002 §5 B-HA column sums to $152, not $157 | 5 + 27 + 35 + 29 + 10 + 46 | **Confirmed — $152.** It also mixes S1 and S2 rates across rows |
+| ADR-002 §7.1 audio saving computes to ~$612, not ~$570 | 806 × (0.7 + 0.3 × 0.1) | **Both wrong — it is ~$588.** This file's own ~$612 does not reproduce either, and is corrected here |
+| `Brainstormv1.md` is cited throughout and absent | repository search | **Confirmed absent.** Every citation of it is uncheckable |
+
+ADR-002 §5's **B ($50) and B-lite ($44) columns are both arithmetically correct**,
+which is what matters: B-lite was chosen on the $44 column and its $6 margin over
+B is larger than any error found. ADR-002 carries a new §10 recording all of this,
+plus the two unverified inputs already flagged in its body — Mux's one-tenth audio
+rate, claimed for a playback *mode* when it appears to apply to audio-only
+*assets*, and Neon modelled at $15 against a ~$19–20 derivation.
+
+## Unmerged work recovered — 2026-10-29: a budget guard that passed by not looking
+
+The branch tidy-up item in this file is **stale**: the five M0-era branches it
+names are already deleted. The real state is **64 branches besides master, 47 of
+them provably merged** and 15 not. Ten of those 15 share **no merge base with
+master at all** — disjoint histories, so nothing mechanical can prove their work
+landed, even though M10–M16 are complete. **Nothing was deleted; that is the
+owner's call** and the list is below.
+
+Two of the unmerged branches carry real work, and one is now recovered.
+
+**`codex/bundle-asset-validation` found a false guard.** In master,
+`assert-bundle-budget.mjs` resolves a referenced asset to `null` when the file is
+missing and the loop then skips nulls — so **a partial build passes the budget
+check by not counting what is absent**, which is the same shape as the three
+guards this file already records. The fix makes a missing asset a hard failure.
+Cherry-picked as `9f38601` with its 109-line test and its CI step, authorship
+preserved. **Verified both ways:** 3 of the 7 cases fail against master's version
+and all 7 pass with the fix.
+
+**`codex/private-beta-plan` is the owner's and was not touched.** Nine commits
+carrying security-fixed dependency upgrades — DRF 3.18.3, Next.js 16.4.1, Sentry
+10.75.2, Vitest 4.1.12, pinned Vite and Zod transitives — plus a `BetaInvitation`
+model and migration. **Every dependency change there is a §5 gate and the model is
+a product decision**, so neither is a repair batch's to merge. It is named here
+because security upgrades sitting unmerged on a branch nobody is looking at is
+worth knowing about.
+
+`codex/course-detail-journal` has one commit whose patch is already in master, so
+it is safe to delete with the other 47.
+
 **Still open and deliberately not touched:** the admin site gates on `is_staff`
 plus a second factor, not on `Role.ADMIN`, so on every *other* registered model
 it is model permissions that separate operators. `MediaAssetAdmin` is scoped

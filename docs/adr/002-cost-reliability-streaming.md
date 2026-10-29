@@ -300,3 +300,41 @@ All five cost nothing today:
 - **Set Django to ASGI** (Gunicorn + Uvicorn workers) in the base configuration, even though nothing needs it yet.
 
 Still blocking: the payment jurisdiction decision.
+
+---
+
+# 10. Arithmetic verification — added 2026-10-29
+
+CLAUDE.md §2 makes this document authoritative over every cost figure in the
+repository, so its own arithmetic was checked rather than assumed. **Three
+figures do not follow from their own line items.** Nothing below rewrites a
+number: §6 forbids inventing a price, and choosing between two figures by
+inference is inventing one. They are recorded so the next reader knows which to
+distrust, and re-derivation from current vendor pricing is the fix.
+
+| Where | States | Its own line items give | Note |
+|---|---:|---:|---|
+| §5, **B** column, Scenario 1 | $50 | **$50** | ✅ 7 + 14 + 15 + 9 + 5 + 0 |
+| §5, **B-lite** column, Scenario 1 | $44 | **$44** | ✅ 5 + 10 + 15 + 9 + 5 + 0. The figure ADR-025 adopted |
+| §5, **B-HA** column, Scenario 2 | ~$157 | **$152** | ❌ 5 + 27 + 35 + 29 + 10 + 46. The column also mixes S1 and S2 rates — video and transcription carry the S1/S2 heading while Postgres and email/errors do not |
+| §7.1, audio mode at Scenario 3 | ~$570 | **~$588** | ❌ 806 × (0.7 + 0.3 × 0.1) = 588.4. `docs/STATUS.md` recorded a third figure, ~$612, which this check does not reproduce either |
+
+**The two decisions this ADR exists to make are unaffected.** B-lite is chosen
+on the $44 column, which is correct, and its margin over B is $6 — far larger
+than any error above. §7.1's audio mode is a product argument that survives the
+arithmetic: a ~27% cut in Scenario 3 delivery rather than ~29% changes nothing
+about whether to ship a listen-only toggle.
+
+**Two inputs remain unverified and both are flagged in the body:**
+
+- **Mux's one-tenth audio rate** is claimed in §7.1 for a playback *mode*. It
+  appears to apply to audio-only *assets*, which is a different thing — a video
+  asset played without its video track may bill as video. The claim carries no
+  **[V]** tag and no source. **Verify with Mux before any budget depends on
+  §7.1**, and treat $570, $588 and $612 alike as unusable until then.
+- **Neon is modelled at $15** throughout. The repository's own notes derive
+  ~$19–20. Unresolved, and a $5/month gap on the chosen stack.
+
+`Brainstormv1.md`, cited by section throughout `deployment-strategy.md`, is
+**not in this repository** — confirmed 2026-10-29. Every citation of it is
+therefore uncheckable.
