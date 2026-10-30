@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { evaluateAudit, parseAuditResult } from "./assert-dependency-audit.mjs";
+import { AUDIT_ATTEMPTS, AuditUnavailable, classifyFatal, evaluateAudit, obtainReport, parseAuditResult } from "./assert-dependency-audit.mjs";
 
 const recorded = JSON.parse(readFileSync(new URL("./fixtures/npm-audit-2026-10-08.json", import.meta.url), "utf8"));
 const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
@@ -210,6 +210,115 @@ test("an empty allowlist suppresses nothing and hides nothing", () => {
   assert.equal(result.failures.length, 4);
   assert.deepEqual(result.suppressed, []);
   assert.deepEqual(result.stale, []);
+});
+
+/**
+ * Transient registry failures, which used to read as vulnerabilities.
+ *
+ * Before 2026-10-30 every throw in the gate surfaced as `AUDIT FAILED: <message>` with
+ * exit 1, so a bad registry response printed `AUDIT FAILED: Invalid audit report.` with no
+ * advisory named — about one run in four, on a job that gates production.
+ */
+const ok = { status: 1, stdout: JSON.stringify(recorded) };
+const garbage = { status: 1, stdout: "<html>502 Bad Gateway</html>" };
+const nowait = { attempts: AUDIT_ATTEMPTS, wait: async () => {} };
+
+test("a transient failure is retried and the next good report is used", async () => {
+  let calls = 0;
+  const run = () => {
+    calls += 1;
+    return calls === 1 ? garbage : ok;
+  };
+
+  assert.deepEqual(await obtainReport(run, nowait), recorded);
+  assert.equal(calls, 2);
+});
+
+test("a persistent failure is AuditUnavailable, not a finding", async () => {
+  /**
+   * The distinction the change exists for. `AuditUnavailable` is what makes the entry point
+   * print `AUDIT COULD NOT RUN` with exit 2 instead of `AUDIT FAILED` with exit 1 — still a
+   * failure, because a gate that passes when it could not audit is worse than a noisy one,
+   * but no longer indistinguishable from a vulnerability.
+   */
+  let calls = 0;
+  const run = () => {
+    calls += 1;
+    return garbage;
+  };
+
+  await assert.rejects(() => obtainReport(run, nowait), (error) => {
+    assert.ok(error instanceof AuditUnavailable, "must be AuditUnavailable");
+    assert.match(error.message, new RegExp(`${AUDIT_ATTEMPTS} attempts`));
+    return true;
+  });
+
+  assert.equal(calls, AUDIT_ATTEMPTS);
+});
+
+test("a report with findings is returned at once and never retried", async () => {
+  /**
+   * **The dangerous version of this change, pinned.** Retrying on a report that merely
+   * contains findings would mean three attempts, three identical results and a message
+   * implying flakiness where there is a real vulnerability. Only *obtaining* a trustworthy
+   * report is retried; what it says is not grounds for trying again.
+   *
+   * `recorded` is a real npm response carrying four high advisories, so a single call
+   * returning it proves the retry does not key off severity.
+   */
+  let calls = 0;
+  const run = () => {
+    calls += 1;
+    return ok;
+  };
+
+  const report = await obtainReport(run, nowait);
+
+  assert.equal(calls, 1);
+  assert.equal(Object.keys(report.vulnerabilities).length > 0, true);
+  // And the findings still fail the gate — the retry changed nothing about the verdict.
+  assert.equal(evaluateAudit(report, lock, [], now).failures.length, 4);
+});
+
+test("retrying cannot turn a real failure into a pass", async () => {
+  // A spawn that never yields a usable report must never resolve. The failure mode to guard
+  // is an exhausted loop falling through to `return undefined`, which would hand
+  // `evaluateAudit` nothing and read as a clean audit.
+  const result = await obtainReport(() => garbage, nowait).then(
+    (value) => ({ resolved: value }),
+    (error) => ({ error }),
+  );
+
+  assert.equal(result.resolved, undefined);
+  assert.ok(result.error instanceof AuditUnavailable);
+});
+
+test("every distinct reason is reported, not just the last", async () => {
+  // A tree failing three different ways is a different problem from one failing the same way
+  // three times, and the message is all anybody reading CI gets.
+  const responses = [garbage, { status: 1, stdout: "" }, { status: 7, stdout: JSON.stringify(recorded) }];
+  let calls = 0;
+
+  await assert.rejects(() => obtainReport(() => responses[calls++], nowait), (error) => {
+    assert.match(error.message, /invalid JSON/i);
+    assert.match(error.message, /command failed/i);
+    return true;
+  });
+});
+
+test("an unavailable audit and a failed one are told apart, and both fail", () => {
+  const unavailable = classifyFatal(new AuditUnavailable("registry said no"));
+  const failed = classifyFatal(new Error("Invalid audit report."));
+
+  assert.match(unavailable.message, /^AUDIT COULD NOT RUN: /);
+  assert.match(failed.message, /^AUDIT FAILED: /);
+
+  // Distinguishable…
+  assert.notEqual(unavailable.exitCode, failed.exitCode);
+  // …and both still fail. A gate that passes when it could not audit is worse than a noisy
+  // one, so neither branch may ever be 0. This is the assertion that matters.
+  assert.notEqual(unavailable.exitCode, 0);
+  assert.notEqual(failed.exitCode, 0);
 });
 
 test("rejects a process exit code inconsistent with the report", () => {
