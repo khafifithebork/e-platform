@@ -6,6 +6,62 @@ change; three of my own measurements corrected in the process)
 
 ---
 
+## Written but UNVERIFIED — 2026-10-30: beta invitation services (slice 2)
+
+**The code and tests exist; none of the tests have been run.** Postgres was available
+earlier in the session and stopped partway through, so all 13 new tests fail with
+`connection timeout expired`. Slice 2's acceptance is explicitly transactional — "real
+service/database tests including concurrent attempts and audit rollback, not mocks" — so
+there is no way to verify it without a database. **Do not treat this as complete.** On
+branch `feat/beta-invitation-services`, no PR opened.
+
+What was built, on the owner's four approvals of 2026-10-30:
+
+- `issue_invitation`, `revoke_invitation`, `consume_invitation` in `accounts/services.py`,
+  with `NotPermitted`, `InvitationNotFound`, `InvitationNotUsable` and
+  `InvitationAlreadyConsumed`.
+- Three `AdminAction` members. It is a closed vocabulary, so admission needed its own.
+- `BetaInvitation.consumed_by` (nullable FK, `SET_NULL`) and a `CheckConstraint` that
+  consumption is all-or-nothing — a row with `consumed_at` and no `consumed_by` is a bug
+  wearing the clothes of a state (invariant 11). Migration `0006`, not an edit to `0005`.
+
+Three decisions worth keeping:
+
+**Re-issue re-opens the existing row.** `UniqueConstraint(Lower("email"))` is
+unconditional, so an address is admissible exactly once and a second row is impossible.
+Without re-opening, revoking somebody would permanently exclude them — a dead end reachable
+by one ordinary operator action. Re-opening a *consumed* invitation is refused: an account
+already exists, and account deletion is not built (ADR-036 §5).
+
+**The administrator check lives in the service**, which diverges from `change_role` on
+purpose. `change_role` audits its actor but leaves authorisation to Django Admin because
+that is its only caller; invitations will be issued from commands and tests too, so a
+view-level check would be absent from most callers (invariant 2). `role`, not `is_staff` —
+the model draws that distinction deliberately — plus `is_active`, or deactivation is
+decorative.
+
+**`consume_invitation` is deliberately not `@transaction.atomic`.** A nested atomic block
+would create a savepoint that could commit the consumption while the caller rolled the
+account back, which is the exact failure `test_account_failure_does_not_consume_invitation`
+exists to catch. Single-use is a conditional `UPDATE ... WHERE consumed_at IS NULL`
+asserting one row affected, not a read-then-write: the sequential double-consume test passes
+against a `filter().first()` + `save()`, and only the concurrent one does not.
+
+Verified without a database: `ruff check` and `ruff format` clean across 246 files,
+`manage.py check` clean, `makemigrations --check` reports no drift (model and migration
+agree), the modules import, and `consume_invitation` is confirmed un-decorated.
+
+**Still to do before this can be called done:** start Postgres, run
+`tests/unit/test_beta_invitation_services.py`, then the full backend suite, then provoke
+each new test against the fault it covers — in particular that adding
+`@transaction.atomic` to `consume_invitation` breaks the rollback test, and that replacing
+the conditional UPDATE with a read-then-write breaks only the *concurrent* test.
+
+Slice 3a — wiring admission into registration — is untouched and still gated behind its own
+approval.
+
+---
+
 ## Closed — 2026-10-30: next's vendored undici does not reach the Worker
 
 **This had been standing as a known unknown: `next` vendors undici 6.21.0 where no gate in

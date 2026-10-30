@@ -40,6 +40,14 @@ class AdminAction(models.TextChoices):
     COURSE_CHANGES_REQUESTED = "COURSE_CHANGES_REQUESTED", "Course changes requested"
     ROLE_CHANGED = "ROLE_CHANGED", "Role changed"
     REFUND_ISSUED = "REFUND_ISSUED", "Refund issued"
+    # Private beta admission. Not in §8's original four, which predate the beta
+    # plan — but deciding who may create an account is at least as consequential
+    # as changing a role, and an operator asking "who let this person in" has
+    # nowhere else to look: the invitation row holds the current state, not the
+    # history of who changed it.
+    BETA_INVITATION_ISSUED = "BETA_INVITATION_ISSUED", "Beta invitation issued"
+    BETA_INVITATION_REVOKED = "BETA_INVITATION_REVOKED", "Beta invitation revoked"
+    BETA_INVITATION_CONSUMED = "BETA_INVITATION_CONSUMED", "Beta invitation consumed"
 
 
 class NotAuditable(Exception):

@@ -14,6 +14,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import (
+    BetaInvitation,
     EmailVerificationToken,
     PasswordResetToken,
     Role,
@@ -42,6 +43,45 @@ class RoleUnchanged(Exception):
     Refused rather than ignored: writing an audit row for a change that did not
     happen fills the trail with non-events, and a trail nobody reads is not a
     control.
+    """
+
+
+class NotPermitted(Exception):
+    """The actor may not take this action.
+
+    **Checked here rather than in a view, which diverges from `change_role` on
+    purpose.** `change_role` takes an actor and audits it but leaves
+    authorisation to Django Admin, because that is its only caller. Invitations
+    will be issued from a command, a test and later an endpoint, and "only an
+    administrator may admit people to the beta" is a rule about the operation,
+    not about one transport (invariant 2). A view-level check would be absent
+    from every other caller.
+    """
+
+
+class InvitationNotFound(Exception):
+    """No invitation exists for this address.
+
+    Distinct from expired and revoked so callers can log precisely. **Callers
+    facing the public must still answer identically in all three cases** — the
+    same account-enumeration argument that governs `EmailAlreadyRegistered`
+    applies to admission, and knowing an address is invited is knowing somebody
+    signed it up.
+    """
+
+
+class InvitationNotUsable(Exception):
+    """The invitation exists but cannot be consumed: expired, revoked or spent."""
+
+
+class InvitationAlreadyConsumed(Exception):
+    """Re-issuing to an address that already registered.
+
+    Refused rather than re-opened. A consumed invitation means an account
+    exists, so re-admitting is at best meaningless and at worst a way to hand a
+    second admission to somebody whose first was deliberate. Account deletion is
+    not built (ADR-036 §5), so there is no case where this is the right move
+    today; if one appears, it needs a decision rather than a quiet reset.
     """
 
 
@@ -281,3 +321,171 @@ def change_role(*, actor: User, user: User, role: str, reason: str, request=None
         new_role=role,
     )
     return user
+
+
+# How long an admission stays open. Long enough that an invitation sent on a
+# Friday survives a holiday; short enough that a beta cohort does not quietly
+# stay admissible for a year. Not a security boundary — email verification is
+# still the proof of inbox ownership — so this is an operational choice.
+INVITATION_LIFETIME = timedelta(days=30)
+
+
+def _require_admin(actor: User) -> None:
+    """Only an active administrator may admit or exclude people.
+
+    `role`, not `is_staff`: `accounts.models` draws that distinction
+    deliberately — staff is the Django admin's own gate and a wider capability
+    than any role — so a domain rule keys off the domain field.
+
+    `is_active` as well, because a deactivated administrator is somebody whose
+    access was taken away, and an operation that still honoured them would make
+    deactivation decorative.
+    """
+    if actor is None or not getattr(actor, "pk", None):
+        raise NotPermitted("An invitation action must name who took it.")
+    if not actor.is_active or actor.role != Role.ADMIN:
+        raise NotPermitted(f"{actor.email} is not an active administrator.")
+
+
+@transaction.atomic
+def issue_invitation(*, actor: User, email: str, reason: str, request=None) -> BetaInvitation:
+    """Admit an email address to the private beta.
+
+    **Re-opens an existing row rather than inserting a second one.** The unique
+    constraint on `Lower(email)` makes an address admissible exactly once, so a
+    revoked invitation has to be resurrected or it is a dead end: revoke
+    somebody and they could never be re-admitted. That is the shape the owner
+    chose on 2026-10-30, and the row's history lives in the audit log.
+
+    Refuses to re-open a *consumed* invitation — see `InvitationAlreadyConsumed`.
+
+    Issuing has no effect on registration or on `resolve_access`. This record is
+    admission, not entitlement (invariant 3), and nothing reads it until slice
+    3a wires it into signup.
+    """
+    _require_admin(actor)
+
+    normalised = email.strip()
+    if not normalised:
+        raise InvitationNotFound("An invitation needs an email address.")
+
+    now = timezone.now()
+    expires_at = now + INVITATION_LIFETIME
+
+    # `Lower("email")` is what the constraint indexes, so the lookup has to match
+    # it or a re-issue inserts a duplicate and dies on the constraint instead.
+    existing = BetaInvitation.objects.filter(email__iexact=normalised).first()
+
+    if existing is None:
+        invitation = BetaInvitation.objects.create(email=normalised, expires_at=expires_at)
+        reopened = False
+    else:
+        if existing.consumed_at is not None:
+            raise InvitationAlreadyConsumed(normalised)
+        existing.email = normalised
+        existing.expires_at = expires_at
+        existing.revoked_at = None
+        existing.save(update_fields=["email", "expires_at", "revoked_at", "updated_at"])
+        invitation = existing
+        reopened = True
+
+    record_admin_action(
+        actor=actor,
+        action=AdminAction.BETA_INVITATION_ISSUED,
+        target=invitation,
+        reason=reason,
+        request=request,
+        invited_email=normalised,
+        expires_at=expires_at.isoformat(),
+        reopened=reopened,
+    )
+    return invitation
+
+
+@transaction.atomic
+def revoke_invitation(*, actor: User, email: str, reason: str, request=None) -> BetaInvitation:
+    """Withdraw an admission that has not been used.
+
+    A consumed invitation is not revocable: the account already exists, and
+    pretending otherwise would suggest revoking here removes access. Taking
+    access away from an existing account is a different operation
+    (`change_role`, or the deletion ADR-036 §5 has not decided).
+
+    Idempotent on an already-revoked invitation — re-revoking writes no second
+    audit row, for the same reason `change_role` refuses a no-op: a trail full
+    of non-events is one nobody reads.
+    """
+    _require_admin(actor)
+
+    invitation = BetaInvitation.objects.filter(email__iexact=email.strip()).first()
+    if invitation is None:
+        raise InvitationNotFound(email)
+    if invitation.consumed_at is not None:
+        raise InvitationAlreadyConsumed(email)
+    if invitation.revoked_at is not None:
+        return invitation
+
+    invitation.revoked_at = timezone.now()
+    invitation.save(update_fields=["revoked_at", "updated_at"])
+
+    record_admin_action(
+        actor=actor,
+        action=AdminAction.BETA_INVITATION_REVOKED,
+        target=invitation,
+        reason=reason,
+        request=request,
+        invited_email=invitation.email,
+    )
+    return invitation
+
+
+def consume_invitation(*, email: str, user: User, request=None) -> BetaInvitation:
+    """Spend an admission, exactly once, for the account it produced.
+
+    **Deliberately not decorated `@transaction.atomic`.** Its caller is account
+    creation, which is already atomic, and the guarantee slice 2 has to provide
+    is that a failed account creation leaves the invitation unspent. Opening a
+    nested atomic block here would create a savepoint that could commit the
+    consumption while the outer transaction rolled the account back — the exact
+    failure `test_account_failure_does_not_consume_invitation` exists to catch.
+    So this joins the caller's transaction and lets a rollback undo it.
+
+    **Single-use is enforced by a conditional UPDATE, not by a read.** The
+    `WHERE consumed_at IS NULL` is evaluated by the database while it holds the
+    row, so two concurrent registrations cannot both see an unconsumed row and
+    both write. A `filter().first()` followed by `save()` would let exactly that
+    happen, and the window is small enough to pass every sequential test.
+    Double-consumption is a *transition*, not a state, so it cannot be a
+    `CheckConstraint`; this is the closest the database gets.
+    """
+    normalised = email.strip()
+    now = timezone.now()
+
+    spent = BetaInvitation.objects.filter(
+        email__iexact=normalised,
+        consumed_at__isnull=True,
+        revoked_at__isnull=True,
+        expires_at__gt=now,
+    ).update(consumed_at=now, consumed_by=user, updated_at=now)
+
+    if spent != 1:
+        # One query to say *why*, and only on the failure path. The reason never
+        # reaches a public response — §7.1 account enumeration applies to
+        # admission too — but an operator reading logs needs to tell "never
+        # invited" from "invited and let it lapse".
+        invitation = BetaInvitation.objects.filter(email__iexact=normalised).first()
+        if invitation is None:
+            raise InvitationNotFound(normalised)
+        raise InvitationNotUsable(normalised)
+
+    invitation = BetaInvitation.objects.get(email__iexact=normalised)
+
+    record_admin_action(
+        actor=user,
+        action=AdminAction.BETA_INVITATION_CONSUMED,
+        target=invitation,
+        reason="Account created against a beta invitation.",
+        request=request,
+        invited_email=invitation.email,
+    )
+    return invitation
