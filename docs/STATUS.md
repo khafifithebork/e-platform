@@ -1,7 +1,7 @@
 # STATUS
 
 **Last updated:** 2026-10-30
-**Updated by:** Claude (PR #121 merged; dependency audits green on master)
+**Updated by:** Claude (PRs #121 and #122 merged; master at 26ae207)
 
 ---
 
@@ -11,79 +11,52 @@
 rule is the chronological journal, newest first, and does not need reading to
 start. CLAUDE.md §10 still applies: read this, update it at the end.
 
-## Where the work is
+## Where the work is: all of it is on `master`
 
-**Branch `claude/sweet-thompson-l7vxaa`, pushed, nothing uncommitted.** (No commit
-count here on purpose: stating one in a file that each commit also edits makes it
-wrong on write. PR #122 shows the authoritative count.)
-**Open for review as PR #122** —
-https://github.com/khafifithebork/e-platform/pull/122 — opened 2026-10-30 on the
-owner's request. Its description carries the four things reviewer attention is
-most worth spending on, the one behaviour that changes, and what is deliberately
-out of scope.
+**`master` is at `26ae207`. Nothing is in flight — no open PR, no unmerged
+branch of this work, nothing uncommitted.** Both pull requests merged on
+2026-10-30, in order, each with all four checks green on the head that merged:
 
-**`master` moved on 2026-10-30: PR #121 is merged, at `8b55e20`.** The owner
-instructed it, with all four checks green on `71813d7`. That landed the security
-dependency set — DRF 3.18.3, Next.js and ESLint config 16.4.1, Sentry 10.75.2,
-Vitest 4.1.12, Vite/Zod overrides, and the `undici` 7.30.1 / `body-parser` 2.4.0
-additions for advisories published after that branch's original work — **and the
-`BetaInvitation` model with migration `0005_betainvitation`.** No deploy: both
-deploy jobs are gated on `DEPLOY_ENABLED`, which is not set, verified against a
-prior push to master where both concluded `skipped`.
+| | | |
+|---|---|---|
+| **#121** `codex/private-beta-plan` | merged as `8b55e20` | the security dependency set, and `BetaInvitation` with migration `0005_betainvitation` |
+| **#122** `claude/sweet-thompson-l7vxaa` | merged as `26ae207` | ADR-040 authorization, ADR-041 course duration, the bundle guard, the shared privilege predicate |
 
-**So `Audit (frontend)` is fixed for every branch now**, which is why settling it
-on #121 rather than porting it into #122 was the right call. This branch has
-`master` merged in to pick it up.
+**Neither merge deployed anything.** Both deploy jobs are gated on
+`DEPLOY_ENABLED`, which is not set — verified against a real push to `master`
+where both concluded `skipped`, not inferred from this file.
 
-It carries two ADRs (**040** authorization in services and selectors, **041**
-course duration derived and all-or-nothing) and the work the three entries below
-describe. Last verified state, run not assumed: **1627 backend tests pass / 40
-environmental skips**, **766 frontend across 61 files + 23 `node --test`**,
-`ruff`/`tsc`/ESLint clean, no migration, OpenAPI regenerated, production build
-green, all four artifact gates passing with worst first load 322.9 KB.
+**Both dependency audit gates are green on `master`** for the first time since
+the advisories landed. That is what settling them on #121 bought: fixed once, for
+every branch, instead of each branch carrying a private copy.
 
-## What is waiting, in the order it blocks things
+Verified on the merged tree before #122 went in: **1632 backend tests pass, 40
+environmental skips** (object storage); **766 frontend across 61 files plus 23
+`node --test`**; `ruff`, `tsc`, ESLint, `pip-audit` clean; no migration drift;
+`check --deploy` zero issues; production build green; all four artifact gates,
+worst first load **335.4 KB** against the 350 KB ceiling.
+
+**That bundle number is the one regression worth knowing.** It was 322.9 KB
+before #121; Next.js 16.4.1 and Sentry 10.75.2 cost ~12.5 KB, so headroom under
+E4's approved ceiling fell from 27.1 KB to **14.6 KB**. Nothing is broken; the
+next frontend feature simply has less room than the last one did.
+
+## What is waiting, and whose it is
 
 | # | Item | Who |
 |---|---|---|
-| 1 | **Delete the 48 branches.** Authorised, identified, SHAs recorded — and **blocked twice from this session** (see the branch-cleanup entry). It is one `git push origin --delete` with the names in that table, from somewhere with credentials that permit deletion | anyone with those credentials |
-| 2 | ~~**`codex/private-beta-plan`**~~ — **merged 2026-10-30 as PR #121** on the owner's instruction (`8b55e20`). Both dependency audits are now green on `master`. Its branch is safe to delete once the owner is satisfied | done |
+| 1 | **Delete the 50 deletable branches** (of 62 besides `master`; 12 are kept and the entry below says why each). Authorised, identified, SHAs recorded — and **never executed from a Claude session**: blocked at the git credential scope, not at permissions, with three routes tried and each recorded. One `git push origin --delete` from anywhere whose credentials permit deletion | anyone with those credentials |
+| 2 | **The stale audit exception expires 2026-11-07.** `GHSA-vfj7-8cjw-p6xm` in `frontend/audit-allowlist.json` warns today and suppresses nothing; after that date `validateExceptions` throws and **the dependency-audit gate hard-fails on every branch**. It cannot simply be deleted: `assert-dependency-audit.test.mjs` reads that live file as its own fixture, so emptying it breaks 8 of its 16 tests — tried and reverted. Needs the test decoupled from live security config, then a remove-or-re-triage call from the named triager, who is the owner | owner, dated |
+| 3 | **E8's objectives and prerequisites.** Blocked on a *shape*, not effort: one prose block or an ordered list of short statements, and free text or a relation to another `Course`? Each picks a different API, admin surface and page, and a wrong choice costs a migration to undo. ADR-041's last section states it | owner |
+| 4 | Everything in CLAUDE.md §11 — payment provider, the spend, a domain, the `wrangler` upgrade, the video provider, `@sentry/cloudflare`, policy content, M9's trial rule | owner |
 
-**CI on PR #122 is red on `Audit (frontend)` and it is not this branch's doing.**
-Both audits read live advisory databases, and the audited manifests are
-byte-identical to `master`, so `master` would fail them too — its last run
-(2026-10-20) simply predates the advisories. 11 high-severity frontend findings:
-3× Next.js including the image-optimization RCE, 4× undici, Sentry,
-`body-parser`, `launch-editor`, Zod, plus a stale `GHSA-vfj7-8cjw-p6xm` /
-`braces` exception needing re-triage. **This is the known failure mode this file
-already records** — "any branch can go red overnight without an edit".
-
-**`Audit (backend)` was fixed here, on an explicit §5 approval, and the scope of
-that approval matters:** the owner approved **the DRF pin alone**, 3.18.0 →
-3.18.3 (`f256d19`). `pip-audit` reproduced three advisories before and reports
-clean after; 1627 tests unchanged; schema byte-identical. **That approval does
-not extend to the frontend upgrades** — Next.js 16.4.1 and the undici chain are
-not patch bumps, and ADR-022 §3 and §11's `wrangler` row treat that class as a
-decision. Do not read one as consent for the other.
-
-| 3 | **`codex/bundle-asset-validation`** — its fix is already recovered on this branch as `9f38601`; the branch can go once PR #122 merges | — |
-| 4 | **E8 objectives and prerequisites.** Blocked on a *shape*, not effort: are objectives one prose block or an ordered list of short statements, and is a prerequisite free text or a relation to another `Course`? Each picks a different API, admin surface and page, and a wrong choice costs a migration to undo. ADR-041's last section states this | owner |
-| 5 | Everything in CLAUDE.md §11 — payment provider, the spend, a domain, the `wrangler` upgrade, the video provider, `@sentry/cloudflare`, policy content, M9's trial rule | owner |
-
-**One dated item now on `master`, and it is the owner's.** The stale
-`GHSA-vfj7-8cjw-p6xm` braces exception in `frontend/audit-allowlist.json` warns
-today and **expires 2026-11-07, after which `validateExceptions` throws and the
-dependency-audit gate hard-fails on every branch.** It cannot simply be deleted:
-`assert-dependency-audit.test.mjs` reads that live file as its own fixture, so
-emptying it breaks 8 of its 16 tests — tried and reverted. Closing it needs the
-test decoupled from live security config first, then a remove-or-re-triage call
-from the named triager, who is the owner.
-
-**Do not re-derive these**, they were settled this session: the cost-figure
-defects are verified and annotated (no figure was rewritten — §6); the stale
-M0-era branch note is replaced; and `catalog.services` genuinely omits the
-superuser clause that seven other sites have, which is a **privilege change and
-the owner's**, deliberately left alone.
+**Do not re-derive these**, they were settled in the session that ended here: the
+cost-figure defects are verified and annotated (no figure was rewritten — §6);
+the M0-era branch note is replaced; `catalog.services` genuinely omits the
+superuser clause seven other sites have, left alone deliberately because changing
+it grants a publication power (§5); and ADR-041 records two *contradictory*
+performance measurements of the duration query because the plan is
+dataset-dependent — read both before changing its shape.
 
 ## Standing up the environment from a cold container
 
@@ -258,7 +231,7 @@ variable, changing no code.
 Counts: **1601 pass, 40 skipped** with no storage endpoint; **1637 pass, 4
 failed** with the local stand-in up. Both figures are real runs.
 
-## Branch cleanup — 2026-10-30: 48 identified and authorised, NONE DELETED YET
+## Branch cleanup — 2026-10-30: 50 deletable, authorised, NONE DELETED YET
 
 **Correction to this entry's first version, which claimed "48 deleted".** It was
 written before the deletion was attempted, in the expectation it would succeed,
@@ -267,7 +240,17 @@ still on the remote, verified after each attempt. The claim is corrected rather
 than quietly edited because a STATUS entry asserting work that did not happen is
 the failure §6 names outright, and the next session would have believed it.
 
-The owner authorised the deletion. **48 identified, 14 kept.** The stale M0-era
+The owner authorised the deletion. Counted exactly against `master` at
+`26ae207`: **62 remote branches besides `master`; 50 are deletable and 12 are
+kept.** The 50 are **49 that `git branch -r --merged` reports as ancestors** of
+`master`, plus `codex/course-detail-journal`, which is not an ancestor but whose
+one commit `git cherry` shows has **zero unique patches** — its content is in
+`master` under a different hash.
+
+The table below lists the 48 identified before the merges. The two that joined
+when they merged are `codex/private-beta-plan` (`71813d7712b5`) and
+`claude/sweet-thompson-l7vxaa` (`3cccf5f42b59`); delete the latter last, since
+sessions work from it. The stale M0-era
 tidy-up note this replaces named five branches that had already been deleted
 years of milestones ago.
 
