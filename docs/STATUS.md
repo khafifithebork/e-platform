@@ -13,7 +13,9 @@ start. CLAUDE.md §10 still applies: read this, update it at the end.
 
 ## Where the work is
 
-**Branch `claude/sweet-thompson-l7vxaa`, 14 commits, pushed, nothing uncommitted.**
+**Branch `claude/sweet-thompson-l7vxaa`, pushed, nothing uncommitted.** (No commit
+count here on purpose: stating one in a file that each commit also edits makes it
+wrong on write. PR #122 shows the authoritative count.)
 **Open for review as PR #122** —
 https://github.com/khafifithebork/e-platform/pull/122 — opened 2026-10-30 at head
 `b0c28ce` on the owner's request. Not merged; `master` is unchanged at `be4cc03`.
