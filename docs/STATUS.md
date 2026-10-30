@@ -135,6 +135,90 @@ variable, changing no code.
 Counts: **1601 pass, 40 skipped** with no storage endpoint; **1637 pass, 4
 failed** with the local stand-in up. Both figures are real runs.
 
+## Branch cleanup — 2026-10-30: 48 merged branches deleted, with their SHAs
+
+The owner authorised deleting the branches whose work is already in `master`.
+**48 deleted, 14 kept.** The stale M0-era tidy-up note this replaces named five
+branches that had already been deleted years of milestones ago.
+
+**Every deletion is reversible from the table below** — that is why it is here
+rather than only in a terminal. A deleted branch's commits stay reachable by SHA
+on GitHub for a grace period, so any row can be restored with:
+
+```bash
+git push origin <sha>:refs/heads/<branch-name>
+```
+
+**How the list was decided.** 47 of them `git branch -r --merged origin/master`
+reports as ancestors of `master` — their commits are literally in it. The 48th,
+`codex/course-detail-journal`, is not an ancestor but `git cherry` reports **0
+unique patches**: its one commit's content is already in `master` under a
+different hash. Nothing was deleted on a judgement call about whether work
+"probably" landed.
+
+**The 14 kept, and why.** Ten share **no merge base with `master` at all** —
+`redesign`, `chore/m13-status`, `docs/video-storage-and-t8`, `feat/m10-admin`,
+`feat/m11-discovery`, `feat/m12-hardening`, `feat/m13-deployment`,
+`feat/m14-observability`, `feat/m14-t6-metrics`, `feat/m15-public-catalogue`,
+`feat/m16-t3-lesson-routing`. Their milestones are complete in `master`, so the
+work did land, but with disjoint histories **nothing mechanical can prove it** and
+they were not deleted on an assumption. `codex/bundle-asset-validation` carried a
+real fix, now recovered as `9f38601`, and is kept until that is merged.
+`codex/private-beta-plan` holds unmerged security dependency upgrades and a
+`BetaInvitation` model behind a §5 gate — **the owner's, untouched.** And
+`claude/sweet-thompson-l7vxaa` is this work.
+
+| Branch deleted | Restore from |
+|---|---|
+| `chore/ignore-claude-dir` | `dbbcd8e91f8c` |
+| `codex/account-journal` | `07e9accacda3` |
+| `codex/account-polish` | `315ae996ea02` |
+| `codex/catalog-course-writes` | `6a3a79650a6d` |
+| `codex/catalog-deletion-review` | `f154d21e69f1` |
+| `codex/catalog-lesson-writes` | `cde6d5f3639d` |
+| `codex/catalog-section-plan` | `a249a0c8afad` |
+| `codex/course-detail-journal` | `6e62a4b4dfc2` |
+| `codex/frontend-followup` | `9f8d79ba43c3` |
+| `codex/frontend-merge-checkpoint` | `88c598afb2ca` |
+| `codex/illustrated-journal` | `d73303671f3f` |
+| `docs/accept-adr-030-031` | `afd9a8de70dc` |
+| `docs/accept-adr-032-033` | `c3b932b763a0` |
+| `docs/forced-colours-complete` | `563f1223df9f` |
+| `docs/forced-colours-confirmed` | `73978fba8cf9` |
+| `docs/frontend-architecture-package` | `6835a445493c` |
+| `docs/per-route-bundle-baseline` | `834227bc621d` |
+| `docs/record-reduced-motion-check` | `bb515b82a36e` |
+| `docs/reduced-motion-confirmed` | `0d4de729ad4f` |
+| `docs/remeasure-bundles` | `163201015d52` |
+| `docs/status-addendum-batches` | `3596364e6f46` |
+| `docs/status-axe-core` | `2cf397ff3c07` |
+| `docs/status-batch-four-merged` | `86ad6f29df08` |
+| `docs/status-batch-three-merged` | `9b45e6898c35` |
+| `docs/status-date-and-prs` | `f1c5195c7d7c` |
+| `docs/status-frontend-audit-outcome` | `91facbb6b593` |
+| `docs/status-frontend-complete` | `9d8368b34292` |
+| `docs/status-redesign-stages-2-3` | `dba90f64fdb2` |
+| `docs/status-stage-4` | `9ef35ca0de2b` |
+| `feat/account-page` | `6e9a926fd4aa` |
+| `feat/axe-core` | `1b4c0d1d3a97` |
+| `feat/catalogue-discovery` | `4e85ca0947a8` |
+| `feat/error-boundaries` | `64d7b70bd671` |
+| `feat/my-courses-pagination` | `5c6b2974a3c1` |
+| `feat/player-comfort` | `21d57867e693` |
+| `feat/redesign-marketing-composition` | `859e2be8948b` |
+| `feat/retry-failed-loads` | `785aadc76bc9` |
+| `feat/seo-canonical-and-sitemap` | `8fb2425386ea` |
+| `feat/share-images` | `13bf66a848ff` |
+| `feat/structured-data-and-guards` | `25d0463a02f4` |
+| `feat/wcag-22-guards` | `2be17c7a4d7c` |
+| `fix/caption-language` | `c14037f7897f` |
+| `fix/declare-color-scheme` | `f2e8cd67784b` |
+| `fix/focus-not-obscured` | `e8d58bcae1e7` |
+| `fix/frontend-token-syntax` | `e98852f0a3c3` |
+| `fix/logical-properties` | `ae4cf22c6c92` |
+| `fix/next-og-rce` | `2d949cc0089d` |
+| `fix/redeemable-tokens` | `3f6e806172cc` |
+
 ## Quality and performance pass — 2026-10-29: four reviewers, and two real regressions
 
 `/simplify` ran four independent cleanup agents over the whole branch, and a
