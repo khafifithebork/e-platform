@@ -13,7 +13,7 @@ start. CLAUDE.md §10 still applies: read this, update it at the end.
 
 ## Where the work is
 
-**Branch `claude/sweet-thompson-l7vxaa`, 13 commits, pushed, nothing uncommitted.**
+**Branch `claude/sweet-thompson-l7vxaa`, 14 commits, pushed, nothing uncommitted.**
 **Open for review as PR #122** —
 https://github.com/khafifithebork/e-platform/pull/122 — opened 2026-10-30 at head
 `b0c28ce` on the owner's request. Not merged; `master` is unchanged at `be4cc03`.
@@ -32,7 +32,25 @@ green, all four artifact gates passing with worst first load 322.9 KB.
 | # | Item | Who |
 |---|---|---|
 | 1 | **Delete the 48 branches.** Authorised, identified, SHAs recorded — and **blocked twice from this session** (see the branch-cleanup entry). It is one `git push origin --delete` with the names in that table, from somewhere with credentials that permit deletion | anyone with those credentials |
-| 2 | **`codex/private-beta-plan`** — unmerged, and holds **security dependency upgrades** (DRF 3.18.3, Next.js 16.4.1, Sentry 10.75.2, Vitest 4.1.12, pinned Vite/Zod transitives) plus a `BetaInvitation` model and migration. Every dependency there is a §5 gate and the model is a product decision, so **do not merge it on a general go-ahead** | owner |
+| 2 | **`codex/private-beta-plan`** — unmerged, and holds **security dependency upgrades** (Next.js 16.4.1, Sentry 10.75.2, Vitest 4.1.12, pinned Vite/Zod transitives) plus a `BetaInvitation` model and migration. Every dependency there is a §5 gate and the model is a product decision, so **do not merge it on a general go-ahead**. Its **DRF 3.18.3 bump is already ported here** (below), so that one no-ops | owner |
+
+**CI on PR #122 is red on `Audit (frontend)` and it is not this branch's doing.**
+Both audits read live advisory databases, and the audited manifests are
+byte-identical to `master`, so `master` would fail them too — its last run
+(2026-10-20) simply predates the advisories. 11 high-severity frontend findings:
+3× Next.js including the image-optimization RCE, 4× undici, Sentry,
+`body-parser`, `launch-editor`, Zod, plus a stale `GHSA-vfj7-8cjw-p6xm` /
+`braces` exception needing re-triage. **This is the known failure mode this file
+already records** — "any branch can go red overnight without an edit".
+
+**`Audit (backend)` was fixed here, on an explicit §5 approval, and the scope of
+that approval matters:** the owner approved **the DRF pin alone**, 3.18.0 →
+3.18.3 (`f256d19`). `pip-audit` reproduced three advisories before and reports
+clean after; 1627 tests unchanged; schema byte-identical. **That approval does
+not extend to the frontend upgrades** — Next.js 16.4.1 and the undici chain are
+not patch bumps, and ADR-022 §3 and §11's `wrangler` row treat that class as a
+decision. Do not read one as consent for the other.
+
 | 3 | **`codex/bundle-asset-validation`** — its fix is already recovered on this branch as `9f38601`; the branch can go once that is merged | — |
 | 4 | **E8 objectives and prerequisites.** Blocked on a *shape*, not effort: are objectives one prose block or an ordered list of short statements, and is a prerequisite free text or a relation to another `Course`? Each picks a different API, admin surface and page, and a wrong choice costs a migration to undo. ADR-041's last section states this | owner |
 | 5 | Everything in CLAUDE.md §11 — payment provider, the spend, a domain, the `wrangler` upgrade, the video provider, `@sentry/cloudflare`, policy content, M9's trial rule | owner |
