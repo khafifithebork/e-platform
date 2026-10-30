@@ -1,9 +1,1 @@
-[
-  {
-    "advisory": "GHSA-vfj7-8cjw-p6xm",
-    "path": ["eslint-config-next", "@next/eslint-plugin-next", "fast-glob", "micromatch", "braces"],
-    "triager": "khafifithebork (project owner)",
-    "reviewBy": "2026-11-07",
-    "reason": "Owner approved this exact development-only lint dependency exception on 2026-10-08. npm still reports braces 3.0.3 as the latest release. This accepts the reported nested-pattern denial-of-service risk on this path; it does not establish non-exploitability. A two-major eslint-config-next downgrade and excluding all dev dependencies were rejected. Reassess within 30 days; see ADR-022 section 3."
-  }
-]
+[]

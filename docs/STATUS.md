@@ -5,6 +5,53 @@
 
 ---
 
+## Retired — 2026-10-30: the braces exception, and the coupling that held it in place
+
+**The advisory was revised upstream; the exception was obsolete, not merely stale.**
+`braces` is still 3.0.3 in the lockfile, 3.0.3 is still the newest published version,
+and npm no longer reports GHSA-vfj7-8cjw-p6xm against it at all — confirmed by
+auditing `braces@3.0.3` alone in a temp directory, where it comes back with zero
+findings. Whether the advisory was withdrawn or its affected range corrected is
+**unverified**; only the observable result is claimed. The 2026-10-08 decision to wait
+for upstream rather than downgrade `eslint-config-next` two majors was therefore the
+right call, and `--omit=dev` would have hidden the undici and fast-uri work since.
+
+`frontend/audit-allowlist.json` is now `[]`. That removes the hard gate failure
+scheduled for **2026-11-08**, where `validateExceptions` would have thrown on the
+expiry and failed the whole gate rather than reverting one suppression.
+
+**Why it could not simply be deleted.** `assert-dependency-audit.test.mjs:8` read the
+live allowlist and line 11 made it the default `entries` for every `run(...)` — twelve
+call sites. Emptying the file broke **8 of the 16 tests**, and line 90 asserted the
+very 2026-11-08 expiry it was about to lose. Those assertions were parameterised by
+production configuration: re-triaging an entry to a different path would have silently
+changed what they tested instead of failing. A guard whose expectations come from the
+thing it guards is not a guard.
+
+The suite now owns its fixture — a faithful copy of the retired entry, kept because the
+whole file is built around that advisory and that dependency path, and because the
+recorded `fixtures/npm-audit-2026-10-08.json` reports exactly it. The live file is
+validated separately by one new test, so a malformed or expired entry still surfaces
+here rather than as a mystery CI failure. Logic against a fixture, configuration as
+configuration. 18 tests now, all passing.
+
+**Provoked seven ways**, each landing on the test that covers it: severity no longer
+treated as high (10 fail), exact-path matching dropped (3), stale reporting removed (1),
+the `reviewBy` deadline no longer enforced (1), an expired live entry (1), a malformed
+live entry (1), and high findings excused under an empty allowlist (3).
+
+**One assertion of my own was removed for being vacuous.** The new validation test first
+read `assert.equal(result.stale.length, live.length)` — which is `0 === 0` with an empty
+allowlist and holds even if the gate stops reporting stale entries entirely. Confirmed by
+provocation: breaking `stale` fails `reports_stale_exceptions` and nothing there. Stale
+coverage belongs with the fixture, where there is an entry to go stale.
+
+Verified: gate exit 0 with no STALE line for the first time, 18 gate tests, 25 script
+tests, types and lint clean. The gate's thresholds, invocation and CI wiring are
+untouched; ADR-022 §3 policy is unchanged.
+
+---
+
 ## Correction — 2026-10-30: the undici override never reached the copy that runs
 
 **The overrides in `71813d7` made `npm audit` green while leaving the vulnerable code
