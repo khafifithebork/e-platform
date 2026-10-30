@@ -1,7 +1,7 @@
 # STATUS
 
 **Last updated:** 2026-10-30
-**Updated by:** Claude (PRs #121 and #122 merged; master at 26ae207)
+**Updated by:** Claude (PRs #121, #122 and #123 merged; all of this work is on `master`)
 
 ---
 
@@ -13,14 +13,23 @@ start. CLAUDE.md §10 still applies: read this, update it at the end.
 
 ## Where the work is: all of it is on `master`
 
-**`master` is at `26ae207`. Nothing is in flight — no open PR, no unmerged
-branch of this work, nothing uncommitted.** Both pull requests merged on
-2026-10-30, in order, each with all four checks green on the head that merged:
+**Nothing is in flight — no open PR, no unmerged branch of this work, nothing
+uncommitted.** Three pull requests merged on 2026-10-30, in order, each with all
+four checks green on the head that merged:
+
+> **This file deliberately does not state where `master` currently is.** A
+> document cannot correctly name the SHA of the commit that contains it: the
+> value is wrong the moment it is written. An earlier version of this section
+> said "master is at 26ae207" and was stale on merge, which is the second time
+> that trap caught this file — a commit *count* went the same way and was
+> removed for the same reason. The SHAs below are different: each records what a
+> merge produced, which never changes. For `master`'s position, ask git.
 
 | | | |
 |---|---|---|
 | **#121** `codex/private-beta-plan` | merged as `8b55e20` | the security dependency set, and `BetaInvitation` with migration `0005_betainvitation` |
 | **#122** `claude/sweet-thompson-l7vxaa` | merged as `26ae207` | ADR-040 authorization, ADR-041 course duration, the bundle guard, the shared privilege predicate |
+| **#123** `claude/sweet-thompson-l7vxaa` | merged as `7683cdf` | this handoff, recording the two merges above |
 
 **Neither merge deployed anything.** Both deploy jobs are gated on
 `DEPLOY_ENABLED`, which is not set — verified against a real push to `master`
@@ -240,17 +249,22 @@ still on the remote, verified after each attempt. The claim is corrected rather
 than quietly edited because a STATUS entry asserting work that did not happen is
 the failure §6 names outright, and the next session would have believed it.
 
-The owner authorised the deletion. Counted exactly against `master` at
-`26ae207`: **62 remote branches besides `master`; 50 are deletable and 12 are
-kept.** The 50 are **49 that `git branch -r --merged` reports as ancestors** of
-`master`, plus `codex/course-detail-journal`, which is not an ancestor but whose
-one commit `git cherry` shows has **zero unique patches** — its content is in
-`master` under a different hash.
+The owner authorised the deletion. **Re-counted against `master` after all three
+merges, not carried forward: 62 remote branches besides `master`, of which 50 are
+deletable and 12 are kept.**
 
-The table below lists the 48 identified before the merges. The two that joined
-when they merged are `codex/private-beta-plan` (`71813d7712b5`) and
-`claude/sweet-thompson-l7vxaa` (`3cccf5f42b59`); delete the latter last, since
-sessions work from it. The stale M0-era
+The 50 are **49 that `git branch -r --merged` reports as ancestors** of `master`,
+plus `codex/course-detail-journal` — not an ancestor, but `git cherry` shows its
+one commit has **zero unique patches**, so its content is in `master` under a
+different hash. Nothing is on that list because its work "probably" landed.
+
+`claude/sweet-thompson-l7vxaa` is among those 49 and is the one to delete
+**last**: sessions restart it from `master` each time its pull request merges, so
+it reappears rather than staying deleted.
+
+The table below lists the 48 identified before the merges; the two that joined
+are `codex/private-beta-plan` (`71813d7712b5`) and
+`claude/sweet-thompson-l7vxaa` (`3cccf5f42b59`). The stale M0-era
 tidy-up note this replaces named five branches that had already been deleted
 years of milestones ago.
 
