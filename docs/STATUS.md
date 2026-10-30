@@ -1,7 +1,57 @@
 # STATUS
 
-**Last updated:** 2026-10-24
-**Updated by:** Codex (approved Vitest repair verified; fresh inherited audit findings block release)
+**Last updated:** 2026-10-30
+**Updated by:** Claude (frontend dependency audit settled; both audit gates now green)
+
+## Latest repair — 2026-10-30: the frontend audit gate passes
+
+The owner asked for the frontend security upgrades to be settled **here** rather
+than ported into PR #122, so `master` goes green for every branch at once instead
+of one branch carrying a private copy.
+
+**This branch's existing upgrades were already most of the answer.** Measured on
+the tip before changing anything: the gate reported **5 failures** where PR #122's
+CI reported 11. Sentry `GHSA-mchm-gjx6-7h55`, all three Next.js advisories
+(`GHSA-2464-fhr4-w9xw`, `GHSA-p3m5-59mp-jv5r`, `GHSA-673q-mjm6-r5xr`),
+launch-editor `GHSA-587h-7wmj-h5pm` and Zod `GHSA-mrhx-c7xc-m3w5` were already
+cleared by the Sentry 10.75.2, Next.js 16.4.1 and Vite/Zod work recorded below.
+
+**What remained were advisories published after that work**, which is why the
+notes below do not mention them: `undici` ×4 and `body-parser`. Both arrive on
+**development-only** paths — `undici` through `jsdom` (the test DOM) and
+`wrangler`→`miniflare`, `body-parser` through `@opennextjs/cloudflare`→
+`@opennextjs/aws`→`express`. Fixed by two `overrides`, the mechanism this branch
+already uses for transitives: **`undici` 7.30.1** and **`body-parser` 2.4.0**.
+Those versions are the advisories' own first-fixed releases (`< 7.30.1`,
+`< 2.4.0`), not a guess, and `qs` 6.16.0 → 6.17.1 follows body-parser.
+
+`npm audit`'s remaining high-level entry is `fast-uri`, and the gate is right to
+pass it: every one of its four advisories is **moderate or low** per-advisory, and
+`assert-dependency-audit.mjs` filters on per-advisory severity rather than npm's
+package rollup — ADR-022 §3's deliberate choice not to fire on moderate.
+
+Verified, run rather than assumed: **dependency audit gate exits 0** ("all
+high/critical findings accounted for"); its own 16 regression tests pass;
+**1564 backend tests pass, 40 skipped**; `pip-audit` clean on DRF 3.18.3;
+**757 frontend tests across 60 files**; `tsc` and ESLint clean; `ruff`
+check/format clean; `makemigrations --check` detects no changes; production build
+green against a live seeded API; all four artifact gates pass.
+
+**One number moved and is worth knowing: the worst first load is 335.4 KB, up
+from 322.9 KB on `master`.** Next.js 16.4.1 and Sentry 10.75.2 cost ~12.5 KB, so
+the headroom under E4's approved 350 KB ceiling fell from 27.1 KB to **14.6 KB**.
+It passes; the next frontend feature has noticeably less room.
+
+**Two things deliberately left alone.** The stale `GHSA-vfj7-8cjw-p6xm` braces
+exception in `frontend/audit-allowlist.json` still warns, and **expires
+2026-11-07, after which it hard-fails the gate** (`validateExceptions` throws on
+an expired entry). It was removed and then restored: `assert-dependency-audit
+.test.mjs` reads that live file as its own fixture, so emptying it broke 8 of 16
+gate tests. It is also an owner-approved exception with the owner named as
+triager. **Removing it needs the test decoupled from live security config first,
+and re-triaging it is the owner's** — but the expiry is 8 days away. Separately,
+the `BetaInvitation` model, its migration and `tasks/` remain this branch's own
+product work and were not touched.
 
 ## Latest repair — 2026-10-24: Vitest 4.1.12 verified
 
