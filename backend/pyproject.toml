@@ -18,8 +18,9 @@ dependencies = [
     "django==5.2.17",
     # 3.18.3, not 3.18.0: pip-audit failed CI on GHSA-33wh-fxxf-88vv,
     # GHSA-3547-9m27-7rxg and GHSA-xw6w-gcfp-cf8m, all fixed in 3.18.2. Pinned
-    # to .3 rather than the minimum .2 to match the upgrade already made on
-    # `codex/private-beta-plan`, so the two cannot disagree about one pin.
+    # to .3 rather than the minimum .2 because PR #121 had already chosen that
+    # version, so two branches could not disagree about one pin; both reached
+    # this value independently and the merge was a no-op on the pin itself.
     # Do not downgrade: the audit gate fails again below 3.18.2.
     "djangorestframework==3.18.3",
     "drf-spectacular==0.30.0",

@@ -1,7 +1,7 @@
 # STATUS
 
 **Last updated:** 2026-10-30
-**Updated by:** Claude (session handoff; branch-deletion claim corrected)
+**Updated by:** Claude (PR #121 merged; dependency audits green on master)
 
 ---
 
@@ -17,10 +17,23 @@ start. CLAUDE.md §10 still applies: read this, update it at the end.
 count here on purpose: stating one in a file that each commit also edits makes it
 wrong on write. PR #122 shows the authoritative count.)
 **Open for review as PR #122** —
-https://github.com/khafifithebork/e-platform/pull/122 — opened 2026-10-30 at head
-`b0c28ce` on the owner's request. Not merged; `master` is unchanged at `be4cc03`.
-Its description carries the four things reviewer attention is most worth spending
-on, the one behaviour that changes, and what is deliberately out of scope.
+https://github.com/khafifithebork/e-platform/pull/122 — opened 2026-10-30 on the
+owner's request. Its description carries the four things reviewer attention is
+most worth spending on, the one behaviour that changes, and what is deliberately
+out of scope.
+
+**`master` moved on 2026-10-30: PR #121 is merged, at `8b55e20`.** The owner
+instructed it, with all four checks green on `71813d7`. That landed the security
+dependency set — DRF 3.18.3, Next.js and ESLint config 16.4.1, Sentry 10.75.2,
+Vitest 4.1.12, Vite/Zod overrides, and the `undici` 7.30.1 / `body-parser` 2.4.0
+additions for advisories published after that branch's original work — **and the
+`BetaInvitation` model with migration `0005_betainvitation`.** No deploy: both
+deploy jobs are gated on `DEPLOY_ENABLED`, which is not set, verified against a
+prior push to master where both concluded `skipped`.
+
+**So `Audit (frontend)` is fixed for every branch now**, which is why settling it
+on #121 rather than porting it into #122 was the right call. This branch has
+`master` merged in to pick it up.
 
 It carries two ADRs (**040** authorization in services and selectors, **041**
 course duration derived and all-or-nothing) and the work the three entries below
@@ -34,7 +47,7 @@ green, all four artifact gates passing with worst first load 322.9 KB.
 | # | Item | Who |
 |---|---|---|
 | 1 | **Delete the 48 branches.** Authorised, identified, SHAs recorded — and **blocked twice from this session** (see the branch-cleanup entry). It is one `git push origin --delete` with the names in that table, from somewhere with credentials that permit deletion | anyone with those credentials |
-| 2 | **`codex/private-beta-plan`** — unmerged, and holds **security dependency upgrades** (Next.js 16.4.1, Sentry 10.75.2, Vitest 4.1.12, pinned Vite/Zod transitives) plus a `BetaInvitation` model and migration. Every dependency there is a §5 gate and the model is a product decision, so **do not merge it on a general go-ahead**. Its **DRF 3.18.3 bump is already ported here** (below), so that one no-ops | owner |
+| 2 | ~~**`codex/private-beta-plan`**~~ — **merged 2026-10-30 as PR #121** on the owner's instruction (`8b55e20`). Both dependency audits are now green on `master`. Its branch is safe to delete once the owner is satisfied | done |
 
 **CI on PR #122 is red on `Audit (frontend)` and it is not this branch's doing.**
 Both audits read live advisory databases, and the audited manifests are
@@ -53,9 +66,18 @@ not extend to the frontend upgrades** — Next.js 16.4.1 and the undici chain ar
 not patch bumps, and ADR-022 §3 and §11's `wrangler` row treat that class as a
 decision. Do not read one as consent for the other.
 
-| 3 | **`codex/bundle-asset-validation`** — its fix is already recovered on this branch as `9f38601`; the branch can go once that is merged | — |
+| 3 | **`codex/bundle-asset-validation`** — its fix is already recovered on this branch as `9f38601`; the branch can go once PR #122 merges | — |
 | 4 | **E8 objectives and prerequisites.** Blocked on a *shape*, not effort: are objectives one prose block or an ordered list of short statements, and is a prerequisite free text or a relation to another `Course`? Each picks a different API, admin surface and page, and a wrong choice costs a migration to undo. ADR-041's last section states this | owner |
 | 5 | Everything in CLAUDE.md §11 — payment provider, the spend, a domain, the `wrangler` upgrade, the video provider, `@sentry/cloudflare`, policy content, M9's trial rule | owner |
+
+**One dated item now on `master`, and it is the owner's.** The stale
+`GHSA-vfj7-8cjw-p6xm` braces exception in `frontend/audit-allowlist.json` warns
+today and **expires 2026-11-07, after which `validateExceptions` throws and the
+dependency-audit gate hard-fails on every branch.** It cannot simply be deleted:
+`assert-dependency-audit.test.mjs` reads that live file as its own fixture, so
+emptying it breaks 8 of its 16 tests — tried and reverted. Closing it needs the
+test decoupled from live security config first, then a remove-or-re-triage call
+from the named triager, who is the owner.
 
 **Do not re-derive these**, they were settled this session: the cost-figure
 defects are verified and annotated (no figure was rewritten — §6); the stale
@@ -571,6 +593,273 @@ it is model permissions that separate operators. `MediaAssetAdmin` is scoped
 because this batch is about media; `WebhookEventAdmin` and the rest were not
 reviewed. **Whether the admin should require `Role.ADMIN` outright is a change to
 the admin access strategy and is the owner's under §5**, not a repair batch's.
+**Updated by:** Claude (frontend dependency audit settled; both audit gates now green)
+
+## Latest repair — 2026-10-30: the frontend audit gate passes
+
+The owner asked for the frontend security upgrades to be settled **here** rather
+than ported into PR #122, so `master` goes green for every branch at once instead
+of one branch carrying a private copy.
+
+**This branch's existing upgrades were already most of the answer.** Measured on
+the tip before changing anything: the gate reported **5 failures** where PR #122's
+CI reported 11. Sentry `GHSA-mchm-gjx6-7h55`, all three Next.js advisories
+(`GHSA-2464-fhr4-w9xw`, `GHSA-p3m5-59mp-jv5r`, `GHSA-673q-mjm6-r5xr`),
+launch-editor `GHSA-587h-7wmj-h5pm` and Zod `GHSA-mrhx-c7xc-m3w5` were already
+cleared by the Sentry 10.75.2, Next.js 16.4.1 and Vite/Zod work recorded below.
+
+**What remained were advisories published after that work**, which is why the
+notes below do not mention them: `undici` ×4 and `body-parser`. Both arrive on
+**development-only** paths — `undici` through `jsdom` (the test DOM) and
+`wrangler`→`miniflare`, `body-parser` through `@opennextjs/cloudflare`→
+`@opennextjs/aws`→`express`. Fixed by two `overrides`, the mechanism this branch
+already uses for transitives: **`undici` 7.30.1** and **`body-parser` 2.4.0**.
+Those versions are the advisories' own first-fixed releases (`< 7.30.1`,
+`< 2.4.0`), not a guess, and `qs` 6.16.0 → 6.17.1 follows body-parser.
+
+`npm audit`'s remaining high-level entry is `fast-uri`, and the gate is right to
+pass it: every one of its four advisories is **moderate or low** per-advisory, and
+`assert-dependency-audit.mjs` filters on per-advisory severity rather than npm's
+package rollup — ADR-022 §3's deliberate choice not to fire on moderate.
+
+Verified, run rather than assumed: **dependency audit gate exits 0** ("all
+high/critical findings accounted for"); its own 16 regression tests pass;
+**1564 backend tests pass, 40 skipped**; `pip-audit` clean on DRF 3.18.3;
+**757 frontend tests across 60 files**; `tsc` and ESLint clean; `ruff`
+check/format clean; `makemigrations --check` detects no changes; production build
+green against a live seeded API; all four artifact gates pass.
+
+**One number moved and is worth knowing: the worst first load is 335.4 KB, up
+from 322.9 KB on `master`.** Next.js 16.4.1 and Sentry 10.75.2 cost ~12.5 KB, so
+the headroom under E4's approved 350 KB ceiling fell from 27.1 KB to **14.6 KB**.
+It passes; the next frontend feature has noticeably less room.
+
+**Two things deliberately left alone.** The stale `GHSA-vfj7-8cjw-p6xm` braces
+exception in `frontend/audit-allowlist.json` still warns, and **expires
+2026-11-07, after which it hard-fails the gate** (`validateExceptions` throws on
+an expired entry). It was removed and then restored: `assert-dependency-audit
+.test.mjs` reads that live file as its own fixture, so emptying it broke 8 of 16
+gate tests. It is also an owner-approved exception with the owner named as
+triager. **Removing it needs the test decoupled from live security config first,
+and re-triaging it is the owner's** — but the expiry is 8 days away. Separately,
+the `BetaInvitation` model, its migration and `tasks/` remain this branch's own
+product work and were not touched.
+
+## Latest repair — 2026-10-24: Vitest 4.1.12 verified
+
+The owner approved upgrading Vitest from 4.1.11 to 4.1.12. Its mock tooling no
+longer reports GHSA-qxg6-89mg-rqv8 or GHSA-xp26-3454-mjgp. Direct installation
+first crashed in npm's optional-peer resolver, which was exploring Vitest 5.
+An exact direct pin with a matching literal override keeps resolution on the
+approved version and installs successfully. The documented `$vitest` reference
+form also failed to resolve in this environment; the equivalent literal form
+works. No npm upgrade, new direct dependency, forced audit fix or peer bypass
+was introduced. The generated lockfile changes Vitest's internal packages and
+its compatible Chai/tinyrainbow transitives; other dependency versions remain
+unchanged. Next.js, Sentry, Vite/Zod overrides and audit policy are preserved.
+
+All 757 frontend tests across 60 files pass with two workers; all 16 audit-guard
+tests pass unchanged. Types, lint, native production build, clean Linux npm ci
+and OpenNext 1.20.4 build pass. Both outputs pass static-route, page-structure,
+CSS-token and bundle guards: five public routes prerender, 13 pages pass structure
+checks and OpenNext emits a nonempty Worker. The largest initial bundle remains
+335.4 KB against the 350 KB ceiling. The existing metadataBase warning remains.
+Backend checks were not repeated locally for this frontend-tooling repair.
+
+Fresh native and Linux audits fail on inherited body-parser 2.3.0
+(GHSA-27r3-jxmh-p828) and undici 7.29.1 (GHSA-xjj6-f33q-929c). The complete npm
+report has two high and four moderate package findings, including fast-uri and
+the Cloudflare tooling ancestry. These versions did not change in this batch;
+the previous green audit snapshot is historical, not today's release status.
+Miniflare pins undici exactly; even the inspected latest Wrangler 4.152.0 still
+resolves a Miniflare pin of 7.29.1. A separate repair must verify compatibility,
+not follow npm's suggested adapter/CLI downgrade. The stale braces exception is
+still printed; no gate or exception was changed. PR #121 remains draft and is
+not release-ready. No API, business behavior, auth strategy, entitlement model,
+production configuration or database changed. Nothing was merged or deployed.
+Sources: https://github.com/vitest-dev/vitest/releases/tag/v4.1.12
+and https://docs.npmjs.com/cli/v10/configuring-npm/package-json/#overrides
+
+## Latest repair — 2026-10-23: Vite/Zod overrides resolve the audit blocker
+
+The owner approved the alternative after npm update failed twice. Explicit
+overrides pin existing transitives Vite 8.2.4 and Zod 4.6.6 within all installed
+parent ranges. Normal `npm install` succeeds; its generated lockfile changes only
+those two package entries. No direct dependency, npm upgrade, peer-resolution
+bypass or audit-fix force flag was added. Next.js, Sentry and Vitest are unchanged.
+
+All 757 frontend tests across 60 files pass with two workers, and all 16 audit
+guard tests pass unchanged. Types, lint, native production build and Linux
+OpenNext 1.20.4 build pass. A clean Linux `npm ci` succeeds and its audit gate
+also passes. Both build outputs pass static-route, page-structure, CSS-token and
+bundle checks: five public routes prerender, 13 pages pass structure checks and
+OpenNext emits a nonempty Worker. The largest initial bundle remains 335.4 KB
+against the unchanged 350 KB ceiling. The pre-existing metadataBase warning
+remains until a public domain is chosen. This is build verification, not proof
+of deployed Worker routing, live monitoring or production readiness.
+
+The complete npm report has zero high/critical findings and two moderate package
+findings in unchanged Vitest/@vitest/mocker: GHSA-qxg6-89mg-rqv8 and
+GHSA-xp26-3454-mjgp. Their published 4.1.12 repair is a separate proposed batch.
+The stale braces exception is still printed for cleanup; its policy and the
+high/critical gate are unchanged. The audit is passing, not vulnerability-free.
+Backend checks were not repeated locally for this tooling-only repair. No API,
+business behavior, auth strategy, entitlement model, production configuration or
+database changed. PR #121 remains draft; nothing was merged or deployed.
+Sources: https://github.com/vitejs/vite/releases/tag/v8.2.4
+and https://github.com/colinhacks/zod/releases/tag/v4.6.6
+
+## Latest blocker — 2026-10-23: transitive update cannot resolve peers
+
+The owner approved updating existing Vite/Zod transitives in the lockfile.
+`npm update vite zod` crashes while building Vitest's optional peer graph with
+`Cannot read properties of null (reading 'edgesOut')`. Windows npm 10.9.3 and
+a clean lockfile-only directory in Linux with npm 10.9.9 fail identically.
+Neither attempt modifies the repository's dependency files. No dependency repair
+or new validation pass is claimed. AGENTS section 9 requires stopping after two
+failed attempts. Proposed next approach: explicit compatible Vite/Zod overrides,
+requiring a new package.json change and owner approval before implementation.
+Launch-editor and Zod still block release; PR #121 remains draft. No merge,
+deployment, new dependency, audit exception or security-gate change occurred.
+
+## Latest repair — 2026-10-23: Sentry security upgrade verified
+
+The owner approved upgrading `@sentry/nextjs` from 10.72.0 to 10.75.2, the
+patched version for GHSA-mchm-gjx6-7h55. The package-manager-generated lockfile
+updates its SDK and tracing dependencies; no new direct dependency, Sentry
+configuration, service, credentials or paid feature was added. Next.js 16.4.1,
+OpenNext 1.20.4 and test-tool versions remain unchanged. A clean Linux `npm ci`
+succeeds. The refreshed npm audit no longer reports Sentry or any critical
+finding; it still fails on launch-editor GHSA-587h-7wmj-h5pm through Vite and
+Zod GHSA-mrhx-c7xc-m3w5, whose advisory was updated today. Zod 4.4.3 is unchanged
+by this repair and enters through existing development tooling. The old braces
+exception remains stale; no audit exception or security gate was changed.
+
+All 17 focused observability tests and 16 audit-guard tests pass. The initial
+full frontend run, concurrent with build work, had four 5-second timeouts and
+one subsequent DOM assertion failure. After compilation finished, the unchanged
+suite passed all 757 tests across 60 files with `--maxWorkers=2`; assertions,
+timeouts and runner configuration were not modified. Types, lint, the native
+production build and the separate Linux OpenNext build pass. Both outputs pass
+static-route, page-structure, CSS-token and bundle guards: five public routes
+prerender, 13 pages pass structure checks and OpenNext emits a nonempty Worker.
+The largest initial bundle grows from 323.1 KB to 335.4 KB, leaving 14.6 KB below
+the existing 350 KB ceiling. The pre-existing metadataBase warning remains.
+
+This verifies local builds and tests, not deployed Worker routing or live Sentry
+ingestion. Backend checks were not repeated for this frontend-only repair. No
+API, business behavior, auth strategy, entitlement model, production configuration
+or database changed. PR #121 remains draft and is not release-ready while the
+development-tool audit fails. Nothing was merged or deployed.
+Sources: https://github.com/getsentry/sentry-javascript/releases/tag/10.75.2
+and https://github.com/advisories/GHSA-mrhx-c7xc-m3w5
+
+## Latest repair — 2026-10-23: Next.js security upgrade verified
+
+The owner approved upgrading Next.js and its matching ESLint configuration from
+16.3.8 to 16.4.1. The package-manager-generated lockfile changes only Next.js
+packages; Sentry, the OpenNext adapter and development-tool versions are unchanged.
+Official release notes identify fixes for GHSA-2464-fhr4-w9xw,
+GHSA-673q-mjm6-r5xr and GHSA-p3m5-59mp-jv5r. The refreshed npm audit no longer
+reports Next.js. No application workaround or audit exception was added.
+
+All 757 frontend tests and 16 dependency-audit guard tests pass. Types, lint,
+the native production build and the Linux OpenNext 1.20.4 build pass. Both build
+outputs pass static-route, page-structure, CSS-token and bundle checks: five
+public routes prerender, 13 pages pass structure checks, and the largest initial
+bundle is 323.1 KB against the 350 KB ceiling. OpenNext emits a nonempty Worker.
+The first Linux attempt reached Django through host.docker.internal and received
+400; a direct comparison confirmed localhost returns 200. Reusing the API
+container's network and localhost fixed the verification environment without
+changing allowed hosts. Local environment/secret files were excluded from the
+disposable build container. The pre-existing metadataBase warning remains because
+no public domain is chosen. This verifies builds, not deployed Worker routing.
+
+The unchanged audit gate still fails for Sentry GHSA-mchm-gjx6-7h55 and
+launch-editor GHSA-587h-7wmj-h5pm through development tooling, and warns that the
+braces exception is stale. These require separate approved repairs; PR #121
+remains draft and is not release-ready. No API, auth strategy, entitlement model,
+production configuration or database changed. Backend tests were not repeated
+for this frontend-only batch. Nothing was merged or deployed.
+Source: https://github.com/vercel/next.js/releases/tag/v16.4.1
+
+## Latest repair — 2026-10-23: DRF security patch verified
+
+The owner approved the backend security repair. The sole dependency pin change
+is DRF 3.18.0 to 3.18.3: 3.18.2 fixes the three reported advisories, while 3.18.3
+also restores a helper return type accidentally changed in that release. Official
+release notes were reviewed before installation. No application workaround or
+audit exception was introduced.
+A fresh isolated environment installed the declared dependencies the same way
+CI does. `pip check` passed and `pip-audit --skip-editable` found no known
+vulnerabilities. The existing shared development environment has older certifi
+and urllib3 transitives; it was not silently upgraded or used for verification.
+All 26 focused auth/registration tests and all 1,604 backend tests passed on
+DRF 3.18.3, including the unchanged schema snapshot. Ruff check/format, frontend
+types/lint and migration drift checks pass. Production-settings deployment checks
+report zero issues using the local Compose configuration in memory; the initial
+host-only attempt lacked required storage settings. No values were logged or
+written, and no deployed configuration or database was changed.
+Frontend dependency findings remain unresolved and block release/CI approval.
+This batch does not authorize frontend upgrades, invitation services, merging or
+deployment. Source: https://www.django-rest-framework.org/community/release-notes/#3183
+
+## Latest blocker — 2026-10-23: security audits block the next beta slice
+
+Invitation foundation commit `a5cdca2` is pushed in draft PR #121. Both dependency
+audits fail on the inherited dependency set; no dependency was changed by this
+slice. Backend audit lists DRF 3.18.0 advisories GHSA-33wh-fxxf-88vv,
+GHSA-3547-9m27-7rxg and GHSA-xw6w-gcfp-cf8m, fixed in 3.18.2.
+Frontend audit reports Sentry GHSA-mchm-gjx6-7h55, Next.js
+GHSA-2464-fhr4-w9xw / GHSA-p3m5-59mp-jv5r / GHSA-673q-mjm6-r5xr, and
+launch-editor GHSA-587h-7wmj-h5pm through development tooling. Published fixes
+include Sentry 10.75.2, Next.js 16.4.1 and launch-editor 2.14.2 (or a patched
+parent); exact dependency trees and compatibility need checking before upgrades.
+The old braces exception is now reported stale; do not extend it or add blanket
+exclusions. Primary GitHub advisories and a read-only local npm audit confirm the
+findings; the report is in the task visualization directory. Dependency pins,
+lockfile and exception list remain unchanged. Propose separate reviewed security
+repair commits before invitation services; their AGENTS section 7 approval is
+required. Local feature verification below passed, but this PR is not CI-green
+or production-ready. Nothing was merged or deployed.
+
+## Latest implementation — 2026-10-23: beta invitation persistence
+
+The owner approved readiness slice 1. `BetaInvitation` records an email, explicit
+expiry and nullable revocation/consumption timestamps, with UUID and standard
+creation/update timestamps. PostgreSQL enforces case-insensitive email uniqueness
+and expiry strictly after creation, including direct writes that bypass services.
+Five new test cases cover the constraints on inserts/updates, rejected-write
+rollback and lifecycle persistence without creating an account. All failed before
+the model existed; all 18 focused invitation/registration tests and all 1,604
+backend tests now pass. Ruff check/format and frontend types/lint pass; migration
+drift check is clean and production-settings checks report zero issues.
+Migration 0005 creates only a new table and its unique index/check constraint;
+no existing table is altered and no backfill or concurrent index build is needed.
+Reverse SQL drops that new table and its rows. Forward/reverse SQL were reviewed;
+only the test database was migrated, not the running app database or production.
+Docker Desktop and the existing local services were started for verification.
+No invitation service, admin action, API, registration restriction or access grant
+is wired yet: the beta is not ready for invited onboarding. Existing registration
+and entitlement behavior remain unchanged. No schema/types regeneration was
+needed; the backend schema drift guard passed. Frontend tests/build were not rerun
+locally for this model-only batch. Slice 2 remains unapproved.
+
+## Latest direction — 2026-10-23: invited private beta, no payments
+
+The owner chose private beta without payments, keeping public pages visible
+and learner admission invitation-only. Lean costs must be verified before any
+purchase; no domain is chosen. `tasks/plan.md` and `tasks/todo.md` hold the
+proposed slices, checkpoints and remaining decisions. Registration currently
+allows any email, and UserAdmin cannot create accounts; admission needs real
+server-side enforcement, not a hidden link. Proposed beta lesson access uses
+existing bounded, audited admin overrides rather than fake paid subscriptions.
+Current official vendor sources were inspected; server availability, a full
+hosting/staging/backup quote and a spending cap remain unapproved. Conflicting
+legacy approval records are flagged rather than rewritten. No application,
+provider, auth strategy, entitlement model or deployment setting changed.
+PR #120 remains green and open. First proposed implementation: invitation
+persistence and constraints; AGENTS section 7 approval is still required.
 
 ## Latest repair — 2026-10-19: instructor editing excludes destructive deletion
 
