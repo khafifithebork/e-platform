@@ -5,6 +5,50 @@
 
 ---
 
+## Correction — 2026-10-30: the undici override never reached the copy that runs
+
+**The overrides in `71813d7` made `npm audit` green while leaving the vulnerable code
+in place.** An npm `overrides` pin rewrites the dependency tree; it cannot touch a
+copy a publisher bundled at publish time. `wrangler@4.151.0` esbuild-inlines undici
+**7.29.1** into `wrangler-dist/`, with no external `require("undici")` — verified by
+unpacking the published tarball, not inferred. So `overrides: { undici: "7.30.1" }`
+silenced the gate and changed nothing about what executes.
+
+That matters because of where it executes. `.github/actions/deploy/action.yml` runs
+plain `npm ci` and then `opennextjs-cloudflare deploy` in the job holding
+`CLOUDFLARE_API_TOKEN`, and `getPlatformProxy` ends in `new miniflare.Miniflare(...)`.
+Two of the four undici advisories are a TLS certificate validation bypass
+(GHSA-2m5v-pch6-74hx) and cache poisoning with cross-user disclosure
+(GHSA-4w7w-5xrc-9h26) — in the HTTP client of the process that authenticates to
+Cloudflare.
+
+**Fixed by upgrading `wrangler` to 4.155.0**, which is the only thing that reaches the
+inlined copy: its bundle now carries undici 7.30.1 (verified on the installed tree).
+The `undici` override is **removed** as redundant — undici resolves to 7.30.1 natively
+through miniflare, so the lockfile now states the truth about what wrangler brings
+rather than pinning over it. `fast-uri` moves 3.1.8 → 3.1.9, clearing the last
+moderate and disarming a latent gate crash: an exception written for any
+fast-uri-rooted advisory makes `pathsTo` throw on a webpack peer cycle, discarding
+every other accepted exception.
+
+Nine lockfile versions change, nothing added or removed. `npm audit` reports zero
+findings. Verified: install exit 0, gate exit 0, its 16 self-tests pass, 23 script
+tests pass, types and lint pass, full vitest suite passes.
+
+**Not verified:** static generation, the `verify:*` scripts and the OpenNext/Worker
+build — Docker was down, so the API was unreachable and `next build` stops at page
+collection by design (abuse case 6). Windows npm, not Linux. CI covers both.
+
+**Still open, unchanged by this:** `next` vendors undici 6.21.0 where no gate here can
+see it and whose Worker reachability is unproven; the braces allowlist entry hard-fails
+the entire gate on **2026-11-08**, and removing it breaks 8 of 16 gate self-tests
+because `assert-dependency-audit.test.mjs:8` reads the live allowlist as the default
+argument for twelve call sites; the gate has a flaky-red mode that renders a transient
+registry response identically to a real vulnerability; and the backend `pip_audit` half
+runs with no severity filter and was never examined.
+
+---
+
 # ► RESUME HERE — handoff, 2026-10-30
 
 **This section is for whoever picks the project up next.** Everything below the
