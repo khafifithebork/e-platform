@@ -2029,6 +2029,7 @@ export interface components {
             published_at?: string | null;
             readonly sections: components["schemas"]["PublicSection"][];
             readonly related: components["schemas"]["PublicCourse"][];
+            readonly total_duration_seconds: number | null;
         };
         /**
          * @description A lesson as an anonymous visitor sees it: a title and a shape.

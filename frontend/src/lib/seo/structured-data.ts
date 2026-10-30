@@ -23,10 +23,17 @@ import { canonical } from "@/lib/site";
  * neither: courses are self-paced and live classes are explicitly unapproved
  * (CLAUDE.md §11 #2).
  *
- * **`timeRequired` / `courseWorkload`.** `MediaAsset.duration_seconds` exists but
- * `total_duration_seconds` was deferred by ADR-007 §4, so no aggregate is exposed.
- * Summing it in the frontend would be a second definition of a figure the catalogue
- * is supposed to own.
+ * **`timeRequired` / `courseWorkload`.** The reason here used to be that no aggregate
+ * existed. **It does now** — ADR-041 added `total_duration_seconds` to the course
+ * detail response, derived in the catalogue and withheld (`null`) until every lesson
+ * that counts has been measured. So the original objection is gone, and summing it in
+ * the frontend is still the wrong move for the original reason: the catalogue owns the
+ * figure.
+ *
+ * What is left is a deliberate omission rather than a blocked one. Emitting
+ * `timeRequired` means choosing an ISO 8601 duration and deciding what a course with
+ * `null` emits — nothing, or the property omitted — which is a structured-data
+ * decision with search-result consequences, not a formatting detail. Not taken here.
  *
  * ## How it is rendered, and why that needed checking
  *

@@ -18,7 +18,8 @@ from django.contrib import admin, messages
 
 from apps.core.models import WebhookEvent
 from apps.media_assets.models import MediaAsset
-from apps.media_assets.services import UploadNotAllowed, retry_processing
+from apps.media_assets.selectors import assets_manageable_by
+from apps.media_assets.services import NotYours, UploadNotAllowed, retry_processing
 
 
 @admin.register(MediaAsset)
@@ -58,6 +59,23 @@ class MediaAssetAdmin(admin.ModelAdmin):
         "updated_at",
     ]
 
+    def get_queryset(self, request):
+        """The dead-letter queue, scoped to what the operator may manage.
+
+        Closing the write hole below left the **read** open, which a review of
+        that fix caught: `is_staff` is not a role, so an account with role
+        STUDENT and only `view_mediaasset` loaded this changelist and every
+        change form on it — `source_object_key`, `provider_asset_id` and
+        `error_message` included. Reproduced, like the write hole, rather than
+        reasoned about.
+
+        Admins and superusers still see everything, so the queue keeps the
+        whole point §10 M5 gives it; anyone else sees their own courses'
+        assets. `assets_manageable_by` rather than a second filter written
+        here, so this surface cannot drift from the API.
+        """
+        return assets_manageable_by(user=request.user).order_by(*self.get_ordering(request))
+
     def has_add_permission(self, request) -> bool:
         # An asset without an uploaded master behind it is a row describing
         # nothing.
@@ -76,11 +94,23 @@ class MediaAssetAdmin(admin.ModelAdmin):
         Per asset rather than in bulk: a selection routinely mixes states, and
         one that cannot be retried must be reported rather than silently
         skipped or allowed to cancel the rest.
+
+        ``by=request.user``, because ``is_staff`` is not a role: a staff
+        account holding only ``change_mediaasset`` used to requeue any
+        instructor's asset from here, since the ownership check lived in the
+        view this never passes through. The service now decides, and this
+        reports what it refused instead of appearing to succeed.
         """
         retried = 0
         for asset in queryset:
             try:
-                retry_processing(asset=asset)
+                retry_processing(asset=asset, by=request.user)
+            except NotYours:
+                self.message_user(
+                    request,
+                    f"{asset.lesson}: not an asset you may manage.",
+                    level=messages.WARNING,
+                )
             except UploadNotAllowed:
                 self.message_user(
                     request,

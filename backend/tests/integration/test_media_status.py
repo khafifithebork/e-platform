@@ -14,6 +14,8 @@ required a re-upload would satisfy a weaker assertion.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from apps.accounts.models import Role
@@ -119,9 +121,10 @@ class TestSeeingWhatHappened:
         assert body["retry_count"] == 3
 
     def test_another_instructor_gets_a_404(self, client, asset) -> None:
-        """Not 403 (§6.3). The asset is addressed by its own id, so ownership
-        is checked in the view rather than by a queryset filter — which is
-        exactly the case architecture.md §4.4 calls the commonest IDOR."""
+        """Not 403 (§6.3). The asset is addressed by its own id, which is the
+        case architecture.md §4.4 calls the commonest IDOR — answered by the
+        scope filter in `assets_manageable_by`, so a stranger's asset is
+        simply not in the queryset."""
         _user("rival@example.test")
         _sign_in(client, "rival@example.test")
 
@@ -295,6 +298,116 @@ class TestTheDeadLetterQueueIsReadable:
 
         assert b"not failed" in response.content
 
+    @pytest.fixture
+    def staff_outsider(self, db):
+        """Staff, permitted, and entitled to none of this content.
+
+        `is_staff` is independent of `Role` (`accounts/models.py`), so this
+        combination is reachable: an operator account granted model
+        permissions without being a platform admin.
+        """
+        from django.contrib.auth.models import Permission
+
+        user = _user("ops@example.test", Role.STUDENT)
+        user.is_staff = True
+        user.save(update_fields=["is_staff"])
+        user.user_permissions.add(
+            Permission.objects.get(codename="change_mediaasset"),
+            Permission.objects.get(codename="view_mediaasset"),
+        )
+        return user
+
+    def test_the_changelist_hides_another_instructors_asset(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """Closing the write hole below left this read open, and a review of
+        that fix found it. The queue listed every instructor's asset to any
+        permitted staff account."""
+        _sign_in(client, "ops@example.test")
+
+        page = client.get("/admin/media_assets/mediaasset/").content
+
+        assert b"masters/abc" not in page
+        assert b"fakeasset_abc" not in page
+
+    def test_the_change_form_is_a_404_for_another_instructors_asset(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """The changelist hiding a row is not enough on its own: the change
+        form is reachable by id, and it renders every field."""
+        _sign_in(client, "ops@example.test")
+
+        response = client.get(f"/admin/media_assets/mediaasset/{asset.pk}/change/")
+
+        assert response.status_code in (302, 404)
+        assert b"fakeplay_abc" not in response.content
+
+    def test_an_admin_still_sees_the_whole_queue(self, client, asset, admin_user) -> None:
+        """The scope must not have cost the queue its purpose (§10 M5)."""
+        _fail(asset, "provider exploded")
+        _sign_in(client, "admin@example.test")
+
+        page = client.get("/admin/media_assets/mediaasset/?status__exact=FAILED").content
+
+        assert b"FAILED" in page
+
+    def test_the_action_refuses_a_staff_user_who_is_not_an_admin(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """`is_staff` is not a role, so an operator can hold
+        `change_mediaasset` without being an admin — and before the service
+        took `by`, that account requeued any instructor's asset from here,
+        because the only ownership check was in a view this never touches.
+        Measured before the fix, not inferred from the code.
+
+        Two things now stop it, and the asset not moving is the contract:
+        `get_queryset` keeps it out of the selection, and the service would
+        refuse it anyway.
+        """
+        _fail(asset)
+        _sign_in(client, "ops@example.test")
+
+        response = client.post(
+            "/admin/media_assets/mediaasset/",
+            {"action": "retry_failed", "_selected_action": [str(asset.pk)]},
+            follow=True,
+        )
+
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
+        assert b"asset(s) requeued" not in response.content
+
+    def test_a_divergent_admin_scope_warns_rather_than_500s(
+        self, client, asset, staff_outsider
+    ) -> None:
+        """Why the action still catches `NotYours`.
+
+        With `get_queryset` scoped, that handler is unreachable from the admin
+        — the row is never in the selection. It is kept because the state it
+        handles is the one the equivalence tests forbid: a scope that grew
+        broader than `may_manage`. Unhandled, that divergence is a server
+        error page in front of an operator; handled, it is a warning.
+        """
+        from apps.media_assets.models import MediaAsset
+
+        _fail(asset)
+        _sign_in(client, "ops@example.test")
+
+        with patch(
+            "apps.media_assets.admin.assets_manageable_by",
+            return_value=MediaAsset.objects.all(),
+        ):
+            response = client.post(
+                "/admin/media_assets/mediaasset/",
+                {"action": "retry_failed", "_selected_action": [str(asset.pk)]},
+                follow=True,
+            )
+
+        assert response.status_code == 200
+        assert b"not an asset you may manage" in response.content
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
+
     def test_a_webhook_event_cannot_be_deleted(self, client, admin_user) -> None:
         """Deleting a row from the idempotency table lets a replayed event be
         processed a second time — the exact thing the unique constraint
@@ -313,3 +426,191 @@ class TestTheDeadLetterQueueIsReadable:
 
         assert response.status_code == 403
         assert WebhookEvent.objects.filter(pk=event.pk).exists()
+
+
+class TestRetryIsGuardedWhereEveryCallerPassesThrough:
+    """Invariant 2, demonstrated rather than asserted.
+
+    The ownership check used to live in `MediaAssetRetryView` alone, and the
+    class below records what that actually cost: `retry_processing` is also
+    reached from the admin action, which passes through no view at all.
+    """
+
+    def test_another_instructor_cannot_retry_without_a_view(self, asset) -> None:
+        from apps.media_assets.services import NotYours, retry_processing
+
+        _fail(asset)
+        rival = _user("rival@example.test")
+
+        with pytest.raises(NotYours):
+            retry_processing(asset=asset, by=rival)
+
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
+
+    def test_a_student_cannot_retry_without_a_view(self, asset) -> None:
+        from apps.media_assets.services import NotYours, retry_processing
+
+        _fail(asset)
+        student = _user("student@example.test", Role.STUDENT)
+
+        with pytest.raises(NotYours):
+            retry_processing(asset=asset, by=student)
+
+    def test_a_refused_retry_queues_nothing(self, asset) -> None:
+        """The status staying FAILED would hide a queued task. A refusal that
+        still enqueued would re-run the pipeline — and spend provider minutes
+        — for someone with no claim on the asset."""
+        from apps.media_assets.services import NotYours, retry_processing
+
+        _fail(asset)
+        rival = _user("rival@example.test")
+
+        with (
+            patch("apps.media_assets.tasks.process_media_asset.delay") as queued,
+            pytest.raises(NotYours),
+        ):
+            retry_processing(asset=asset, by=rival)
+
+        assert not queued.called
+
+    def test_the_owner_may_still_retry(self, asset, instructor) -> None:
+        """The guard added above must not have closed the door on the person
+        it exists for."""
+        from apps.media_assets.services import retry_processing
+
+        _fail(asset)
+        # `_fail` is a queryset update: refresh, or the service is handed an
+        # object that still says TRANSCODING.
+        asset.refresh_from_db()
+
+        retry_processing(asset=asset, by=instructor)
+
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.UPLOADED
+
+    def test_completing_someone_elses_upload_is_refused(self, asset) -> None:
+        """`complete_upload`'s own ownership guard, which had no negative test
+        until coverage with object storage running pointed at the line.
+
+        It refuses before touching the store, so this needs no S3 endpoint —
+        and `storage=None` proves it: a guard that ran after the `head` would
+        raise `AttributeError` here instead.
+        """
+        from apps.media_assets.models import MediaAssetStatus as S
+        from apps.media_assets.services import NotYours, complete_upload
+
+        MediaAsset.objects.filter(pk=asset.pk).update(status=S.PENDING)
+        asset.refresh_from_db()
+        rival = _user("rival@example.test")
+
+        with pytest.raises(NotYours):
+            complete_upload(asset=asset, by=rival, storage=None)
+
+        asset.refresh_from_db()
+        assert asset.status == S.PENDING
+
+    def test_a_stranger_is_not_told_the_asset_is_mid_flight(self, asset) -> None:
+        """Ownership is checked before state, deliberately. 409 for a
+        TRANSCODING asset and 404 for a FAILED one tells a stranger which it
+        is, and §6.3 forbids confirming even that."""
+        from apps.media_assets.services import NotYours, retry_processing
+
+        rival = _user("rival@example.test")
+
+        # The fixture asset is TRANSCODING — the state that raises
+        # UploadNotAllowed for someone who may act on it.
+        with pytest.raises(NotYours):
+            retry_processing(asset=asset, by=rival)
+
+
+class TestTheScopeFilterAndTheObjectCheckAgree:
+    """One rule in two forms is the drift `may_review` warns about.
+
+    `assets_manageable_by` is a queryset because a view needs one;
+    `may_manage` is a predicate because a service holds an object already.
+    Pinning them against each other is what makes the duplication safe: change
+    either and this fails.
+    """
+
+    @pytest.fixture
+    def rival(self, db):
+        return _user("rival@example.test")
+
+    def _agree(self, asset, user) -> None:
+        from apps.media_assets.selectors import assets_manageable_by
+        from apps.media_assets.services import may_manage
+
+        in_scope = assets_manageable_by(user=user).filter(pk=asset.pk).exists()
+        predicate = may_manage(lesson=asset.lesson, user=user)
+
+        assert in_scope == predicate, f"{user} disagrees: scope={in_scope} predicate={predicate}"
+
+    def test_they_agree_for_the_owner(self, asset, instructor) -> None:
+        self._agree(asset, instructor)
+
+    def test_they_agree_for_another_instructor(self, asset, rival) -> None:
+        self._agree(asset, rival)
+
+    def test_they_agree_for_a_student(self, asset) -> None:
+        self._agree(asset, _user("student@example.test", Role.STUDENT))
+
+    def test_they_agree_for_an_admin(self, asset) -> None:
+        self._agree(asset, _user("boss@example.test", Role.ADMIN))
+
+    def test_they_agree_for_a_superuser(self, asset) -> None:
+        """`is_superuser` without the ADMIN role — the pair every other check
+        in this codebase treats as one answer."""
+        root = _user("root@example.test", Role.STUDENT)
+        root.is_superuser = True
+        root.save(update_fields=["is_superuser"])
+
+        self._agree(asset, root)
+
+    def test_the_scope_is_empty_for_anonymous(self, asset) -> None:
+        """`may_manage` reads `role` through `getattr`, so it answers for
+        `AnonymousUser` too — and the queryset must not be more generous."""
+        from django.contrib.auth.models import AnonymousUser
+
+        self._agree(asset, AnonymousUser())
+
+    def test_a_divergent_scope_is_a_404_rather_than_a_500(self, client, asset) -> None:
+        """Why `MediaAssetRetryView` still catches `NotYours`.
+
+        With the scope filter in place that handler is unreachable — proved by
+        the equivalence tests above, not assumed — so coverage flagged it as a
+        line no request can execute. It is kept rather than deleted because
+        the state it handles is exactly the one those tests forbid: a scope
+        filter that grew broader than `may_manage`. Without the handler that
+        divergence is an unhandled exception and a 500; with it, the refusal
+        the service still makes reaches the caller as the 404 it should be.
+
+        Simulated by widening the selector, which is the only way to reach the
+        line at all.
+        """
+        from apps.media_assets.models import MediaAsset
+
+        _fail(asset)
+        _user("rival@example.test")
+        _sign_in(client, "rival@example.test")
+
+        with patch(
+            "apps.media_assets.views.assets_manageable_by",
+            return_value=MediaAsset.objects.all(),
+        ):
+            response = client.post(_retry(asset))
+
+        assert response.status_code == 404
+        asset.refresh_from_db()
+        assert asset.status == MediaAssetStatus.FAILED
+
+    def test_the_status_read_costs_a_bounded_number_of_queries(
+        self, client, asset, django_assert_max_num_queries
+    ) -> None:
+        """The scope filter adds a join rather than a second round trip
+        (ADR-009). Without `select_related` the serializer dereferences the
+        lesson and its course per response."""
+        _sign_in(client, "teacher@example.test")
+
+        with django_assert_max_num_queries(4):
+            assert client.get(_detail(asset)).status_code == 200

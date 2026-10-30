@@ -4,7 +4,19 @@ import operator
 from functools import reduce
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramSimilarity
-from django.db.models import Case, F, IntegerField, Prefetch, Q, Value, When
+from django.db.models import (
+    Case,
+    Count,
+    F,
+    IntegerField,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+    When,
+)
 
 from apps.accounts.models import Role, User
 from apps.catalog.models import (
@@ -13,6 +25,7 @@ from apps.catalog.models import (
     CourseStatus,
     Language,
     Lesson,
+    LessonType,
     Section,
 )
 
@@ -99,14 +112,119 @@ def published_courses():
     )
 
 
+# Where a course's total length comes from. `MediaAsset.duration_seconds` is
+# the only duration this product measures — it is written by the transcoding
+# task from what the provider reports, so it is a fact about the file rather
+# than a number anybody typed. Reached by ORM path rather than by importing
+# `media_assets`, which keeps the app boundary intact.
+# Where a course's total length comes from. `MediaAsset.duration_seconds` is
+# the only duration this product measures — it is written by the transcoding
+# task from what the provider reports, so it is a fact about the file rather
+# than a number anybody typed. Reached by ORM path rather than by importing
+# `media_assets`, which keeps the app boundary intact.
+_LESSON_DURATION = "media_asset__duration_seconds"
+
+# Which lessons count toward a course's length. Two conditions, not one, and
+# each closes a hole a review found in the other:
+#
+# * **By type**, because a TEXT or RESOURCE lesson never gets a `MediaAsset`.
+#   Counting it as awaiting measurement made completeness unsatisfiable, so a
+#   course with one text lesson withheld its total *forever* rather than until
+#   its videos were measured.
+# * **Or because it actually has an asset**, because nothing stops one. No
+#   constraint ties `MediaAsset` to a lesson type and `request_upload` never
+#   looks at one, so a TEXT lesson *can* carry a measured asset — and a filter
+#   on type alone would drop its real seconds from the total, which is the
+#   quiet understatement this whole rule exists to prevent.
+#
+# So a lesson blocks the total if it ought to have a duration or does have
+# one, and contributes whatever duration it reports.
+_COUNTS_TOWARD_DURATION = Q(lesson_type__in=LessonType.with_media()) | Q(media_asset__isnull=False)
+
+
+# A correlated subquery rather than an aggregate on the outer queryset, and the
+# reason is measured. Aggregating on the course row forces a GROUP BY over it,
+# and a course row here is ~3KB wide (description, skill areas, two joined
+# profiles), so PostgreSQL sorts and groups all of it to produce one integer.
+# On 500 courses with 24,000 lessons that cost **+4.1ms on a detail page and
+# +52ms on twenty cards**; this form costs ~0ms on both, agrees with the
+# aggregate on all 500 courses, and keeps the outer query's plan untouched.
+#
+# It is also simpler, which is the part worth noticing: "no measurable lessons"
+# needs no branch, because a subquery that matches no rows yields NULL by
+# itself. The aggregate form needed an explicit `When(_measurable=0)` to say
+# the same thing.
+_TOTAL_DURATION = Subquery(
+    Lesson.objects.filter(_COUNTS_TOWARD_DURATION, course=OuterRef("pk"))
+    .values("course")
+    .annotate(
+        # `Count` ignores nulls, so `_measured` counts measurable lessons whose
+        # asset reports a duration while `_measurable` counts the measurable
+        # lessons. Equal means every one of them has been measured.
+        _measurable=Count("pk"),
+        _measured=Count(_LESSON_DURATION),
+        _measured_seconds=Sum(_LESSON_DURATION),
+    )
+    .annotate(
+        _total=Case(
+            When(_measurable=F("_measured"), then=F("_measured_seconds")),
+            default=Value(None),
+            output_field=IntegerField(),
+        )
+    )
+    .values("_total")[:1],
+    output_field=IntegerField(),
+)
+
+
+def _with_total_duration(queryset):
+    """Annotate a course's total length, or ``None`` when it is not yet known.
+
+    **Derived, never stored.** A `total_duration_seconds` column would be a
+    second answer to a question the lesson rows already answer, maintained by
+    a job that can fall behind — the shape invariant 3 refuses for access and
+    invariant 13 refuses for transcripts.
+
+    **``None`` unless every lesson that counts has been measured, which is the
+    whole decision here.** A course with nine measured lessons and one still
+    transcoding would otherwise advertise nine lessons' worth of minutes as
+    its total — an understatement presented as a fact, which is the thing §6
+    forbids inventing. A learner deciding whether to start a course is better
+    served by no number than by a wrong one, and `None` is a value the
+    catalogue can render as silence. ADR-041.
+
+    A course with nothing measurable — no lessons, or only text and resources
+    — is `None` rather than zero. "Nothing to measure" and "zero minutes long"
+    are different claims and only one of them is true.
+
+    **A permanently FAILED asset does suppress the total indefinitely, and
+    that is deliberate.** Its duration genuinely is unknown, and the remedy is
+    to repair the asset, which is what M5's dead-letter queue and retry path
+    exist for — not to publish a total that quietly omits a lesson.
+    """
+    return queryset.annotate(total_duration_seconds=_TOTAL_DURATION)
+
+
 def published_course_detail(*, slug: str) -> Course:
     """One published course, with its curriculum, or ``DoesNotExist``.
 
     Prefetched: a detail page renders every section and every lesson, which is
     one query per section without this.
+
+    The duration annotation is applied here rather than in
+    ``published_courses``, and the honest reason is now a narrow one. It used
+    to be cost: the first version aggregated on the course row, which forced a
+    GROUP BY over a ~3KB row and measured **+52ms on twenty cards**. The
+    subquery form replacing it costs effectively nothing on a list, so **that
+    argument no longer holds** and is recorded here rather than left standing.
+
+    What remains is simply that no card shows the number, and a queryset every
+    public list, filter and search builds on should not carry a column none of
+    them reads. If a card ever wants it, measurement says moving the
+    annotation up is cheap — a product decision, not a performance one.
     """
     return (
-        published_courses()
+        _with_total_duration(published_courses())
         .prefetch_related(
             Prefetch("sections", queryset=Section.objects.order_by("position")),
             Prefetch("sections__lessons", queryset=Lesson.objects.order_by("position")),

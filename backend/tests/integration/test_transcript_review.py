@@ -263,3 +263,136 @@ class TestThereIsNoOtherRouteToApproved:
         assert (TranscriptStatus.MACHINE, TranscriptStatus.APPROVED) not in ALLOWED_TRANSITIONS
         assert (TranscriptStatus.PENDING, TranscriptStatus.APPROVED) not in ALLOWED_TRANSITIONS
         assert (TranscriptStatus.FAILED, TranscriptStatus.APPROVED) not in ALLOWED_TRANSITIONS
+
+
+class TestTheReviewScreenIsScopedRatherThanChecked:
+    """Invariant 10 for the read path.
+
+    The transitions above were always guarded in their services. The review
+    *read* was not: it fetched any transcript by id and then asked
+    `may_review` in the view, which is the fetch-then-check architecture.md
+    §4.4 names and the business-state `if` invariant 2 forbids. ADR-040.
+    """
+
+    def _read(self, client, transcript):
+        return client.get(f"/api/v1/transcripts/{transcript.id}/")
+
+    def test_the_owner_still_sees_it(self, client, transcript) -> None:
+        _sign_in(client, "teacher@example.test")
+
+        assert self._read(client, transcript).status_code == 200
+
+    def test_another_instructor_gets_a_404(self, client, transcript) -> None:
+        _user("rival@example.test")
+        _sign_in(client, "rival@example.test")
+
+        assert self._read(client, transcript).status_code == 404
+
+    def test_a_subscriber_gets_a_404(self, client, transcript) -> None:
+        """Entitlement decides who may *read a lesson*. A review screen shows
+        unapproved words and the reviewer's name, and a subscriber has no
+        claim on either."""
+        from apps.entitlements.providers.fake import FakeBillingProvider
+        from apps.entitlements.services import start_subscription
+
+        student = _user("payer@example.test", Role.STUDENT)
+        start_subscription(user=student, provider=FakeBillingProvider())
+        _sign_in(client, "payer@example.test")
+
+        assert self._read(client, transcript).status_code == 404
+
+    def test_an_admin_may_look(self, client, transcript) -> None:
+        _user("boss@example.test", Role.ADMIN)
+        _sign_in(client, "boss@example.test")
+
+        assert self._read(client, transcript).status_code == 200
+
+    def test_a_refusal_leaks_no_cue_text(self, client, transcript) -> None:
+        """The thing a 404 is for. A refusal that still rendered the body
+        would satisfy the status-code assertion above."""
+        _user("rival@example.test")
+        _sign_in(client, "rival@example.test")
+
+        assert b"Buenos" not in self._read(client, transcript).content
+
+    def test_the_selector_refuses_an_unscoped_call(self) -> None:
+        """`user` is required rather than defaulted. A default is what the
+        next caller forgets, and this selector is the review screen's only
+        read."""
+        from apps.transcripts.selectors import transcript_for_review
+
+        with pytest.raises(TypeError):
+            transcript_for_review(pk=None)
+
+    def test_a_transition_costs_no_query_per_hop(
+        self, client, transcript, django_assert_max_num_queries
+    ) -> None:
+        """Scoping this read dropped the join the code it replaced had.
+
+        `may_review` walks `transcript.media_asset.lesson.course.instructor`,
+        so without `select_related` every transition paid three extra round
+        trips — 11 queries instead of 8. A reviewer measured it; writing it did
+        not reveal it, which is why the number is pinned here rather than
+        described in the selector's docstring.
+        """
+        _sign_in(client, "teacher@example.test")
+
+        with django_assert_max_num_queries(8):
+            assert _act(client, transcript, "start-review").status_code == 200
+
+    def test_the_read_costs_no_query_per_cue(
+        self, client, transcript, django_assert_max_num_queries
+    ) -> None:
+        """The prefetch the old selector carried must survive being scoped —
+        a review screen renders every cue, and an hour of speech is six
+        hundred of them."""
+        for position in range(2, 12):
+            TranscriptSegment.objects.create(
+                transcript=transcript,
+                position=position,
+                start_ms=position * 1000,
+                end_ms=position * 1000 + 900,
+                text=f"Cue {position}.",
+            )
+        _sign_in(client, "teacher@example.test")
+
+        with django_assert_max_num_queries(6):
+            assert self._read(client, transcript).status_code == 200
+
+
+class TestTheReviewScopeAndTheObjectCheckAgree:
+    """`transcripts_reviewable_by` is a queryset, `may_review` a predicate.
+    One rule in two forms, pinned so neither can drift."""
+
+    def _agree(self, transcript, user) -> None:
+        from apps.transcripts.selectors import transcripts_reviewable_by
+        from apps.transcripts.services import may_review
+
+        in_scope = transcripts_reviewable_by(user=user).filter(pk=transcript.pk).exists()
+        predicate = may_review(transcript=transcript, user=user)
+
+        assert in_scope == predicate, f"{user} disagrees: scope={in_scope} predicate={predicate}"
+
+    def test_they_agree_for_the_owner(self, transcript, instructor) -> None:
+        self._agree(transcript, instructor)
+
+    def test_they_agree_for_another_instructor(self, transcript) -> None:
+        self._agree(transcript, _user("rival@example.test"))
+
+    def test_they_agree_for_a_student(self, transcript) -> None:
+        self._agree(transcript, _user("student@example.test", Role.STUDENT))
+
+    def test_they_agree_for_an_admin(self, transcript) -> None:
+        self._agree(transcript, _user("boss@example.test", Role.ADMIN))
+
+    def test_they_agree_for_a_superuser(self, transcript) -> None:
+        root = _user("root@example.test", Role.STUDENT)
+        root.is_superuser = True
+        root.save(update_fields=["is_superuser"])
+
+        self._agree(transcript, root)
+
+    def test_the_scope_is_empty_for_anonymous(self, transcript) -> None:
+        from django.contrib.auth.models import AnonymousUser
+
+        self._agree(transcript, AnonymousUser())

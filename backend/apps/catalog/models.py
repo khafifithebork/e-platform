@@ -246,6 +246,19 @@ class LessonType(models.TextChoices):
     TEXT = "TEXT", "Text"
     RESOURCE = "RESOURCE", "Resource"
 
+    @classmethod
+    def with_media(cls) -> tuple[str, ...]:
+        """The types that carry a ``MediaAsset``, and therefore a duration.
+
+        On the type rather than in whatever module happens to need it: this
+        class's docstring says it is extensible on purpose, so whoever adds a
+        live-session type has to be able to find the one place that decides
+        whether the new type has a length. The first version of this lived as
+        a private tuple in ``catalog.selectors`` and a reviewer pointed out
+        that nothing would lead them there.
+        """
+        return (cls.VIDEO, cls.AUDIO)
+
 
 class Lesson(UUIDPrimaryKeyModel, TimestampedModel):
     """A single lesson.

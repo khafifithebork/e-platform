@@ -238,3 +238,206 @@ class TestQueryCount:
         # dataset sizes.
         with django_assert_num_queries(4):
             client.get(f"{CATALOGUE}{course.slug}/")
+
+
+class TestTotalDuration:
+    """Roadmap E8's duration half. ADR-041.
+
+    The decision under test is not the sum — it is **when a sum may be
+    published at all.** A course with one unmeasured lesson advertising the
+    other nine lessons' minutes as its total is a wrong number presented as a
+    fact, and §6 is about exactly that.
+    """
+
+    def _lesson(self, course, position: int, *, duration, lesson_type=None):
+        """A lesson, with a measured asset when `duration` is given.
+
+        `duration=None` means an asset exists but the provider has not
+        reported a length yet — the transcoding-in-progress case, which is the
+        one that matters. `duration=False` means no asset at all.
+        """
+        from apps.catalog.models import Lesson, LessonType, Section
+        from apps.media_assets.models import MediaAsset, MediaAssetStatus
+
+        section = Section.objects.create(
+            course=course, title=f"Section {position}", position=position
+        )
+        lesson = Lesson.objects.create(
+            course=course,
+            section=section,
+            slug=f"lesson-{position}",
+            title=f"Lesson {position}",
+            position=1,
+            lesson_type=lesson_type or LessonType.VIDEO,
+        )
+        if duration is not False:
+            MediaAsset.objects.create(
+                lesson=lesson,
+                source_object_key=f"masters/{position}/a.mp4",
+                source_bytes=2048,
+                status=MediaAssetStatus.PENDING,
+                duration_seconds=duration,
+            )
+        return lesson
+
+    def _duration(self, client, course):
+        return client.get(f"{CATALOGUE}{course.slug}/").json()["total_duration_seconds"]
+
+    def test_a_fully_measured_course_reports_the_sum(self, client, language) -> None:
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=900)
+
+        assert self._duration(client, course) == 1500
+
+    def test_one_unmeasured_lesson_withholds_the_whole_total(self, client, language) -> None:
+        """The decision. Not 600 — that would advertise a one-lesson course's
+        length as a two-lesson course's total."""
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=None)
+
+        assert self._duration(client, course) is None
+
+    def test_a_lesson_with_no_asset_also_withholds_it(self, client, language) -> None:
+        """A lesson nobody has uploaded to is as unmeasured as one still
+        transcoding, and the learner cannot tell the difference anyway."""
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=False)
+
+        assert self._duration(client, course) is None
+
+    def test_a_course_with_no_lessons_is_null_rather_than_zero(self, client, language) -> None:
+        """A course with no lessons yet, and a course zero minutes long, are
+        different claims. Only one of them is true."""
+        course = _course(language, "published", "PUBLISHED")
+
+        assert self._duration(client, course) is None
+
+    def test_the_field_is_always_present(self, client, language) -> None:
+        """Null, not absent. A key that disappears when the value is unknown
+        makes the client infer the difference between "no duration" and "old
+        API" — the failure `get_instructor_name` documents."""
+        course = _course(language, "published", "PUBLISHED")
+
+        assert "total_duration_seconds" in client.get(f"{CATALOGUE}{course.slug}/").json()
+
+    def test_another_courses_lessons_are_not_counted(self, client, language) -> None:
+        """The join is per course. A `Sum` over a shared path that aggregated
+        the whole catalogue would still look right on a one-course fixture."""
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        other = _course(language, "other", "PUBLISHED")
+        self._lesson(other, 1, duration=99999)
+
+        assert self._duration(client, course) == 600
+
+    def test_duration_costs_no_extra_query(
+        self, client, language, django_assert_num_queries
+    ) -> None:
+        """The annotation must fold into the course query rather than add one.
+        Same four as `TestQueryCount` above, with the aggregate in place."""
+        course = _course(language, "published", "PUBLISHED")
+        for position in range(1, 4):
+            self._lesson(course, position, duration=300)
+
+        with django_assert_num_queries(4):
+            client.get(f"{CATALOGUE}{course.slug}/")
+
+    def test_a_text_lesson_does_not_withhold_the_total(self, client, language) -> None:
+        """Found by review, and it was a real defect rather than a nit.
+
+        A TEXT lesson never gets a `MediaAsset`, so counting it as something
+        awaiting measurement made completeness unreachable: the course withheld
+        its total **forever** instead of until its videos were measured.
+        """
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=False, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) == 600
+
+    def test_a_resource_lesson_does_not_withhold_it_either(self, client, language) -> None:
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=900)
+        self._lesson(course, 2, duration=False, lesson_type=LessonType.RESOURCE)
+
+        assert self._duration(client, course) == 900
+
+    def test_an_audio_lesson_counts_toward_the_total(self, client, language) -> None:
+        """Audio is measurable too — it is a language-learning product, and an
+        audio-only lesson has a length like any other."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=300, lesson_type=LessonType.AUDIO)
+
+        assert self._duration(client, course) == 900
+
+    def test_an_unmeasured_audio_lesson_still_withholds_it(self, client, language) -> None:
+        """The exemption is by lesson type, not a blanket one: a measurable
+        lesson nobody has measured still suppresses the total."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=None, lesson_type=LessonType.AUDIO)
+
+        assert self._duration(client, course) is None
+
+    def test_a_text_lesson_that_does_carry_media_is_counted(self, client, language) -> None:
+        """The other half of the exemption, and a review found it missing.
+
+        Nothing ties `MediaAsset` to a lesson type — no constraint, and
+        `request_upload` never looks at one — so a TEXT lesson *can* hold a
+        measured asset. Exempting it by type alone dropped its real seconds
+        from the total, which is the understatement the whole rule exists to
+        prevent. It counts if it has a duration, whatever its type says.
+        """
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=300, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) == 900
+
+    def test_a_text_lesson_with_an_unmeasured_asset_withholds_the_total(
+        self, client, language
+    ) -> None:
+        """And it blocks, for the same reason it counts: it has an asset, so
+        it has a length, and nobody knows what it is yet."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+        self._lesson(course, 2, duration=None, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) is None
+
+    def test_a_course_of_only_text_lessons_is_null(self, client, language) -> None:
+        """Nothing measurable is not the same as zero minutes."""
+        from apps.catalog.models import LessonType
+
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=False, lesson_type=LessonType.TEXT)
+
+        assert self._duration(client, course) is None
+
+    def test_the_catalogue_card_does_not_carry_it(self, client, language) -> None:
+        """Deliberately detail-only: the annotation adds a GROUP BY and two
+        joins, and the list, filter and search querysets all build on
+        `published_courses`. Pinned so adding it to the card is a decision
+        somebody makes rather than a side effect."""
+        course = _course(language, "published", "PUBLISHED")
+        self._lesson(course, 1, duration=600)
+
+        card = client.get(CATALOGUE).json()["results"][0]
+
+        assert "total_duration_seconds" not in card
