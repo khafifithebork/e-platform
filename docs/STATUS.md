@@ -123,6 +123,47 @@ cheap confirmation, whenever Docker is up: `make dev`, rebuild, re-run
 
 ---
 
+## Fixed — 2026-10-30: a registry hiccup no longer reads as a vulnerability
+
+**The gate had one failure message for two unrelated situations.** Every throw in
+`assert-dependency-audit.mjs` surfaced as `AUDIT FAILED: <message>` with exit 1, so a bad
+registry response printed `AUDIT FAILED: Invalid audit report.` with no advisory named —
+seen in roughly one run in four, on a job that gates staging and transitively production.
+Anybody reading that reasonably goes looking for the vulnerable dependency. There is none.
+
+Two changes, and the split between them is the design:
+
+**Obtaining a report is retried; evaluating one is not.** `npm audit` posts the dependency
+tree to the registry, so a 5xx or a truncated body is a network failure and trying again is
+the correct response. Everything `evaluateAudit` does — paths, exceptions, expiry — is
+deterministic given its inputs, so a failure there is real and is reported on the first
+attempt. Three attempts, 2s then 5s backoff, and every *distinct* reason is reported rather
+than only the last.
+
+**Operational failure is labelled and exited on differently:** `AUDIT COULD NOT RUN` with
+exit 2, against `AUDIT FAILED` with exit 1. **Both still fail**, which is the point — a gate
+that passes when it could not audit is worse than one that is occasionally noisy (ADR-022
+§3). Exit 2 exists so a human, or a later retry wrapper, can tell a registry outage from a
+vulnerability without parsing prose.
+
+**A valid report containing findings is returned immediately and never retried.** That was
+the dangerous version of this change: three attempts, three identical findings, and a
+message implying flakiness where there is a real vulnerability. Pinned by a test.
+
+`classifyFatal` was extracted from the entry point because nothing could assert it there —
+ADR-023 §1, the exit code was a decision rather than a control. It now has a test asserting
+the two branches differ **and** that neither is ever 0.
+
+Provoked five ways, each landing on the test that covers it: no retry (2 fail), the loop
+falling through to `undefined` (3), `AuditUnavailable` degraded to a plain `Error` (1), only
+the last reason reported (1), and the unavailable branch exiting 0 (1).
+
+Verified: 24 gate tests, 31 script tests, gate exits 0 end to end, lint clean, and the 53
+backend CI and deploy guards pass unchanged — they pin the literal `--audit-level=high`
+invocation, which is preserved. The gate's thresholds and CI wiring are untouched.
+
+---
+
 ## Retired — 2026-10-30: the braces exception, and the coupling that held it in place
 
 **The advisory was revised upstream; the exception was obsolete, not merely stale.**
