@@ -46,6 +46,29 @@ FROM node:22-slim AS builder
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# CA certificates, because `next build` starts a Workers runtime in this stage.
+#
+# `next.config.ts` ends with `initOpenNextCloudflareForDev()` so that `next dev`
+# has Cloudflare bindings — see the comment there. Evaluating the config runs it,
+# and that happens during `next build` too, so workerd boots inside this image.
+#
+# **workerd 1.20261023.1 refuses to start without a system CA store**, where
+# 1.20261012.1 tolerated its absence: `service internet: TLS configuration:
+# unexpected error: No CA certificates were loaded from the system`, then
+# ERR_RUNTIME_FAILURE. `node:22-slim` ships without `ca-certificates`, so the
+# wrangler 4.155.0 upgrade turned a latent gap into a build failure. npm itself
+# was unaffected because Node carries its own CA bundle; workerd is a Rust binary
+# and reads the system one.
+#
+# This is the narrow fix: give the builder a CA store. It does not stop workerd
+# booting here, which is still incidental — the function is named `...ForDev` and
+# exists for `next dev`, so a Workers runtime starting during a production image
+# build is a side effect rather than a requirement. Guarding that is a separate
+# change, because whether `opennextjs-cloudflare build` depends on it is unverified.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 # Where Django is *while this image is being built*.
 #
 # Not a runtime setting. M15 made the public catalogue statically generated
