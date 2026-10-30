@@ -13,9 +13,12 @@ start. CLAUDE.md §10 still applies: read this, update it at the end.
 
 ## Where the work is
 
-**Branch `claude/sweet-thompson-l7vxaa`, 12 commits, pushed, nothing uncommitted.**
-Not merged to `master` and **no pull request opened** — none was requested.
-`master` is unchanged at `be4cc03`.
+**Branch `claude/sweet-thompson-l7vxaa`, 13 commits, pushed, nothing uncommitted.**
+**Open for review as PR #122** —
+https://github.com/khafifithebork/e-platform/pull/122 — opened 2026-10-30 at head
+`b0c28ce` on the owner's request. Not merged; `master` is unchanged at `be4cc03`.
+Its description carries the four things reviewer attention is most worth spending
+on, the one behaviour that changes, and what is deliberately out of scope.
 
 It carries two ADRs (**040** authorization in services and selectors, **041**
 course duration derived and all-or-nothing) and the work the three entries below
