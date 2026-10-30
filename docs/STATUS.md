@@ -1,7 +1,125 @@
 # STATUS
 
 **Last updated:** 2026-10-30
-**Updated by:** Claude (PRs #121, #122 and #123 merged; all of this work is on `master`)
+**Updated by:** Claude Opus 5 (the vendored-undici question closed by investigation, not by a
+change; three of my own measurements corrected in the process)
+
+---
+
+## Closed — 2026-10-30: next's vendored undici does not reach the Worker
+
+**This had been standing as a known unknown: `next` vendors undici 6.21.0 where no gate in
+this repository can see it, and nobody knew whether it shipped.** It does not, and the
+exclusion is deliberate rather than lucky.
+
+### The mechanism, which is the part worth keeping
+
+`@opennextjs/cloudflare/dist/cli/build/bundle-server.js:123` carries an esbuild alias:
+
+    "next/dist/compiled/edge-runtime": <outputDir>/cloudflare-templates/shims/empty.js
+
+commented *"The edge runtime is not supported"*. The shim is 19 bytes: `export default {};`.
+**The alias is unconditional** — checked specifically, because the same `alias` block has a
+`...(useOg ? {} : {...})` spread and this project *does* use `@vercel/og` (its `resvg.wasm`
+and `yoga.wasm` are in the bundle). That conditional governs only the `@vercel/og` key; the
+edge-runtime alias sits outside it.
+
+The second carrier, `@edge-runtime/primitives/load.js`, is reachable only through
+`@edge-runtime/ponyfill`, and nothing in the graph requires it: of `handler.mjs`'s 461
+esbuild inputs, exactly one mentions edge-runtime and it is `@edge-runtime/cookies`. Zero
+for `ponyfill`, `primitives` or `load`. So the two carriers are cut by two independent
+mechanisms.
+
+**Why "deliberate" matters rather than being a nicety:** next 16.4.1 *added* two static
+`require('./web/sandbox')` calls where 16.3.8 had none. Absent the alias, that change alone
+would have pulled vendored undici into a 16.4.1 handler. The exclusion survives on the
+alias, not on the shape of any one version's module graph.
+
+### Evidence for absence
+
+- `UND_ERR_` appears **27 times** in `@edge-runtime/primitives/load.js` and **0** in the
+  bundled `worker.js`. `@edge-runtime/primitives` likewise 0.
+- **694 of 737** message-like literals extracted from the real vendored undici file are
+  absent from both `worker.js` and the pre-minified handler. The 43 present are generic
+  header names and MIME types any fetch implementation shares.
+- Every undici construct is 0: `RequestAbortedError`, `HeadersTimeoutError`, `SocketError`,
+  `ConnectTimeoutError`, `buildConnector`, `RedirectHandler`, `RetryHandler`,
+  `MemoryCacheStore`, `SqliteCacheStore`, `BalancedPool`, `maxRedirections`, `MockAgent`.
+- The uploaded Worker is four files: `worker.js`, two `.wasm`, one `.ttf.bin`. Nothing under
+  `.open-next/server-functions/` uploads separately.
+- All 12 `undici` string occurrences in `worker.js` are **Sentry instrumentation** — the
+  `instrumentUndici` identifier and diagnostics-channel *names* (`"undici:request:create"`
+  and siblings). Sentry subscribes to channels a Node undici would publish; no
+  implementation accompanies them.
+
+### Advisory corrections
+
+**GHSA-4w7w-5xrc-9h26 never applied to 6.21.0.** It affects undici 7.0.0–<7.30.1 and
+8.0.0–<8.12.2; the cache interceptor it needs arrived in 7.0.0. Earlier notes listed it
+among the vendored copy's highs. It was out of range all along.
+
+**GHSA-2m5v-pch6-74hx is in range** (4.0.0–<6.29.1) but is not a default-configuration bug:
+it fires only when the application passes a **function-valued** `tls` option to `Agent`,
+which `Agent`'s JSON round-trip silently drops. Nothing here does — `rejectUnauthorized` 0,
+`setGlobalDispatcher` 0, `getGlobalDispatcher` 0, `createSecureContext` 0,
+`EnvHttpProxyAgent` 0.
+
+### Three measurement corrections
+
+**The `wrangler deploy --dry-run` output was not evidence about next 16.4.1, and was
+reported as though it were.** `worker.js` contains `16.3.8` seven times and Sentry
+`SDK_VERSION = "10.72.0"`; `10.75.2` appears zero times. `--dry-run` only re-bundles
+whatever `main` points at, and `wrangler.jsonc` points at the stale 2026-10-02 `.open-next`
+artifact. The bundling conclusions hold for that artifact; the 16.4.1 conclusion rests on
+the alias mechanism plus byte-identical carriers, **not on observing a 16.4.1 build**.
+
+**A first pass concluded absence from a search incapable of finding it** — grepping for
+`undici@<version>` (a comment string minification strips) and `UND_ERR`. A positive control
+then found 12 `undici` occurrences. The lesson is the control, not the count: before
+believing an absence, prove the search can find something.
+
+**`Dispatcher` was reported as 16; it is 20**, because the first count counted matching
+*lines*. All 20 are React/React-DOM internals (`previousDispatcher`, `HooksDispatcher`), not
+undici's `Dispatcher`. `interceptors` (2) is `@mswjs/interceptors`.
+
+### A tooling trap, worth recording for whoever repeats this
+
+**`grep -oFi` silently returns 0 in this Git Bash environment for patterns that exist.**
+`grep -oFi 'undici:' worker.js` → 0, while `grep -oF 'undici:' worker.js` → 7. Literal
+counting was redone in Node. Anyone re-running these checks with `-oFi` will wrongly
+conclude absence.
+
+### How this was established, and where it nearly went wrong
+
+Thirteen agents across four angles with adversarial refutation. **Five died on a usage
+limit** — both refuters for the bundling angle, one refuter each for occurrences and
+staleness, and the synthesis, which was written by hand instead.
+
+**The bundling angle had no adversarial review and got the mechanism exactly backwards.** It
+counted the single `edge-runtime` mention in the adapter correctly and concluded "there is no
+alias, external, onResolve hook, or condition anywhere in the adapter that targets
+@edge-runtime/" — when that one mention *is* the alias. It was caught only because the
+staleness angle concluded the opposite and the contradiction forced a direct check. Two
+dimensions disagreeing is what saved this; had bundling run alone, the recorded answer would
+have been "incidental exclusion, fragile across upgrades", which is wrong and would have
+argued for work nobody needs.
+
+### Standing limitation, unchanged
+
+**The gate cannot see any dependency a publisher bundled at publish time.** Publisher-inlined
+copies are not lockfile entries, so `npm audit` does not report them, an `overrides` pin
+cannot reach them and an allowlist entry cannot suppress them. Two exist in this tree: this
+one in `next`, and the copy inside `wrangler` — which is why PR #125 bumped wrangler rather
+than pinning undici. That limitation is a property of the tooling, not a defect to fix here.
+
+### Still unproven
+
+A fresh 16.4.1 OpenNext build has never been observed; Docker was down for the whole
+investigation. esbuild's `alias` matching semantics are asserted rather than exercised. The
+cheap confirmation, whenever Docker is up: `make dev`, rebuild, re-run
+`wrangler deploy --dry-run --outdir <dir outside the repo>`, and grep for `UND_ERR_`.
+
+**No code changed.** This closes a question; it does not alter the product.
 
 ---
 
