@@ -1,9 +1,10 @@
 # Figma structure — a written handoff
 
 **Status:** proposed structure. **No Figma file has been created or modified.**
-**Last updated:** 2026-09-27
+**Last updated:** 2026-10-31 — audited against the code and found to be describing a
+system two changes out of date. See "What this file had missed" below.
 **Governed by:** ADR-029 (visual direction), ADR-030 (accessibility),
-ADR-032 (theme), `docs/design-system.md`
+ADR-032 (theme), ADR-037 (homepage art direction), `docs/design-system.md`
 
 This describes how a Figma file *should* be organised so that it and the code stay
 in agreement. It is a recommendation for whoever opens Figma, not a record of work
@@ -18,6 +19,32 @@ becomes a museum of screens nobody built.
 ADR-029 names Linglee as the visual reference and is explicit that its likes are
 "not evidence of usability or permission to reuse its assets". **Inspiration, not
 assets.**
+
+## What this file had missed — audited 2026-10-31
+
+**It predated ADR-037 completely** — that ADR was referenced nowhere and the word
+`editorial` appeared zero times, while the code had already shipped both halves of
+it. A designer building from the old §2 and §3 would have produced:
+
+- **two colour modes when there are three**, missing the one the public pages and
+  sign-in actually use — the first thing a visitor sees;
+- **`radius` 8/12/20 everywhere**, when the editorial surface is 3/4/8, so every
+  public-page corner would have been wrong;
+- a sans display face, when the editorial surface is a serif stack;
+- **three `PageTitle` variants when there are four.**
+
+It also never listed `LoadFailure`, added with the failed-load work. "Six
+primitives" was seven.
+
+**The pattern worth noting rather than the individual misses.** This file says "the
+code is ahead… this is mostly about mirroring". That is the right relationship and
+it is also why the file rots silently: nothing fails when the mirror stops matching.
+`verify:css` cannot catch it — it checks that token references *resolve*, not that a
+prose document still describes them. §10 asks for the two to be kept in agreement
+and is the only control, which makes it a convention rather than a control.
+
+**`LoadFailure` is undocumented in `docs/design-system.md` too.** Recorded here, not
+fixed here — that file is the primitives' own reference and the gap belongs to it.
 
 ---
 
@@ -47,9 +74,29 @@ Create a variable collection **`tokens`** and mirror `globals.css` exactly. Name
 match the CSS custom properties minus the `--color-` prefix, so a conversation
 about `surface-sunken` means one thing in both places.
 
-**Two modes in one collection: `light` and `dark`.** This is the whole reason to
-use variables rather than styles — one component, two modes, no duplicated
-frames.
+**Three modes in one collection: `light`, `dark` and `editorial`.** This is the
+whole reason to use variables rather than styles — one component, three modes, no
+duplicated frames.
+
+**`editorial` is not an afterthought; it is what a visitor sees first.** ADR-037
+scopes it with `[data-site-style="editorial"]` to the public pages and sign-in, and
+it pins `color-scheme: light` so it does **not** follow the OS preference — the
+learner surface and the other authentication palettes stay untouched. Treat it as a
+sibling mode, not a variant of light:
+
+| What changes | `light` | `editorial` |
+|---|---|---|
+| `paper`, `surface` | app values | `#faf7f0` — warm, not white |
+| `surface-sunken` | app value | `#f0ece3` |
+| `accent` | `#4945a5` | `#4541b5` |
+| `accent-hover` | app value | `#343087` |
+| `brand-coral` | app value | `#c44656` |
+| `--font-display` | sans stack | **serif stack** (`ui-serif, Georgia, …`) |
+| `radius` sm/md/lg | 8 / 12 / 20 | **3 / 4 / 8** |
+
+All seventeen colour tokens are overridden, plus the display font and all three
+radii. **A mockup using 8/12/20 corners on a public page is wrong by 5–12px per
+corner** — the single most visible way to get this surface wrong.
 
 | Group | Variables |
 |---|---|
@@ -59,7 +106,7 @@ frames.
 | `accent` | `accent`, `accent-hover`, `accent-subtle`, `on-accent` |
 | `brand` | `brand-coral` |
 | `status` | `danger`, `danger-subtle`, `success`, `success-subtle` |
-| `radius` | `sm` 8, `md` 12, `lg` 20 |
+| `radius` | `sm` 8, `md` 12, `lg` 20 — **but 3 / 4 / 8 in `editorial`** |
 | `shadow` | `sm`, `md` — as effect styles, since Figma variables do not carry shadows |
 
 **Do not invent a numeric colour ramp.** There is no `indigo-600` in this system;
@@ -96,8 +143,8 @@ Text styles, matching `PAGE_TITLE` and nothing more:
 
 ## 3. Components → component sets
 
-Six primitives. Variant properties named exactly as the code's props, so a
-handoff conversation needs no translation.
+Seven primitives — this said six and predated `LoadFailure`. Variant properties
+named exactly as the code's props, so a handoff conversation needs no translation.
 
 ### `Button` — the one that needs care
 
@@ -129,7 +176,8 @@ Two mechanical facts the Figma component must reproduce or it will mislead:
 | `Field` | `state` (rest · focus · error · disabled), `hint` (true · false), `optional` (true · false) | **Marks optional, not required** — the common case carries no badge |
 | `Notice` | `tone` (error · success), `title` (true · false) | Must include the symbol. Colour is never the only indicator |
 | `Badge` | `tone` if more than one exists in code | Non-interactive |
-| `PageTitle` | `variant` (page · interstitial · section) | Text styles from §2 |
+| `PageTitle` | `variant` (page · **editorial** · interstitial · section) | Text styles from §2. `editorial` is the homepage only, accepted in ADR-037 after the original scale |
+| `LoadFailure` | `retrying` (true · false) | A failed load **with a way out**. Added after four failed-load states dispensed advice and offered no retry. The retry control sits **outside** the live region, or a screen reader announces the button as part of the error |
 
 **Auto Layout everywhere, and no fixed heights on anything containing text.** A
 fixed height is how a mockup hides text expansion, which §7 is about.
