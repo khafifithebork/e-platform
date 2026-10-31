@@ -36,11 +36,13 @@ from apps.accounts.services import (
     IncorrectPassword,
     InvalidPasswordResetToken,
     InvalidVerificationToken,
+    InvitationNotFound,
+    InvitationNotUsable,
     User,
     change_password,
-    create_account,
     issue_email_verification,
     issue_password_reset,
+    register_account,
     reset_password,
     verify_email,
 )
@@ -104,12 +106,24 @@ class RegisterView(APIView):
         email = serializer.validated_data["email"]
 
         try:
-            create_account(email=email, password=serializer.validated_data["password"])
+            register_account(email=email, password=serializer.validated_data["password"])
         except EmailAlreadyRegistered:
             # Deliberately silent. The address is taken, and saying so is
             # exactly the disclosure this endpoint exists to avoid. A courtesy
             # "someone tried to register with your address" email is the usual
             # next refinement and belongs with the notifications app.
+            return Response(REGISTRATION_ACCEPTED, status=status.HTTP_202_ACCEPTED)
+        except (InvitationNotFound, InvitationNotUsable):
+            # **The same silence, for the same reason, and this is the whole of
+            # slice 3a's disclosure control.** When `BETA_INVITATION_REQUIRED` is
+            # on, these say "never invited" and "invited but expired, revoked or
+            # already used". Answering them differently — or differently from the
+            # address-taken case above — would turn this endpoint into an oracle
+            # for the invitation list, which is abuse case 1 wearing a new hat.
+            #
+            # `register_account` is atomic, so the account created before the
+            # refusal is already rolled back and no verification email has been
+            # sent: the two statements below are unreachable on this path.
             return Response(REGISTRATION_ACCEPTED, status=status.HTTP_202_ACCEPTED)
 
         _send_verification_email(

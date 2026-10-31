@@ -683,3 +683,24 @@ if CSP_REPORT_URI:
     _CSP_DIRECTIVES["report-uri"] = [CSP_REPORT_URI]
 
 CONTENT_SECURITY_POLICY_REPORT_ONLY = {"DIRECTIVES": _CSP_DIRECTIVES}
+
+# ---------------------------------------------------------------------------
+# Private beta admission
+#
+# Whether the public registration endpoint requires an invitation.
+#
+# **Defaults off, and that is the point.** Slice 3a of the private-beta plan says
+# in terms: "this is a release admission policy; approve it explicitly before
+# applying it to deployed configuration or existing users." Merging the code and
+# turning it on are separate acts, so the code ships inert and enabling it is a
+# deployment decision with its own approval.
+#
+# **It gates the public endpoint, not the system.** `manage.py` and the Django
+# admin can still create accounts with it on, which operators need in order to
+# admit the first cohort at all — a beta whose own operators were locked out
+# would have no way in. So "invitation-only" describes `POST /auth/register/`,
+# and nothing stronger should be claimed from this flag being true.
+#
+# Read by `accounts.services.register_account` and nowhere else.
+# ---------------------------------------------------------------------------
+BETA_INVITATION_REQUIRED = env.bool("BETA_INVITATION_REQUIRED", default=False)

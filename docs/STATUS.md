@@ -1,8 +1,78 @@
 # STATUS
 
-**Last updated:** 2026-10-30
-**Updated by:** Claude Opus 5 (the vendored-undici question closed by investigation, not by a
-change; three of my own measurements corrected in the process)
+**Last updated:** 2026-10-31
+**Updated by:** Claude Opus 5 (slices 2 and 3a of the private-beta plan; slice 2 merged,
+and most of what is worth reading here is about beliefs of mine that turned out false)
+
+---
+
+## Built — 2026-10-31: invitation-only registration (slice 3a)
+
+**Implemented and inert.** `BETA_INVITATION_REQUIRED` defaults to `False`, so merging this
+changes no behaviour. The plan is explicit that slice 3a "is a release admission policy;
+approve it explicitly before applying it to deployed configuration or existing users" —
+implementing it and turning it on are separate acts, and only the first has been approved.
+
+### Where the policy lives, and why not where it looked like it should
+
+`register_account` in `accounts/services.py` composes `create_account` with
+`consume_invitation` in one atomic unit. The view calls it and keeps its single 202.
+
+**Putting the rule in `create_account` was the obvious move and would have been wrong
+twice over.** That function is called by management commands, the Django admin and most of
+the backend suite, so an unconditional invitation requirement there would have broken
+several hundred tests *and* locked operators out of creating the first accounts. So
+`create_account` keeps its contract — make a user and a profile — and admission is a
+separate question composed on top (invariant 2 keeps both out of the view).
+
+Ordering is forced rather than chosen: `consume_invitation` needs a `User` to record as
+`consumed_by`, so the account is created first and a refusal rolls it back.
+
+### The flag gates the endpoint, not the system
+
+With it on, `manage.py` and the Django admin still create accounts freely. That is
+necessary — somebody has to admit the first cohort, and a beta whose operators were locked
+out would have no way in. **"Invitation-only" therefore describes `POST /auth/register/`
+and nothing stronger should be claimed from this flag being true.** Recorded in the
+setting's own comment and in `.env.example` as well as here, because it is the kind of
+claim that gets repeated in a launch note without the qualifier.
+
+### Five outcomes, one response
+
+Invited, never invited, expired, revoked, and already-registered all return the same 202
+with the same body. The endpoint already did this for free-versus-taken (abuse case 1);
+admission adds three more outcomes, and distinguishing any of them would turn it into an
+oracle for the invitation list. An adversarial review of slice 2 noted this requirement was
+carried by three docstrings and no test; it is now asserted, including a byte-comparison of
+all five response bodies.
+
+### The provocation that found the real gap
+
+**`register_account`'s atomicity was unasserted, and the reason generalises.**
+`pytest.mark.django_db` wraps each test in a transaction, so `in_atomic_block` is true
+whatever the service does — removing `@transaction.atomic` left all 22 tests green.
+
+Under production autocommit it matters completely: `create_account` commits, then
+`consume_invitation` raises `NotTransactional`, leaving a committed account for an address
+that was never admitted — and because nothing clears `consumed_at` and the unique
+constraint forbids a second invitation row, that address can then neither register nor be
+invited. A `transaction=True` test now covers it and fails with a 500 when the decorator
+goes. **Any transactional guarantee asserted only under `django_db` is asserted against a
+transaction pytest supplied, not one the code did.**
+
+Four controls provoked: leaking which refusal occurred fails 4 tests, never enforcing fails
+4, the flag defaulting on fails 10, and dropping atomicity fails the autocommit test.
+
+### A process note worth keeping
+
+That atomicity provocation first reported a false pass because a `perl -0pi` anchor silently
+did not match — the **third** such false pass in this session. Provocations are now applied
+with a Python patch that asserts its anchor before writing, which is what caught this one.
+Three identical failures is a pattern, and the two earlier ones were noticed only because
+the result looked implausible.
+
+Verified: 22 registration tests, schema drift clean (the response shape is unchanged, so no
+contract or type regeneration), migration drift clean, `ruff` clean across 246 files.
 
 ---
 
