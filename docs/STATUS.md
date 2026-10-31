@@ -1,8 +1,92 @@
 # STATUS
 
 **Last updated:** 2026-10-31
-**Updated by:** Claude Opus 5 (slices 2 and 3a of the private-beta plan; slice 2 merged,
-and most of what is worth reading here is about beliefs of mine that turned out false)
+**Updated by:** Claude Opus 5 (the operator surface for beta admission, slice 3b-i; three
+defects in my own tests found by running them)
+
+---
+
+## Built — 2026-10-31: the operator surface for beta admission (slice 3b-i)
+
+`BetaInvitationAdmin` plus `docs/runbooks/beta-admission.md`. The frontend half of 3b is
+separate (3b-ii) — the plan caps 3b at five files and says to split further if needed,
+and this reached that.
+
+### The admin, not a management command
+
+A command was the smaller change and would have been the wrong one.
+`record_admin_action` needs an actor with a real identity, and **a command has no
+authenticated user** — it would take `--actor-email`, which is self-asserted, so anybody
+with shell access could record an admission as somebody else. For an audited admission
+control that is materially weaker provenance than a logged-in session. ADR-018/019 put
+administration in the admin anyway; this is the reason beyond precedent.
+
+`save_model` routes to `issue_invitation` and deliberately does **not** call
+`super().save_model`, which would write the row and record nothing — the same shape as
+`UserAdmin.save_model`. `reason` is a non-model form field: it belongs to the *act* of
+issuing rather than to the invitation, since re-opening a revoked row happens for a
+different reason than the original issue did.
+
+Revoking is a bulk action with an intermediate page for the reason, modelled on
+`CourseAdmin._with_notes` — a bulk action has nowhere to type one. Applied per
+invitation, so a selection mixing states (somebody ticked six rows and two have since
+registered) revokes what it can instead of aborting.
+
+### Three defects in my own tests, each found by running them
+
+**A hand-rolled urlconf fixture, when the house mechanism existed.** I set
+`settings.ADMIN_PATH` and reloaded `config.urls`; every HTTP test 404'd.
+`tests/urls_with_admin.py` exists for exactly this and its own docstring reserves the
+reload approach for `test_admin_site_routing.py`, "because the conditional is the thing
+under test". I had read neither.
+
+**`is_staff` does not grant Django's per-model permissions.** With staff alone the add
+form 403s and the POST never reaches `save_model` — so five tests failed by *silently
+creating nothing*, which looks identical to a broken service.
+
+**Then tying `is_superuser` to `staff` broke the negative cases**, and the comment I
+wrote claimed it could not. `is_platform_administrator` accepts a superuser *or* the
+ADMIN role, so a "staff student" who was also a superuser was an administrator after
+all, and the tests asserting a non-administrator is refused started issuing invitations
+instead. The flags have to be independent for "staff but not entitled to admit" to be
+expressible at all.
+
+### And one assertion that pinned behaviour the admin does not have
+
+`test_rows_are_not_editable_after_issuing` asserted a 302 or 403. It gets **200**: with
+`has_change_permission` false but view permission present, Django renders the change form
+read-only. That is the better behaviour — an admission record stays auditable while
+staying uneditable — so the test now asserts the read-only state (`_save` and `_continue`
+absent) and the permission directly, rather than a refusal that never happens.
+
+### What is asserted
+
+Issuing writes an audit row naming the operator; the add form requires a reason; service-
+owned fields are not editable; **a staff non-administrator is refused** (the plan's named
+negative case, for both STUDENT and INSTRUCTOR, driven through the service so a superuser
+flag cannot mask it); a deactivated administrator is refused; **no passwordless user can
+be created here** — `UserAdmin.has_add_permission` is `False` and that is now pinned
+rather than assumed, since it is one line from being switched off; revoke asks for a
+reason before doing anything; and a mixed selection revokes what it can.
+
+Four provocations, each landing on exactly one test: `save_model` writing the row itself,
+the change form becoming editable, revoke applying without a reason, and revoke aborting
+the selection on the first refusal.
+
+### The runbook
+
+**Written, not walked** — there is no deployment to walk it against (CLAUDE.md §11 row 3),
+and `rollback.md` was wrong the first time somebody walked its §3. Every operational claim
+is from the code: the TOTP requirement and `enrol_admin_totp`, `DJANGO_ADMIN_PATH` being
+unset by default so the admin is not routed at all, `INVITATION_LIFETIME` at 30 days, and
+the 1–90 day bound from `ACCESS_OVERRIDE_MAX_DAYS`.
+
+Three things it says plainly because they are how an operator would get this wrong: the
+registration endpoint **will not tell you whether your invitation worked** (the §7.1
+control means "nothing happened" has to be diagnosed from the invitation's state, not the
+response); revoking is the **wrong tool** for removing access from somebody who already
+registered, and is refused there; and issuing **emails nobody**, so if the person should
+know, the operator tells them.
 
 ---
 

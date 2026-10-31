@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+
+{# Collects the reason an admission is being withdrawn. Nobody outside the
+   project reads it — unlike the course review notes this is modelled on — but
+   it is the only field that answers "why is this person no longer in the beta"
+   to somebody who was not there. `issue_invitation` and `revoke_invitation`
+   both refuse a blank one. #}
+
+{% block content %}
+  <p>{{ title }}. The reason is recorded in the audit log, not sent to anybody.</p>
+
+  <ul>
+    {% for invitation in invitations %}
+      <li>{{ invitation.email }}</li>
+    {% endfor %}
+  </ul>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% for invitation in invitations %}
+      <input type="hidden" name="_selected_action" value="{{ invitation.pk }}">
+    {% endfor %}
+    <input type="hidden" name="action" value="{{ action }}">
+
+    <p>
+      <label for="reason">Why is this being withdrawn?</label><br>
+      <textarea id="reason" name="reason" rows="6" cols="70" required></textarea>
+    </p>
+
+    <input type="submit" value="Confirm">
+  </form>
+{% endblock %}
