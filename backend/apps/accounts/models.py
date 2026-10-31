@@ -113,13 +113,66 @@ class BetaInvitation(UUIDPrimaryKeyModel, TimestampedModel):
     revoked_at = models.DateTimeField(null=True, blank=True)
     consumed_at = models.DateTimeField(null=True, blank=True)
 
+    # Which account this admission produced.
+    #
+    # The audit log already names *who consumed* an invitation, but it cannot
+    # answer the question an operator actually asks — "which account came from
+    # this invite?" — without parsing metadata. Added in slice 2 on the plan's
+    # own instruction to review slice 1's fields.
+    #
+    # `PROTECT`, and the first version got this wrong in a way that could not work.
+    #
+    # It was `SET_NULL`, reasoning that deleting a user must not delete the record
+    # that they were admitted. But `SET_NULL` produces `consumed_at` set with
+    # `consumed_by` null — exactly the row state the consumption constraint below
+    # forbids — so the delete would have failed with an `IntegrityError` naming a
+    # constraint, rather than doing the sensible thing the comment claimed. The
+    # field and the constraint were written in the same commit and contradicted
+    # each other.
+    #
+    # `PROTECT` makes the contradiction explicit at the point of decision instead:
+    # an account that was admitted cannot be deleted until somebody decides what
+    # happens to its admission record. Account deletion is not built (ADR-036 §5),
+    # so this blocks nothing today — and when that decision is taken it has to
+    # cover this, which is the outcome worth engineering for.
+    #
+    # Relaxing the constraint to allow "consumed, consumer since deleted" is the
+    # other coherent answer. It is not taken here because it weakens a constraint
+    # to accommodate a feature that does not exist.
+    consumed_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="beta_invitations_consumed",
+    )
+
     class Meta:
         constraints: ClassVar[list] = [
             # Match the account identity guarantee even for direct/bulk writes.
+            #
+            # **Unconditional, which makes an email admissible exactly once.** A
+            # revoked invitation therefore cannot be replaced by a second row, so
+            # `issue_invitation` re-opens this one rather than inserting. The
+            # alternative — a partial index over live rows — would let one address
+            # hold several live invitations unless scoped very carefully, and
+            # "has this person been admitted?" is the question the table exists
+            # to answer.
             models.UniqueConstraint(Lower("email"), name="beta_invitation_email_ci_unique"),
             models.CheckConstraint(
                 condition=models.Q(expires_at__gt=models.F("created_at")),
                 name="beta_invitation_expiry_after_issue",
+            ),
+            # Consumption is one fact in two columns, so the database refuses to
+            # hold half of it. A row with `consumed_at` and no `consumed_by` reads
+            # as "somebody used this and we do not know who", which is the shape
+            # of a bug rather than a state worth representing (invariant 11).
+            models.CheckConstraint(
+                condition=(
+                    models.Q(consumed_at__isnull=True, consumed_by__isnull=True)
+                    | models.Q(consumed_at__isnull=False, consumed_by__isnull=False)
+                ),
+                name="beta_invitation_consumption_is_complete",
             ),
         ]
 

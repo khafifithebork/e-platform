@@ -6,6 +6,155 @@ change; three of my own measurements corrected in the process)
 
 ---
 
+## Verified — 2026-10-31: beta invitation services (slice 2)
+
+**26 tests pass against a real database, and every fix fails when reverted.** The
+interesting half of this entry is not the feature; it is that **four separate things I
+wrote and believed turned out to be wrong**, each caught by a different mechanism:
+
+| What I believed | How it was caught |
+|---|---|
+| `consume_invitation` was deliberately un-decorated because a nested `atomic` could commit past an outer rollback | Provoked it — adding the decorator changed nothing. Nested `atomic` is a savepoint an outer rollback discards |
+| `consumed_by=SET_NULL` preserved history on account deletion | An independent review: `SET_NULL` produces exactly the row state my own constraint forbids, so the delete could never succeed |
+| `email__iexact` matched the unique constraint | Printed the SQL: `UPPER("email"::text)` against an index on `LOWER(email)` |
+| My race test proved single-use | Re-provoking after a rewrite — it passed against the bug. Its discrimination had always been timing-dependent |
+
+Two of those came from a read-only adversarial review, which also disagreed with itself:
+its *identity* angle said the lookups mismatched the constraint and its *disclosure* angle
+said they matched. Nine of its thirteen agents died on a usage limit, taking every refuter
+and the synthesis, so the contradiction was settled by printing the SQL by hand. **An
+unrefuted review is one reviewer's opinion**, and one of the two was wrong.
+
+What was built, on the owner's four approvals of 2026-10-30:
+
+- `issue_invitation`, `revoke_invitation`, `consume_invitation` in `accounts/services.py`,
+  with `NotPermitted`, `InvitationNotFound`, `InvitationNotUsable` and
+  `InvitationAlreadyConsumed`.
+- Three `AdminAction` members. It is a closed vocabulary, so admission needed its own.
+- `BetaInvitation.consumed_by` (nullable FK, `SET_NULL`) and a `CheckConstraint` that
+  consumption is all-or-nothing — a row with `consumed_at` and no `consumed_by` is a bug
+  wearing the clothes of a state (invariant 11). Migration `0006`, not an edit to `0005`.
+
+Three decisions worth keeping:
+
+**Re-issue re-opens the existing row.** `UniqueConstraint(Lower("email"))` is
+unconditional, so an address is admissible exactly once and a second row is impossible.
+Without re-opening, revoking somebody would permanently exclude them — a dead end reachable
+by one ordinary operator action. Re-opening a *consumed* invitation is refused: an account
+already exists, and account deletion is not built (ADR-036 §5).
+
+**The administrator check lives in the service**, which diverges from `change_role` on
+purpose. `change_role` audits its actor but leaves authorisation to Django Admin because
+that is its only caller; invitations will be issued from commands and tests too, so a
+view-level check would be absent from most callers (invariant 2). `role`, not `is_staff` —
+the model draws that distinction deliberately — plus `is_active`, or deactivation is
+decorative.
+
+**`consume_invitation` refuses to run outside the caller's transaction.** Single-use is a
+conditional `UPDATE ... WHERE consumed_at IS NULL` asserting one row affected, not a
+read-then-write.
+
+**The address is no longer a parameter.** `consume_invitation(*, email, user)` let the two
+disagree, and nothing required them to match — a caller pairing the wrong two would spend one
+person's admission on another person's account. The review rated it **exploitable** and found
+a consequence I had missed: the damage is *permanent*. `issue_invitation` refuses to re-open a
+consumed row, the unique constraint forbids a second row for the address, and **no code path
+anywhere clears `consumed_at`** — so the real invitee can never be re-admitted, and one
+account could burn a cohort an address at a time. It now derives the address from
+`user.email`, which makes the bad state unrepresentable rather than detected; the review noted
+that a validating guard instead would have failed 3 of 14 tests, which measures how firmly my
+own tests had pinned the loose behaviour as acceptable.
+
+### The four fixes the review produced, and two that were not asserted
+
+**`consumed_by` is `PROTECT`, not `SET_NULL`.** Migration `0007`. An admitted account
+cannot be deleted until somebody decides what happens to its admission record — deletion
+is not built (ADR-036 §5), so this blocks nothing today and forces the question when it is
+designed. Relaxing the constraint to allow "consumed, consumer since deleted" is the other
+coherent answer; not taken, because it weakens a constraint for a feature that does not
+exist.
+
+**Every lookup goes through one helper using `Lower("email")`,** matching the constraint's
+own function. The certain consequence of the old `__iexact` was that **no index could serve
+any of the five lookups**. The severity claimed by the review — that `UPPER` collapses pairs
+`LOWER` does not, so the constraint could permit two rows a lookup matched as one — is
+**downgraded here**: `upper('straße')` is `'STRAẞE'` in this Postgres, not `'STRASSE'`, so
+the obvious candidate does not collide. A latent inconsistency between two functions, not a
+reproduced data bug.
+
+**`issue_invitation` no longer lets a raw `IntegrityError` escape.** Two administrators
+issuing to the same new address both read nothing and both insert; the loser got a 500
+naming the constraint. Now `InvitationIssueConflict`, which is the reasoning
+`EmailAlreadyRegistered` already embodies a few hundred lines up in the same module.
+
+**`select_for_update` on the reads in issuing and revoking.** Both were check-then-act: a
+revoke racing a consume stamped `revoked_at` onto a consumed row — a used-and-withdrawn
+state no constraint forbids, plus an audit row claiming an admission was withdrawn that had
+already been spent.
+
+**Two of those four were initially unasserted, and provoking is what showed it.** Reverting
+the lookup helper and removing both locks each left all 18 tests green. Three tests were
+added: an SQL assertion (behaviour cannot distinguish the functions, since `__iexact` is
+also case-insensitive), a comment-stripped structural check that no service lookup uses
+`__iexact`, and a **sequenced** revoke-vs-consume race. All four fixes now fail when
+reverted. ADR-023 §1 — a decision is not a control until something asserts it.
+
+### The administrator predicate was an eighth copy
+
+`_require_admin` tested `actor.role != Role.ADMIN` inline. `apps/accounts/privileges.py`
+exists to hold that predicate and opens "Two predicates, in one place, because they were in
+seven", recording that the definition had already drifted once.
+
+It also omitted `is_superuser`, and the consequence was a dead end rather than safety.
+`create_superuser` does not set `role`, so a `manage.py createsuperuser` account has
+`role=STUDENT`: it could grant paid access overrides and read billing history, but could not
+issue one beta invitation — and could not promote itself, because `UserAdmin` makes `role`
+read-only on one's own account and registration is itself invitation-gated. The only route
+to the first admission was `manage.py shell`. Widened to defer to
+`is_platform_administrator` on the owner's decision of 2026-10-31. `is_active` is composed on
+top and is not a disagreement with that module: the two answer *who administers content they
+do not own* and *may this account act at all*.
+
+### What provoking changed
+
+**The design docstring was wrong, and the provocation is what showed it.** It claimed
+`consume_invitation` was "deliberately not decorated `@transaction.atomic`" because a nested
+block could commit the consumption while the outer transaction rolled the account back.
+Adding the decorator was then provoked: **all 14 tests still passed.** Django's nested
+`atomic` is a savepoint, and an outer rollback discards it — decorated and undecorated
+behave identically, inside a transaction and out of one. The stated reason for a deliberate
+design choice did not exist.
+
+What *did* threaten the guarantee was adjacent and real: **nothing required a caller to have
+a transaction at all.** Called bare, the `UPDATE` autocommits, and a caller that then fails
+to create the account has spent an admission for nobody — a state no other test here
+catches, because the invitation looks correctly consumed. Slice 3a is exactly where that
+mistake gets made. So the requirement is now a guard (`NotTransactional`) with its own test,
+rather than a sentence in a docstring. The decorator would have *hidden* this by silently
+supplying a transaction of the function's own.
+
+**Four provocations, each landing where it should:** replacing the conditional UPDATE with a
+read-then-write fails **only** `test_concurrent_consumption_admits_exactly_one` (1 of 14) —
+which is the proof that the threaded test earns its keep and that the sequential
+double-consume test would have passed against the bug; removing the transaction guard fails
+1; dropping the admin check fails 3; allowing a consumed invitation to be re-issued fails 1.
+
+**Two defects in my own tests**, found by running them: one read `row.reason` on `AuditLog`,
+which has no such column — `record_admin_action` puts it in `metadata` — so the assertion
+raised rather than checked anything. The other tried to expire an invitation by moving
+`expires_at` into the past, which the `expires_at > created_at` check constraint forbids; it
+now moves both timestamps, simulating an invitation that lapsed rather than one issued
+already dead. The second is a small vindication of invariant 11: the constraint caught a
+test doing something the model forbids.
+
+Verified: 14 tests pass, `ruff check` and `ruff format` clean across 246 files,
+`manage.py check` clean, `makemigrations --check` reports no drift.
+
+Slice 3a — wiring admission into registration — is untouched and still gated behind its own
+approval.
+
+---
+
 ## Closed — 2026-10-30: next's vendored undici does not reach the Worker
 
 **This had been standing as a known unknown: `next` vendors undici 6.21.0 where no gate in
