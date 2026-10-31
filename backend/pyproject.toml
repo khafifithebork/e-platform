@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "language-platform-backend"
 version = "0.0.0"
 description = "Curated language-learning subscription platform — Django backend"
+license = { text = "Proprietary — all rights reserved. See LICENSE." }
 requires-python = ">=3.12"
 
 # Exact pins. Every version here is what pip actually resolved, not a guess.
