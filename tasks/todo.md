@@ -10,9 +10,13 @@ Unchecked means not completed, not permission to implement or deploy.
   provisioning and available primary-source pricing.
 - [x] Approve slice 1 and its invitation approach.
 - [x] 1. Invitation persistence and database constraints (1,604 backend tests passed).
-- [ ] Stop before slice 2: approve and complete dependency security repairs;
-  PR #121 audits fail on inherited DRF, Next.js, Sentry and development tooling.
-- [ ] 2. Authorized, audited invitation services and atomic consumption.
+- [x] Stop before slice 2: approve and complete dependency security repairs.
+  Both audit jobs are green on `master` (PRs #125, #126, #127). DRF, Next.js and
+  Sentry were upgraded; the frontend chain needed a wrangler bump rather than an
+  overrides pin, because an override cannot reach a publisher-inlined copy.
+- [x] 2. Authorized, audited invitation services and atomic consumption
+  (26 invitation tests; full backend suite green). Registration is untouched —
+  nothing reads these invitations yet, so no admission behaviour is live.
 - [ ] 3a. Server-side registration admission and negative API tests.
 - [ ] 3b. Honest signup UI and tested operator onboarding runbook.
 - [ ] Checkpoint A: admission ready for staging, reviewed with owner.

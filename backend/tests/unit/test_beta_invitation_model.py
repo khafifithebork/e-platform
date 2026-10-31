@@ -68,13 +68,31 @@ def test_invitation_records_lifecycle_without_creating_an_account() -> None:
     )
     consumed_at = timezone.now()
     revoked_at = timezone.now()
-    BetaInvitation.objects.filter(pk=invitation.pk).update(consumed_at=consumed_at)
+
+    # Consumption needs an account to point at, since slice 2 added `consumed_by`
+    # and a constraint that the two columns move together — a row recording that
+    # somebody was admitted without recording who is a bug, not a state.
+    #
+    # **This test's point survives the change and is now sharper.** It was
+    # `assert not User.objects.exists()`, demonstrating that the invitation
+    # machinery creates no account. A consumed invitation necessarily references
+    # one, so the claim becomes: consuming creates no account *of its own* — the
+    # only user here is the one this test made.
+    consumer = User.objects.create_user(
+        email="invited@example.test", password="a-long-enough-passphrase"
+    )
+    BetaInvitation.objects.filter(pk=invitation.pk).update(
+        consumed_at=consumed_at, consumed_by=consumer
+    )
     BetaInvitation.objects.filter(pk=other.pk).update(revoked_at=revoked_at)
 
     invitation.refresh_from_db()
     other.refresh_from_db()
     assert invitation.consumed_at == consumed_at
+    assert invitation.consumed_by_id == consumer.pk
     assert invitation.revoked_at is None
     assert other.revoked_at == revoked_at
     assert other.consumed_at is None
-    assert not User.objects.exists()
+    # Revocation still needs nobody, which is the asymmetry worth keeping visible.
+    assert other.consumed_by is None
+    assert list(User.objects.values_list("pk", flat=True)) == [consumer.pk]

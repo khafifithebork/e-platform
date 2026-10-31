@@ -120,11 +120,28 @@ class BetaInvitation(UUIDPrimaryKeyModel, TimestampedModel):
     # this invite?" — without parsing metadata. Added in slice 2 on the plan's
     # own instruction to review slice 1's fields.
     #
-    # `SET_NULL`, not `CASCADE`: deleting a user must not delete the record that
-    # they were admitted. That record is the history.
+    # `PROTECT`, and the first version got this wrong in a way that could not work.
+    #
+    # It was `SET_NULL`, reasoning that deleting a user must not delete the record
+    # that they were admitted. But `SET_NULL` produces `consumed_at` set with
+    # `consumed_by` null — exactly the row state the consumption constraint below
+    # forbids — so the delete would have failed with an `IntegrityError` naming a
+    # constraint, rather than doing the sensible thing the comment claimed. The
+    # field and the constraint were written in the same commit and contradicted
+    # each other.
+    #
+    # `PROTECT` makes the contradiction explicit at the point of decision instead:
+    # an account that was admitted cannot be deleted until somebody decides what
+    # happens to its admission record. Account deletion is not built (ADR-036 §5),
+    # so this blocks nothing today — and when that decision is taken it has to
+    # cover this, which is the outcome worth engineering for.
+    #
+    # Relaxing the constraint to allow "consumed, consumer since deleted" is the
+    # other coherent answer. It is not taken here because it weakens a constraint
+    # to accommodate a feature that does not exist.
     consumed_by = models.ForeignKey(
         User,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="beta_invitations_consumed",
