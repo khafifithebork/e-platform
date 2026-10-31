@@ -10,6 +10,7 @@ import hashlib
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models.functions import Lower
 from django.utils import timezone
@@ -147,6 +148,47 @@ def create_account(*, email: str, password: str) -> User:
     # Students only. An instructor profile appears when an admin grants the
     # role, which is M10 — its presence is not authorisation either way.
     StudentProfile.objects.create(user=user)
+
+    return user
+
+
+@transaction.atomic
+def register_account(*, email: str, password: str) -> User:
+    """Create an account, applying the beta admission policy.
+
+    **The policy lives here rather than in the view** (invariant 2) and rather
+    than in `create_account`. Putting it in `create_account` was the obvious move
+    and would have been wrong twice over: that function is called by management
+    commands, the Django admin and most of the backend test suite, so an
+    unconditional invitation requirement there would have broken several hundred
+    tests and locked operators out of creating the very first accounts.
+
+    So `create_account` keeps its contract — *make a user and a profile* — and
+    this composes it with admission, which is a separate question.
+
+    **Atomic, and that is what `consume_invitation`'s transaction guard was for.**
+    The account is created first, because consumption needs a `User` to record as
+    `consumed_by`; a refusal then rolls the account back. Slice 2 added
+    `NotTransactional` to make sure a caller could not spend an admission outside
+    a transaction and leave it spent for nobody — this is the caller it was
+    guarding against, and the guard now has a real one.
+
+    **`BETA_INVITATION_REQUIRED` gates the public endpoint, not the system.** With
+    it on, `manage.py` and the admin can still create accounts. That is deliberate
+    and necessary: somebody has to be able to admit the first cohort.
+
+    Raises `EmailAlreadyRegistered` or, when admission is required and refused,
+    whatever `consume_invitation` raises — `InvitationNotFound` for an address
+    never invited and `InvitationNotUsable` for one expired, revoked or already
+    spent. **Callers facing the public must not distinguish them**, for the same
+    account-enumeration reason `EmailAlreadyRegistered` is answered silently
+    (§7.1): which of the three it is tells somebody whether an address is on the
+    invitation list.
+    """
+    user = create_account(email=email, password=password)
+
+    if settings.BETA_INVITATION_REQUIRED:
+        consume_invitation(user=user, request=None)
 
     return user
 

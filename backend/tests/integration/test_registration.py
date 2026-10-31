@@ -192,3 +192,206 @@ class TestVerification:
         assert response.status_code == 400
         for leak in ("expired", "used", "unknown", "not found"):
             assert leak not in body
+
+
+@pytest.mark.django_db
+class TestBetaAdmission:
+    """Invitation-only signup, slice 3a.
+
+    **The response must not change between any of these cases.** That is the
+    whole control: the endpoint already answers an identical 202 whether an
+    address is free or taken (abuse case 1), and admission adds three more
+    outcomes — never invited, invited-but-unusable, and invited-and-fine. If any
+    of the five is distinguishable, the endpoint becomes an oracle for the
+    invitation list.
+
+    An adversarial review of slice 2 noted that this requirement was carried by
+    three docstrings and no test. These are the tests.
+    """
+
+    @pytest.fixture
+    def admin(self):
+        from apps.accounts.models import Role
+        from apps.accounts.services import create_account
+
+        user = create_account(email="admin@example.test", password=PASSWORD)
+        user.role = Role.ADMIN
+        user.save(update_fields=["role"])
+        return user
+
+    @staticmethod
+    def _register(client, email: str):
+        return client.post(
+            REGISTER, {"email": email, "password": PASSWORD}, content_type="application/json"
+        )
+
+    def test_the_flag_is_off_by_default(self, settings) -> None:
+        """Merging this must change nothing.
+
+        Slice 3a is a release admission policy, approved for implementation and
+        not for deployment. If this default ever flips, every existing
+        registration path changes behaviour on merge rather than on a decision.
+        """
+        assert settings.BETA_INVITATION_REQUIRED is False
+
+    def test_registration_is_unchanged_while_admission_is_off(self, client) -> None:
+        # The regression that matters most: with the flag off, an uninvited
+        # address registers exactly as it did before slice 3a existed.
+        response = self._register(client, "uninvited@example.test")
+
+        assert response.status_code == 202
+        assert User.objects.filter(email="uninvited@example.test").exists()
+        assert len(mail.outbox) == 1
+
+    def test_invited_registration_succeeds(self, client, settings, admin) -> None:
+        from apps.accounts.models import BetaInvitation
+        from apps.accounts.services import issue_invitation
+
+        settings.BETA_INVITATION_REQUIRED = True
+        issue_invitation(actor=admin, email="invited@example.test", reason="cohort one")
+        mail.outbox.clear()
+
+        response = self._register(client, "invited@example.test")
+
+        assert response.status_code == 202
+        user = User.objects.get(email="invited@example.test")
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ["invited@example.test"]
+
+        # The admission was spent, once, and linked to the account it produced.
+        invitation = BetaInvitation.objects.get(email="invited@example.test")
+        assert invitation.consumed_at is not None
+        assert invitation.consumed_by_id == user.pk
+
+    def test_uninvited_registration_creates_no_account(self, client, settings) -> None:
+        settings.BETA_INVITATION_REQUIRED = True
+
+        response = self._register(client, "stranger@example.test")
+
+        assert response.status_code == 202
+        # Atomic: the account created before the refusal is rolled back, and the
+        # verification email is never reached.
+        assert not User.objects.filter(email="stranger@example.test").exists()
+        assert mail.outbox == []
+
+    @pytest.mark.parametrize("state", ["expired", "revoked", "consumed"])
+    def test_an_unusable_invitation_creates_no_account(
+        self, client, settings, admin, state
+    ) -> None:
+        """Expired, revoked and already-spent, each refused and each silent."""
+        from datetime import timedelta
+
+        from django.db import transaction
+        from django.utils import timezone
+
+        from apps.accounts.models import BetaInvitation
+        from apps.accounts.services import consume_invitation, issue_invitation
+
+        email = f"{state}@example.test"
+        issue_invitation(actor=admin, email=email, reason="cohort one")
+
+        if state == "expired":
+            # Both timestamps move: the check constraint requires
+            # expires_at > created_at, so an invitation has to lapse rather than
+            # be issued already dead.
+            issued = timezone.now() - timedelta(days=40)
+            BetaInvitation.objects.filter(email=email).update(
+                created_at=issued, expires_at=issued + timedelta(days=30)
+            )
+        elif state == "revoked":
+            from apps.accounts.services import revoke_invitation
+
+            revoke_invitation(actor=admin, email=email, reason="changed my mind")
+        else:
+            from apps.accounts.services import create_account
+
+            other = create_account(email=email, password=PASSWORD)
+            with transaction.atomic():
+                consume_invitation(user=other)
+
+        settings.BETA_INVITATION_REQUIRED = True
+        mail.outbox.clear()
+        existing = set(User.objects.values_list("email", flat=True))
+
+        response = self._register(client, email)
+
+        assert response.status_code == 202
+        assert mail.outbox == []
+        # No *new* account. The consumed case deliberately already has one.
+        assert set(User.objects.values_list("email", flat=True)) == existing
+
+    def test_registration_responses_do_not_reveal_invitation_state(
+        self, client, settings, admin
+    ) -> None:
+        """Five outcomes, one response, byte for byte.
+
+        Invited, never invited, expired, revoked, and an address already
+        registered. If any of these differs in status or body, somebody can test
+        an address list against this endpoint and learn who is on the beta list.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.accounts.models import BetaInvitation
+        from apps.accounts.services import (
+            create_account,
+            issue_invitation,
+            revoke_invitation,
+        )
+
+        issue_invitation(actor=admin, email="ok@example.test", reason="cohort one")
+
+        issue_invitation(actor=admin, email="lapsed@example.test", reason="cohort one")
+        issued = timezone.now() - timedelta(days=40)
+        BetaInvitation.objects.filter(email="lapsed@example.test").update(
+            created_at=issued, expires_at=issued + timedelta(days=30)
+        )
+
+        issue_invitation(actor=admin, email="withdrawn@example.test", reason="cohort one")
+        revoke_invitation(actor=admin, email="withdrawn@example.test", reason="no longer")
+
+        create_account(email="taken@example.test", password=PASSWORD)
+
+        settings.BETA_INVITATION_REQUIRED = True
+
+        responses = [
+            self._register(client, address)
+            for address in (
+                "ok@example.test",
+                "never@example.test",
+                "lapsed@example.test",
+                "withdrawn@example.test",
+                "taken@example.test",
+            )
+        ]
+
+        assert {r.status_code for r in responses} == {202}
+        assert len({r.content for r in responses}) == 1, [r.content for r in responses]
+
+    @pytest.mark.django_db(transaction=True)
+    def test_a_refused_admission_leaves_no_account_under_real_autocommit(
+        self, client, settings
+    ) -> None:
+        """`register_account`'s atomicity, which the ordinary tests cannot see.
+
+        `pytest.mark.django_db` wraps each test in a transaction, so
+        `in_atomic_block` is true no matter what the service does — and removing
+        `@transaction.atomic` from `register_account` left every other test in
+        this class green. Provoked and confirmed before this test existed.
+
+        `transaction=True` restores real autocommit, which is what production
+        does. Undecorated, `create_account` would commit on its own and then
+        `consume_invitation` would raise `NotTransactional`: a committed account
+        for an address that was never admitted, and — because nothing clears
+        `consumed_at` and the unique constraint forbids a second invitation row —
+        an address that can now neither register nor be invited.
+        """
+        settings.BETA_INVITATION_REQUIRED = True
+        mail.outbox.clear()
+
+        response = self._register(client, "orphan@example.test")
+
+        assert response.status_code == 202
+        assert not User.objects.filter(email="orphan@example.test").exists()
+        assert mail.outbox == []

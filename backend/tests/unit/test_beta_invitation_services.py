@@ -518,14 +518,28 @@ class TestConsumption:
 
 class TestTransactionalGuarantees:
     def test_account_failure_does_not_consume_invitation(self) -> None:
-        """The guarantee slice 2 exists to provide.
+        """The guarantee slice 2 exists to provide: a failed account creation
+        leaves the invitation unspent.
 
-        `consume_invitation` is deliberately **not** decorated
-        `@transaction.atomic`: a nested atomic block would create a savepoint that
-        could commit the consumption while the outer transaction rolled the
-        account back. Joining the caller's transaction is what makes a rollback
-        undo it, and this is the test that would catch the decorator being added
-        "for safety".
+        **This docstring used to give a false reason**, and the service's own
+        docstring was corrected while this copy was not. It claimed
+        `consume_invitation` was "deliberately not decorated
+        `@transaction.atomic`" because a nested atomic block could commit the
+        consumption while the outer transaction rolled the account back. Provoked:
+        adding the decorator changed nothing. Django's nested `atomic` is a
+        savepoint, and an outer rollback discards it.
+
+        What this test actually proves is narrower and still worth having: the
+        rollback comes from **the caller's** transaction, and it undoes the
+        consumption. The block below opens that transaction explicitly and raises
+        inside it, so the savepoint rollback here is the same mechanism production
+        uses when `create_account` is the outer transaction.
+
+        It does **not** prove that any particular caller has a transaction — that
+        is a different claim, and `pytest.mark.django_db` cannot test it, because
+        it wraps every test in a transaction of its own. `consume_invitation`'s
+        `NotTransactional` guard is what enforces it, and slice 3a's
+        `transaction=True` registration test is what asserts it.
         """
         from apps.accounts.models import BetaInvitation
         from apps.accounts.services import consume_invitation, issue_invitation
