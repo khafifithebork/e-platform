@@ -6,6 +6,59 @@ change; three of my own measurements corrected in the process)
 
 ---
 
+## Fixed — 2026-10-31: SubscriptionEvent had no total ordering
+
+**Found by a flaky test, and the test was the lesser half of the problem.** A
+full-suite run failed on `test_events_survive_being_read_newest_first`; the same test
+passed 10/10 in isolation minutes later. Nondeterministic, pre-existing, and unrelated
+to the slice it interrupted.
+
+### Why it ties
+
+`ordering = ["-created_at"]` is **not a total order**. `auto_now_add` reads
+`timezone.now()`, whose resolution is the operating system's — **three back-to-back
+calls return the identical timestamp on this Windows machine**, measured, with a clock
+resolution around 0.9ms. So three events written in one tick tie on `created_at`, and
+Postgres may return tied rows in a different order on every query.
+
+It passes on Linux CI because resolution there is roughly a microsecond, so the three
+timestamps usually differ. **The bug was always present; the platform decided whether
+it showed.**
+
+### The production half
+
+An unstable sort **breaks pagination**: a row can appear on two pages or on none as the
+arbitrary order shifts between requests. That is a live defect in a log whose stated
+purpose is "what happened to this person, most recently first", and it is not a test
+problem at all. Demonstrated rather than argued — with the tiebreaker removed, a test
+that reads the same tied set six times gets different orders back.
+
+`ordering = ["-created_at", "-id"]` makes the sort total. Migration `0002` on
+entitlements, a `Meta` options change only.
+
+### What it does not fix, and why `-id` was the wrong instinct at first
+
+**`-id` is a stability tiebreaker, not a chronological one.** The obvious reading — "add
+the key and the newest row wins" — is wrong here: the primary key is a random UUIDv4,
+chosen in architecture.md §5.2 so identifiers leak nothing. Among tied timestamps the
+order is now *stable but arbitrary*, which is why adding it did **not** fix the failing
+assertion; the test had to stop asserting sub-tick chronology instead.
+
+Answering "which of these two same-millisecond events happened first" needs a monotonic
+sequence this model does not have. **Adding one to a billing-adjacent append-only log is
+a design decision, not a cleanup** (§9), so it is recorded here and not taken. It
+matters if real traffic ever writes two events for one subscription inside a
+millisecond — plausible for a webhook burst, which is M8's territory.
+
+### The test
+
+Rewritten to set timestamps explicitly, so it asserts what a timestamp-ordered log can
+deliver, with a second test covering tie *stability* across repeated reads. Both
+provoked: removing the tiebreaker fails the stability test, reversing the order fails
+both. 18 entitlement model tests pass, eight consecutive runs.
+
+---
+
 ## Verified — 2026-10-31: beta invitation services (slice 2)
 
 **26 tests pass against a real database, and every fix fails when reverted.** The

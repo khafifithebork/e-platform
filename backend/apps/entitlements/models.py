@@ -181,7 +181,29 @@ class SubscriptionEvent(UUIDPrimaryKeyModel, TimestampedModel):
     provider_payload = models.JSONField(default=dict, blank=True)
 
     class Meta:
-        ordering: ClassVar[list[str]] = ["-created_at"]
+        # `-id` is a **stability** tiebreaker, not a chronological one, and the
+        # difference is worth stating because the obvious reading is wrong.
+        #
+        # `-created_at` alone is not a total order. `auto_now_add` takes its value
+        # from `timezone.now()`, whose resolution is the operating system's —
+        # about 0.9ms on the Windows machine this was found on, where three
+        # back-to-back calls return the *identical* timestamp. Events written in
+        # one tick therefore tie, and Postgres is free to return tied rows in a
+        # different order on every query.
+        #
+        # That is a live bug and not only a flaky test: **an unstable sort breaks
+        # pagination**, because a row can appear on two pages or on none as the
+        # arbitrary order shifts between requests. Adding the primary key makes
+        # the sort total, so repeated reads agree.
+        #
+        # It does **not** make tied events chronologically ordered. The key is a
+        # random UUIDv4 (architecture.md §5.2 chose that so identifiers leak
+        # nothing), so among ties the order is stable but arbitrary. Answering
+        # "which of these two same-millisecond events happened first" needs a
+        # monotonic sequence this model does not have, and adding one to a
+        # billing-adjacent append-only log is a design decision rather than a
+        # cleanup — see the note in docs/STATUS.md.
+        ordering: ClassVar[list[str]] = ["-created_at", "-id"]
         indexes: ClassVar[list] = [
             models.Index(fields=["subscription", "-created_at"]),
         ]

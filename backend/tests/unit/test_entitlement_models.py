@@ -221,13 +221,75 @@ class TestSubscriptionEventsAreAnAppendOnlyLog:
 
     def test_events_survive_being_read_newest_first(self, student) -> None:
         """Ordering is the whole point of a diagnostic log: "what happened to
-        this person, most recently first"."""
+        this person, most recently first".
+
+        **The timestamps are now set explicitly, because the previous version
+        asserted something the model cannot promise.** It created three events in
+        a tight loop and expected the last one back. `auto_now_add` reads
+        `timezone.now()`, whose resolution is the operating system's — about
+        0.9ms on Windows, where three back-to-back calls return the *identical*
+        value — so all three tied on `created_at` and Postgres was free to return
+        any of them first. It failed in a full-suite run on 2026-10-31 and passed
+        10/10 in isolation minutes later: nondeterministic, not broken.
+
+        Distinct timestamps make this assert what a timestamp-ordered log can
+        actually deliver. The tie behaviour is covered by its own test below.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
         from apps.entitlements.models import SubscriptionEvent
 
         subscription = _subscription(student, "ACTIVE")
-        for event_type in ("TRIAL_STARTED", "ACTIVATED", "PAYMENT_FAILED"):
-            SubscriptionEvent.objects.create(subscription=subscription, event_type=event_type)
+        start = timezone.now() - timedelta(minutes=10)
+        for offset, event_type in enumerate(("TRIAL_STARTED", "ACTIVATED", "PAYMENT_FAILED")):
+            event = SubscriptionEvent.objects.create(
+                subscription=subscription, event_type=event_type
+            )
+            # `auto_now_add` ignores an assigned value, so the row is written and
+            # then moved — which is also how a real backfill would do it.
+            SubscriptionEvent.objects.filter(pk=event.pk).update(
+                created_at=start + timedelta(seconds=offset)
+            )
 
         newest = SubscriptionEvent.objects.filter(subscription=subscription).first()
 
         assert newest.event_type == "PAYMENT_FAILED"
+
+    def test_tied_timestamps_still_read_in_a_stable_order(self, student) -> None:
+        """Ties are arbitrary but must not shift between queries.
+
+        This is the half that matters in production rather than in a test.
+        `ordering = ["-created_at"]` alone is not a total order, so Postgres may
+        return tied rows differently on each query — and **an unstable sort breaks
+        pagination**, letting a row appear on two pages or on none. `-id` makes
+        the sort total.
+
+        It does not make tied events chronologically ordered: the key is a random
+        UUIDv4, so the order among ties is stable but arbitrary. That limitation
+        is deliberate and recorded; fixing it needs a monotonic sequence this
+        model does not have.
+        """
+        from apps.entitlements.models import SubscriptionEvent
+
+        subscription = _subscription(student, "ACTIVE")
+        tied = timezone.now()
+        for event_type in ("TRIAL_STARTED", "ACTIVATED", "PAYMENT_FAILED"):
+            event = SubscriptionEvent.objects.create(
+                subscription=subscription, event_type=event_type
+            )
+            SubscriptionEvent.objects.filter(pk=event.pk).update(created_at=tied)
+
+        reads = [
+            list(
+                SubscriptionEvent.objects.filter(subscription=subscription).values_list(
+                    "pk", flat=True
+                )
+            )
+            for _ in range(6)
+        ]
+
+        assert all(read == reads[0] for read in reads), reads
+        # And the order is fully determined, not merely consistent by luck.
+        assert reads[0] == sorted(reads[0], reverse=True)
