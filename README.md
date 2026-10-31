@@ -8,10 +8,19 @@ tier gated by a central entitlement resolver.
 > the rest needs a deployment. **M8 (billing) and M9 (trial) are blocked on
 > decisions, not on code.** See `docs/STATUS.md`.
 >
-> **1509 backend tests, 334 frontend.** The product has a public catalogue, an
-> authenticated learner surface, an admin site, search, notifications, error
-> reporting and a metrics endpoint. Nothing is deployed: the pipeline is built
-> and dormant, and no account has been provisioned.
+> **1663 backend tests, 757 frontend across 60 files, plus 31 script-level
+> guards.** The product has a public catalogue, an authenticated learner surface,
+> an admin site, search, notifications, error reporting and a metrics endpoint.
+> Nothing is deployed: the pipeline is built and dormant, and no account has been
+> provisioned.
+>
+> **An invited private beta is in progress** on a separate track from the
+> milestones — see `tasks/plan.md` and `tasks/todo.md`. Invitation persistence,
+> the audited issue/revoke/consume services and invitation-only registration are
+> merged; the operator surface and the signup copy are not yet. **The gate is
+> off:** `BETA_INVITATION_REQUIRED` defaults to `False`, so registration is open
+> until somebody turns it on, which the plan treats as a release admission policy
+> needing its own approval.
 
 ## Quick start
 
@@ -82,12 +91,27 @@ Management commands worth knowing, all read-only unless stated:
 | `predeploy` | Migrations under an advisory lock it verifies is actually held. **Writes** |
 | `backfill_search_vectors` | Chunked, idempotent backfill for the search index. **Writes** |
 
-Frontend verification beyond the type-check:
+Frontend verification beyond the type-check. **Each of these reads build output,
+not source**, so they must run after `npm run build`:
 
 | Command | What it checks |
 |---|---|
 | `npm run verify:static` | Invariant 15 — public routes prerender — against Next's own manifests |
 | `npm run verify:a11y` | Document structure in the **built** HTML, not the source |
+| `npm run verify:css` | Every design-token reference resolves; no bare custom-property values |
+| `npm run verify:bundle` | 350 KB first-load budget per route, with floors so it cannot pass by measuring nothing |
+| `npm run test:scripts` | The guard scripts' own tests. `npm test` runs these after vitest |
+
+**Run them against a fresh build.** They read `.next/`, so a stale one makes them
+describe a tree that no longer exists — which has produced a false green here.
+
+The dependency audit is its own CI job rather than a step inside the frontend one.
+`frontend/scripts/assert-dependency-audit.mjs` wraps `npm audit --audit-level=high`
+and honours `frontend/audit-allowlist.json`, where an exception needs an exact
+dependency path, a named triager and a review date that **fails the gate when it
+expires**. It was a step until an unfixable advisory turned the whole job red and
+skipped the eleven checks behind it, so a red audit no longer hides whether the
+code works.
 
 On Windows `make` is not on PATH; MSYS2 provides `mingw32-make`. CI runs on
 Linux and is the authoritative runner.
@@ -116,6 +140,20 @@ twice. `make test` runs both.
 **Settings fail fast.** A missing environment variable stops the process at
 import rather than defaulting. That is intended — see
 `backend/config/settings/base.py`.
+
+**`pytest.mark.django_db` wraps every test in a transaction, which hides whether
+your code opened one.** So a service that *must* run inside a caller's
+transaction passes its tests either way — removing `@transaction.atomic` from a
+service left 22 tests green while breaking it under production autocommit. Any
+transactional guarantee needs `django_db(transaction=True)` to be asserted at
+all; under plain `django_db` you are testing a transaction pytest supplied.
+
+**`auto_now_add` is only as precise as the OS clock.** Three back-to-back
+`timezone.now()` calls return the *same* timestamp on Windows (~0.9ms
+resolution), so `ordering = ["-created_at"]` is not a total order and tied rows
+come back in a different order per query — which breaks pagination, not just
+tests. Order by a tiebreaker as well. Note the keys here are random UUIDv4s, so
+a key tiebreaker gives you *stability*, not chronology.
 
 **Do not run `npm run build` on the host while the web container is running.**
 Both write to `frontend/.next/` through the bind mount and corrupt each
@@ -148,11 +186,13 @@ documents. Later ADRs beat earlier documents.
 |---|---|
 | `CLAUDE.md` | Invariants, approval gates, milestone order, definition of done |
 | `docs/STATUS.md` | Current milestone, blockers, next action — **read first** |
+| `tasks/plan.md` | The invited private beta: slices, acceptance, dependencies |
+| `tasks/todo.md` | Which beta slices are done. Unchecked means not done, not permission to do |
 | `docs/architecture.md` | Domain model, API design, security plan, testing strategy |
 | `docs/deployment-strategy.md` | Providers, cost modelling, video analysis |
 | `docs/adr/` | Decision records. **Later ones win** |
 | `docs/specs/` | Per-milestone specifications and abuse cases |
-| `docs/runbooks/` | Rollback, and what has actually been rehearsed |
+| `docs/runbooks/` | Rollback and accessibility verification. **Each says whether it has actually been walked** — assume not until it does |
 | `docs/spikes/` | Research that informed a decision |
 | `infra/docs/provisioning.md` | What to create, in what order, what it costs |
 | `infra/docs/deploying.md` | What happens on a merge, and what must exist first |
