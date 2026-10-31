@@ -225,4 +225,12 @@ architectural invariants are non-negotiable and listed in `CLAUDE.md` §4.
 
 ## Licence
 
-Not yet determined.
+**Proprietary. All rights reserved.** See `LICENSE`.
+
+No licence is granted to copy, modify, distribute or reverse-engineer any part of
+this repository. Access — including through a fork — does not confer a right to
+use it. Third-party dependencies remain under their own licences.
+
+> The repository is public while this is read. **It is intended to be private**;
+> changing that is a repository-settings action, and a fork taken before the
+> change stays with whoever took it.
